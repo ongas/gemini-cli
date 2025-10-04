@@ -39,6 +39,7 @@ import { handleFallback } from '../fallback/handler.js';
 import { isFunctionResponse } from '../utils/messageInspectors.js';
 import { partListUnionToString } from './geminiRequest.js';
 import { uiTelemetryService } from '../telemetry/uiTelemetry.js';
+import { injectAgentOsContext } from '../utils/agentOsContextInjector.js';
 
 export enum StreamEventType {
   /** A regular content chunk from the API. */
@@ -236,7 +237,17 @@ export class GeminiChat {
     });
     this.sendPromise = streamDonePromise;
 
-    const userContent = createUserContent(params.message);
+    // Inject Agent-OS context if applicable
+    let messageWithContext = params.message;
+    if (typeof params.message === 'string') {
+      const workingDir = this.config.getTargetDir();
+      messageWithContext = await injectAgentOsContext(
+        params.message,
+        workingDir,
+      );
+    }
+
+    const userContent = createUserContent(messageWithContext);
 
     // Record user input - capture complete message with all parts (text, files, images, etc.)
     // but skip recording function responses (tool call results) as they should be stored in tool call records

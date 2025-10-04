@@ -588,8 +588,12 @@ export async function loadCliConfig(
   }
 
   // In non-interactive mode, exclude tools that require a prompt.
+  // However, if message bus integration is enabled, we can handle approval prompts,
+  // so we don't need to exclude those tools.
   const extraExcludes: string[] = [];
-  if (!interactive && !argv.experimentalAcp) {
+  const messageBusEnabled =
+    settings.tools?.enableMessageBusIntegration ?? false;
+  if (!interactive && !argv.experimentalAcp && !messageBusEnabled) {
     switch (approvalMode) {
       case ApprovalMode.DEFAULT:
         // In default non-interactive mode, all tools that require approval are excluded.

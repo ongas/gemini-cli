@@ -15,6 +15,7 @@ import { processImports } from './memoryImportProcessor.js';
 import type { FileFilteringOptions } from '../config/constants.js';
 import { DEFAULT_MEMORY_FILE_FILTERING_OPTIONS } from '../config/constants.js';
 import { GEMINI_DIR } from './paths.js';
+import { maybeConvertAgentOsInstructions } from './agentOsInstructionParser.js';
 
 // Simple console logger, similar to the one previously in CLI's config.ts
 // TODO: Integrate with a more robust server-side logger if available/appropriate.
@@ -256,7 +257,10 @@ async function readGeminiMdFiles(
     const batchPromises = batch.map(
       async (filePath): Promise<GeminiFileContent> => {
         try {
-          const content = await fs.readFile(filePath, 'utf-8');
+          let content = await fs.readFile(filePath, 'utf-8');
+
+          // Convert Agent OS instructions if needed (before processing imports)
+          content = maybeConvertAgentOsInstructions(content, filePath);
 
           // Process imports in the content
           const processedResult = await processImports(

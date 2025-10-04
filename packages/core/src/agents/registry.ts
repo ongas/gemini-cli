@@ -7,7 +7,11 @@
 import type { Config } from '../config/config.js';
 import type { AgentDefinition } from './types.js';
 import { CodebaseInvestigatorAgent } from './codebase-investigator.js';
+import { MarkdownAgentLoader } from './markdown-agent-loader.js';
+import { GEMINI_DIR } from '../utils/paths.js';
 import { type z } from 'zod';
+import * as path from 'node:path';
+import * as fs from 'node:fs/promises';
 
 /**
  * Manages the discovery, loading, validation, and registration of
@@ -24,6 +28,7 @@ export class AgentRegistry {
    */
   async initialize(): Promise<void> {
     this.loadBuiltInAgents();
+    await this.loadMarkdownAgents();
 
     if (this.config.getDebugMode()) {
       console.log(
@@ -34,6 +39,48 @@ export class AgentRegistry {
 
   private loadBuiltInAgents(): void {
     this.registerAgent(CodebaseInvestigatorAgent);
+  }
+
+  /**
+   * Loads markdown-based agents from .gemini/agents/ directory in the current working directory.
+   */
+  private async loadMarkdownAgents(): Promise<void> {
+    const debugMode = this.config.getDebugMode();
+    const cwd = this.config.getWorkingDir();
+    const agentsDir = path.join(cwd, GEMINI_DIR, 'agents');
+
+    try {
+      // Check if the agents directory exists
+      await fs.access(agentsDir);
+
+      if (debugMode) {
+        console.log(
+          `[AgentRegistry] Loading markdown agents from ${agentsDir}`,
+        );
+      }
+
+      const agents = await MarkdownAgentLoader.loadFromDirectory(
+        agentsDir,
+        debugMode,
+      );
+
+      for (const agent of agents) {
+        this.registerAgent(agent);
+      }
+
+      if (debugMode && agents.length > 0) {
+        console.log(
+          `[AgentRegistry] Loaded ${agents.length} markdown agents from ${agentsDir}`,
+        );
+      }
+    } catch {
+      // Directory doesn't exist or can't be accessed - this is fine, not all projects will have custom agents
+      if (debugMode) {
+        console.log(
+          `[AgentRegistry] No markdown agents directory found at ${agentsDir}`,
+        );
+      }
+    }
   }
 
   /**

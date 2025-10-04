@@ -5,6 +5,7 @@
  */
 
 import * as fs from 'node:fs';
+import { promises as fsPromises } from 'node:fs';
 import * as path from 'node:path';
 import { homedir } from 'node:os';
 import yargs from 'yargs/yargs';
@@ -710,8 +711,33 @@ export async function loadCliConfig(
     useModelRouter,
     enableMessageBusIntegration:
       settings.tools?.enableMessageBusIntegration ?? false,
-    enableSubagents: settings.experimental?.enableSubagents ?? false,
+    enableSubagents: await shouldEnableSubagents(settings, cwd),
   });
+}
+
+/**
+ * Determines if subagents should be enabled.
+ * Auto-enables if Agent OS is detected (.gemini/agents/ directory exists).
+ */
+async function shouldEnableSubagents(
+  settings: Settings,
+  cwd: string,
+): Promise<boolean> {
+  // If explicitly set in settings, use that value
+  if (settings.experimental?.enableSubagents !== undefined) {
+    return settings.experimental.enableSubagents;
+  }
+
+  // Auto-detect Agent OS by checking for .gemini/agents/ directory
+  try {
+    const agentsDir = path.join(cwd, '.gemini', 'agents');
+    await fsPromises.access(agentsDir);
+    // Directory exists, auto-enable subagents for Agent OS support
+    return true;
+  } catch {
+    // Directory doesn't exist, use default (true per schema)
+    return true; // Default to true as per settingsSchema
+  }
 }
 
 function allowedMcpServers(

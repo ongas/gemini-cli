@@ -62,7 +62,7 @@
     }
   },
   "bin": {
-    "gemini": "bundle/gemini.js"
+    "gemini-aos": "bundle/gemini.js"
   },
   "files": [
     "bundle/",

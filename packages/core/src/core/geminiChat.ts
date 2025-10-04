@@ -239,7 +239,38 @@ export class GeminiChat {
 
     // Inject Agent-OS context if applicable
     let messageWithContext = params.message;
-    if (typeof params.message === 'string') {
+    // Extract text from PartListUnion for context injection
+    if (Array.isArray(params.message)) {
+      const textParts = params.message.filter(
+        (part: Part | string) =>
+          typeof part === 'string' ||
+          (typeof part === 'object' && 'text' in part && part.text),
+      );
+      if (textParts.length > 0) {
+        const firstTextPart = textParts[0];
+        const originalText =
+          typeof firstTextPart === 'string'
+            ? firstTextPart
+            : firstTextPart.text;
+
+        const workingDir = this.config.getTargetDir();
+        const textWithContext = await injectAgentOsContext(
+          originalText,
+          workingDir,
+        );
+
+        // Replace the first text part with context-injected version
+        if (typeof textParts[0] === 'string') {
+          messageWithContext = params.message.map((part: Part | string) =>
+            part === textParts[0] ? textWithContext : part,
+          );
+        } else {
+          messageWithContext = params.message.map((part: Part | string) =>
+            part === textParts[0] ? { ...part, text: textWithContext } : part,
+          );
+        }
+      }
+    } else if (typeof params.message === 'string') {
       const workingDir = this.config.getTargetDir();
       messageWithContext = await injectAgentOsContext(
         params.message,

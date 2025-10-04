@@ -250,28 +250,45 @@ export async function injectAgentOsContext(
   userPrompt: string,
   workingDirectory: string,
 ): Promise<string> {
+  console.log('[Agent-OS] Starting context injection...');
+  console.log('[Agent-OS] Working directory:', workingDirectory);
+  console.log('[Agent-OS] User prompt:', userPrompt.substring(0, 100));
+
   // Detect task context
   const taskContext = detectTaskContext(userPrompt);
+  console.log('[Agent-OS] Detected task context:', taskContext);
   logger.debug('Detected task context:', taskContext);
 
   // Find .agent-os directory
   const agentOsDir = await findAgentOsDirectory(workingDirectory);
+  console.log('[Agent-OS] Found .agent-os directory:', agentOsDir);
   if (!agentOsDir) {
+    console.log(
+      '[Agent-OS] No .agent-os directory found, skipping context injection',
+    );
     logger.debug('No .agent-os directory found, skipping context injection');
     return userPrompt;
   }
 
   // Load standards
   const standards = await loadAgentOsStandards(agentOsDir);
+  console.log('[Agent-OS] Loaded standards:', Object.keys(standards));
 
   // Build context
   const context = buildContextFromStandards(standards, taskContext);
+  console.log('[Agent-OS] Built context length:', context.length);
   if (!context) {
+    console.log('[Agent-OS] No relevant standards found for this task');
     logger.debug('No relevant standards found for this task');
     return userPrompt;
   }
 
   // Inject context at the beginning of the prompt
+  console.log(
+    '[Agent-OS] Injecting Agent-OS context (',
+    context.length,
+    ' characters) into prompt',
+  );
   logger.debug(
     `Injecting Agent-OS context (${context.length} characters) into prompt`,
   );

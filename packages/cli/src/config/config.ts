@@ -89,6 +89,7 @@ export interface CliArgs {
   useWriteTodos: boolean | undefined;
   outputFormat: string | undefined;
   continueSession: string | undefined;
+  initAgentOs: boolean | undefined;
 }
 
 export async function parseArguments(settings: Settings): Promise<CliArgs> {
@@ -234,6 +235,11 @@ export async function parseArguments(settings: Settings): Promise<CliArgs> {
           type: 'string',
           description:
             'Continue a previous conversation session by tag name. Loads conversation history and appends new messages.',
+        })
+        .option('init-agent-os', {
+          type: 'boolean',
+          description:
+            'Initialize Agent-OS in the current directory by copying the .agent-os template and subagents.',
         })
         .option('experimental-acp', {
           type: 'boolean',

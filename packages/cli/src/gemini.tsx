@@ -209,6 +209,64 @@ export async function main() {
 
   const argv = await parseArguments(settings.merged);
 
+  // Handle --init-agent-os flag
+  if (argv.initAgentOs) {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const os = await import('node:os');
+
+    const cwd = process.cwd();
+    const agentOsDir = path.join(cwd, '.agent-os');
+    const homeAgentsDir = path.join(os.homedir(), '.gemini', 'agents');
+
+    // Find the template directory (bundled with package)
+    // When running from bundle, assets are in bundle/ directory
+    const scriptPath = process.argv[1];
+    const packageRoot = path.dirname(scriptPath); // This is the bundle directory
+    const templateDir = path.join(packageRoot, '.agent-os-template');
+    const agentsSourceDir = path.join(packageRoot, 'agents');
+
+    try {
+      // Copy .agent-os template to current directory
+      if (fs.existsSync(agentOsDir)) {
+        console.log('✓ .agent-os already exists in current directory');
+      } else {
+        if (!fs.existsSync(templateDir)) {
+          console.error(`Error: Template not found at ${templateDir}`);
+          process.exit(1);
+        }
+        await fs.promises.cp(templateDir, agentOsDir, { recursive: true });
+        console.log('✓ Initialized .agent-os in current directory');
+      }
+
+      // Copy agents to ~/.gemini/agents/
+      if (!fs.existsSync(homeAgentsDir)) {
+        fs.mkdirSync(homeAgentsDir, { recursive: true });
+      }
+
+      if (fs.existsSync(agentsSourceDir)) {
+        const agentFiles = fs.readdirSync(agentsSourceDir);
+        for (const file of agentFiles) {
+          if (file.endsWith('.md')) {
+            await fs.promises.copyFile(
+              path.join(agentsSourceDir, file),
+              path.join(homeAgentsDir, file),
+            );
+          }
+        }
+        console.log('✓ Installed subagents to ~/.gemini/agents/');
+      }
+
+      console.log('\nAgent-OS initialized successfully!');
+      console.log('You can now use Agent-OS instructions like:');
+      console.log('  @.agent-os/instructions/core/plan-product.md');
+      process.exit(0);
+    } catch (error) {
+      console.error('Error initializing Agent-OS:', error);
+      process.exit(1);
+    }
+  }
+
   // Check for invalid input combinations early to prevent crashes
   if (argv.promptInteractive && !process.stdin.isTTY) {
     console.error(

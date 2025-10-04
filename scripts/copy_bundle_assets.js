@@ -17,7 +17,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, cpSync } from 'node:fs';
 import { dirname, join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { glob } from 'glob';
@@ -35,6 +35,22 @@ if (!existsSync(bundleDir)) {
 const sbFiles = glob.sync('packages/**/*.sb', { cwd: root });
 for (const file of sbFiles) {
   copyFileSync(join(root, file), join(bundleDir, basename(file)));
+}
+
+// Copy Agent-OS assets
+const agentsDir = join(root, 'agents');
+const templateDir = join(root, '.agent-os-template');
+
+if (existsSync(agentsDir)) {
+  cpSync(agentsDir, join(bundleDir, 'agents'), { recursive: true });
+  console.log('Copied agents/ to bundle/');
+}
+
+if (existsSync(templateDir)) {
+  cpSync(templateDir, join(bundleDir, '.agent-os-template'), {
+    recursive: true,
+  });
+  console.log('Copied .agent-os-template/ to bundle/');
 }
 
 console.log('Assets copied to bundle/');

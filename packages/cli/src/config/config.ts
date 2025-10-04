@@ -88,6 +88,7 @@ export interface CliArgs {
   useSmartEdit: boolean | undefined;
   useWriteTodos: boolean | undefined;
   outputFormat: string | undefined;
+  continueSession: string | undefined;
 }
 
 export async function parseArguments(settings: Settings): Promise<CliArgs> {
@@ -228,6 +229,11 @@ export async function parseArguments(settings: Settings): Promise<CliArgs> {
           type: 'boolean',
           description: 'Enables checkpointing of file edits',
           default: false,
+        })
+        .option('continue-session', {
+          type: 'string',
+          description:
+            'Continue a previous conversation session by tag name. Loads conversation history and appends new messages.',
         })
         .option('experimental-acp', {
           type: 'boolean',
@@ -568,6 +574,19 @@ export async function loadCliConfig(
   const interactive =
     !!argv.promptInteractive ||
     (process.stdin.isTTY && !hasQuery && !argv.prompt);
+
+  if (debugMode) {
+    console.log('[DEBUG] Interactive mode check:', {
+      promptInteractive: argv.promptInteractive,
+      isTTY: process.stdin.isTTY,
+      hasQuery,
+      prompt: argv.prompt,
+      interactive,
+      trustedFolder,
+      approvalMode,
+    });
+  }
+
   // In non-interactive mode, exclude tools that require a prompt.
   const extraExcludes: string[] = [];
   if (!interactive && !argv.experimentalAcp) {

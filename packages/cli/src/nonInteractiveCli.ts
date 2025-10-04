@@ -17,6 +17,7 @@ import {
   OutputFormat,
   JsonFormatter,
   uiTelemetryService,
+  Logger,
 } from '@google/gemini-cli-core';
 
 import type { Content, Part } from '@google/genai';
@@ -36,6 +37,7 @@ export async function runNonInteractive(
   settings: LoadedSettings,
   input: string,
   prompt_id: string,
+  continueSession?: string,
 ): Promise<void> {
   return promptIdContext.run(prompt_id, async () => {
     const consolePatcher = new ConsolePatcher({
@@ -92,6 +94,32 @@ export async function runNonInteractive(
           );
         }
         query = processedQuery as Part[];
+      }
+
+      // Load previous conversation history if continuing a session
+      const sessionTag = continueSession || 'gemini-non-interactive-session';
+      const logger = new Logger(config.getSessionId(), config.storage);
+
+      if (continueSession) {
+        try {
+          const loadedHistory = await logger.loadCheckpoint(continueSession);
+          if (loadedHistory && loadedHistory.length > 0) {
+            // Set the loaded history on the Gemini client
+            geminiClient.setHistory(loadedHistory);
+            if (config.getDebugMode()) {
+              console.log(
+                `[DEBUG] Loaded ${loadedHistory.length} messages from session '${continueSession}'`,
+              );
+            }
+          }
+        } catch (error) {
+          if (config.getDebugMode()) {
+            console.warn(
+              `[DEBUG] Could not load session '${continueSession}':`,
+              error,
+            );
+          }
+        }
       }
 
       let currentMessages: Content[] = [{ role: 'user', parts: query }];
@@ -157,6 +185,24 @@ export async function runNonInteractive(
           }
           currentMessages = [{ role: 'user', parts: toolResponseParts }];
         } else {
+          // Save conversation history for future continuation
+          try {
+            const currentHistory = geminiClient.getHistory();
+            await logger.saveCheckpoint(currentHistory, sessionTag);
+            if (config.getDebugMode()) {
+              console.log(
+                `[DEBUG] Saved ${currentHistory.length} messages to session '${sessionTag}'`,
+              );
+            }
+          } catch (error) {
+            if (config.getDebugMode()) {
+              console.warn(
+                `[DEBUG] Could not save session '${sessionTag}':`,
+                error,
+              );
+            }
+          }
+
           if (config.getOutputFormat() === OutputFormat.JSON) {
             const formatter = new JsonFormatter();
             const stats = uiTelemetryService.getMetrics();

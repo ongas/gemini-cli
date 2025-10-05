@@ -5,9 +5,9 @@
  */
 
 /**
- * Agent-OS Context Injector
+ * Project Standards Injector
  *
- * Automatically discovers and injects Agent-OS context from .agent-os/ directories
+ * Automatically discovers and injects project standards from .agent-os/ directories
  * into Gemini prompts based on task detection, similar to Claude Code's behavior.
  */
 
@@ -16,14 +16,16 @@ import * as path from 'node:path';
 
 const logger = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  debug: (...args: any[]) => console.debug('[DEBUG] [AgentOsContext]', ...args),
+  debug: (...args: any[]) =>
+    console.debug('[DEBUG] [ProjectStandards]', ...args),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  warn: (...args: any[]) => console.warn('[WARN] [AgentOsContext]', ...args),
+  warn: (...args: any[]) => console.warn('[WARN] [ProjectStandards]', ...args),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  error: (...args: any[]) => console.error('[ERROR] [AgentOsContext]', ...args),
+  error: (...args: any[]) =>
+    console.error('[ERROR] [ProjectStandards]', ...args),
 };
 
-interface AgentOsStandards {
+interface ProjectStandards {
   codeStyle?: string;
   bestPractices?: string;
   techStack?: string;
@@ -89,7 +91,7 @@ export function detectTaskContext(prompt: string): TaskDetectionResult {
 /**
  * Find .agent-os directory in current working directory or parent directories
  */
-export async function findAgentOsDirectory(
+export async function findProjectStandardsDirectory(
   startDir: string,
 ): Promise<string | null> {
   let currentDir = path.resolve(startDir);
@@ -116,13 +118,13 @@ export async function findAgentOsDirectory(
 }
 
 /**
- * Load Agent-OS standards files
+ * Load project standards files
  */
-export async function loadAgentOsStandards(
+export async function loadProjectStandards(
   agentOsDir: string,
-): Promise<AgentOsStandards> {
+): Promise<ProjectStandards> {
   const standardsDir = path.join(agentOsDir, 'standards');
-  const standards: AgentOsStandards = {
+  const standards: ProjectStandards = {
     languageSpecific: {},
   };
 
@@ -174,7 +176,7 @@ export async function loadAgentOsStandards(
       logger.debug('No code-style subdirectory found');
     }
   } catch (error) {
-    logger.warn('Error loading Agent-OS standards:', error);
+    logger.warn('Error loading project standards:', error);
   }
 
   return standards;
@@ -184,7 +186,7 @@ export async function loadAgentOsStandards(
  * Build context string from relevant standards based on task detection
  */
 export function buildContextFromStandards(
-  standards: AgentOsStandards,
+  standards: ProjectStandards,
   taskContext: TaskDetectionResult,
 ): string {
   if (!taskContext.needsStandards) {
@@ -194,7 +196,7 @@ export function buildContextFromStandards(
   const contextParts: string[] = [];
 
   // Add header
-  contextParts.push('# Agent-OS Project Standards\n');
+  contextParts.push('# Project Standards\n');
   contextParts.push(
     'The following standards are automatically loaded from the .agent-os/ directory of this project.\n',
   );
@@ -244,72 +246,72 @@ export function buildContextFromStandards(
 }
 
 /**
- * Main function to inject Agent-OS context into a prompt
+ * Main function to inject project standards context into a prompt
  */
-export async function injectAgentOsContext(
+export async function injectProjectStandards(
   userPrompt: string,
   workingDirectory: string,
 ): Promise<string> {
-  console.log('[Agent-OS] Starting context injection...');
-  console.log('[Agent-OS] Working directory:', workingDirectory);
-  console.log('[Agent-OS] User prompt:', userPrompt.substring(0, 100));
+  console.log('[ProjectStandards] Starting context injection...');
+  console.log('[ProjectStandards] Working directory:', workingDirectory);
+  console.log('[ProjectStandards] User prompt:', userPrompt.substring(0, 100));
 
   // Detect task context
   const taskContext = detectTaskContext(userPrompt);
-  console.log('[Agent-OS] Detected task context:', taskContext);
+  console.log('[ProjectStandards] Detected task context:', taskContext);
   logger.debug('Detected task context:', taskContext);
 
   // Find .agent-os directory
-  const agentOsDir = await findAgentOsDirectory(workingDirectory);
-  console.log('[Agent-OS] Found .agent-os directory:', agentOsDir);
+  const agentOsDir = await findProjectStandardsDirectory(workingDirectory);
+  console.log('[ProjectStandards] Found .agent-os directory:', agentOsDir);
   if (!agentOsDir) {
     console.log(
-      '[Agent-OS] No .agent-os directory found, skipping context injection',
+      '[ProjectStandards] No .agent-os directory found, skipping context injection',
     );
     logger.debug('No .agent-os directory found, skipping context injection');
     return userPrompt;
   }
 
   // Load standards
-  const standards = await loadAgentOsStandards(agentOsDir);
-  console.log('[Agent-OS] Loaded standards:', Object.keys(standards));
+  const standards = await loadProjectStandards(agentOsDir);
+  console.log('[ProjectStandards] Loaded standards:', Object.keys(standards));
 
   // Build context
   const context = buildContextFromStandards(standards, taskContext);
-  console.log('[Agent-OS] Built context length:', context.length);
+  console.log('[ProjectStandards] Built context length:', context.length);
   if (!context) {
-    console.log('[Agent-OS] No relevant standards found for this task');
+    console.log('[ProjectStandards] No relevant standards found for this task');
     logger.debug('No relevant standards found for this task');
     return userPrompt;
   }
 
   // Inject context at the beginning of the prompt
   console.log(
-    '[Agent-OS] Injecting Agent-OS context (',
+    '[ProjectStandards] Injecting project standards context (',
     context.length,
     ' characters) into prompt',
   );
   logger.debug(
-    `Injecting Agent-OS context (${context.length} characters) into prompt`,
+    `Injecting project standards context (${context.length} characters) into prompt`,
   );
   return `${context}\n---\n\n${userPrompt}`;
 }
 
 /**
- * Get Agent-OS context as a separate system message (alternative approach)
+ * Get project standards context as a separate system message (alternative approach)
  */
-export async function getAgentOsSystemMessage(
+export async function getProjectStandardsSystemMessage(
   userPrompt: string,
   workingDirectory: string,
 ): Promise<string | null> {
   const taskContext = detectTaskContext(userPrompt);
-  const agentOsDir = await findAgentOsDirectory(workingDirectory);
+  const agentOsDir = await findProjectStandardsDirectory(workingDirectory);
 
   if (!agentOsDir) {
     return null;
   }
 
-  const standards = await loadAgentOsStandards(agentOsDir);
+  const standards = await loadProjectStandards(agentOsDir);
   const context = buildContextFromStandards(standards, taskContext);
 
   return context || null;

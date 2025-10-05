@@ -7,7 +7,6 @@
 import type { ToolResult, ToolInvocation } from './tools.js';
 import { BaseDeclarativeTool, BaseToolInvocation, Kind } from './tools.js';
 import type { FunctionDeclaration } from '@google/genai';
-import { Type } from '@google/genai';
 import type { Config } from '../config/config.js';
 import {
   SubAgentScope,
@@ -27,31 +26,31 @@ const taskToolSchemaData: FunctionDeclaration = {
   description:
     'Launch an autonomous sub-agent to handle complex, multi-step tasks independently. The sub-agent will work with a separate context window and report back results when complete. Use this for tasks that require multiple steps, deep analysis, or extended problem-solving that would benefit from focused, independent execution.',
   parametersJsonSchema: {
-    type: Type.OBJECT,
+    type: 'object',
     properties: {
       description: {
-        type: Type.STRING,
+        type: 'string',
         description:
           'A concise (3-5 word) description of the task for tracking purposes (e.g., "Fix authentication bug", "Analyze performance bottleneck")',
       },
       prompt: {
-        type: Type.STRING,
+        type: 'string',
         description:
           'The detailed task prompt for the sub-agent. Be specific about what needs to be accomplished, any constraints, and what information should be returned. The sub-agent will work autonomously based on this prompt.',
       },
       tools: {
-        type: Type.ARRAY,
-        items: { type: Type.STRING },
+        type: 'array',
+        items: { type: 'string' },
         description:
           'Optional array of tool names the sub-agent is allowed to use (e.g., ["read_file", "write_file", "run_shell_command"]). If not specified, the sub-agent will have access to all available tools.',
       },
       max_time_minutes: {
-        type: Type.NUMBER,
+        type: 'number',
         description:
           'Optional maximum execution time in minutes (default: 10). The sub-agent will be terminated if it exceeds this duration.',
       },
       max_turns: {
-        type: Type.NUMBER,
+        type: 'number',
         description:
           'Optional maximum number of conversation turns (default: 50). The sub-agent will be terminated if it exceeds this limit.',
       },

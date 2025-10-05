@@ -425,7 +425,9 @@ export class SubAgentScope {
           message: currentMessages[0]?.parts || [],
           config: {
             abortSignal: abortController.signal,
-            tools: [{ functionDeclarations: toolsList }],
+            ...(toolsList.length > 0 && {
+              tools: [{ functionDeclarations: toolsList }],
+            }),
           },
         };
 

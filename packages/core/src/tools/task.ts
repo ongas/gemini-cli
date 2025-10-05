@@ -155,8 +155,16 @@ class TaskToolInvocation extends BaseToolInvocation<
         max_turns,
       };
 
-      // Build tool configuration if tools specified
-      const toolConfig: ToolConfig | undefined = tools ? { tools } : undefined;
+      // Build tool configuration - if not specified, give access to all tools
+      const toolConfig: ToolConfig | undefined = tools
+        ? { tools }
+        : {
+            tools: this.config
+              .getToolRegistry()
+              .getAllTools()
+              .map((tool) => tool.name)
+              .filter((name) => name !== 'task'), // Don't allow nested task tools
+          };
 
       // Create message handler to collect sub-agent output
       const messages: string[] = [];

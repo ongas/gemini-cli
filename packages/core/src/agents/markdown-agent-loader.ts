@@ -11,9 +11,9 @@ import { DEFAULT_GEMINI_MODEL } from '../config/models.js';
 import { z } from 'zod';
 
 /**
- * Loads agent definitions from markdown files in Agent OS format.
+ * Loads agent definitions from markdown files.
  *
- * Agent OS markdown files contain agent instructions and descriptions
+ * Markdown files contain agent instructions and descriptions
  * that we convert into AgentDefinition objects.
  */
 export class MarkdownAgentLoader {
@@ -101,7 +101,7 @@ export class MarkdownAgentLoader {
   /**
    * Parses markdown content into an AgentDefinition.
    *
-   * Agent OS markdown format:
+   * Markdown format:
    * - First # heading is the agent display name
    * - Content after heading is the description
    * - Everything is used as the system prompt

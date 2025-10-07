@@ -746,7 +746,7 @@ export async function loadCliConfig(
 
 /**
  * Determines if subagents should be enabled.
- * Auto-enables if Agent OS is detected (.gemini/agents/ directory exists).
+ * Auto-enables if custom agents are detected (.gemini/agents/ directory exists).
  */
 async function shouldEnableSubagents(
   settings: Settings,
@@ -757,11 +757,11 @@ async function shouldEnableSubagents(
     return settings.experimental.enableSubagents;
   }
 
-  // Auto-detect Agent OS by checking for .gemini/agents/ directory
+  // Auto-detect custom agents by checking for .gemini/agents/ directory
   try {
     const agentsDir = path.join(cwd, '.gemini', 'agents');
     await fsPromises.access(agentsDir);
-    // Directory exists, auto-enable subagents for Agent OS support
+    // Directory exists, auto-enable subagents for multi-agent support
     return true;
   } catch {
     // Directory doesn't exist, use default (true per schema)

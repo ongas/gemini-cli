@@ -237,7 +237,7 @@ export class GeminiChat {
     });
     this.sendPromise = streamDonePromise;
 
-    // Inject Agent-OS context if applicable
+    // Inject project standards context if applicable
     let messageWithContext = params.message;
     // Extract text from PartListUnion for context injection
     if (Array.isArray(params.message)) {

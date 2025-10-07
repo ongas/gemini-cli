@@ -5,7 +5,7 @@
  */
 
 /**
- * Parses Agent OS instructions and converts Claude Code-specific syntax
+ * Parses workflow instructions and converts Claude Code-specific syntax
  * to Gemini CLI-compatible syntax.
  *
  * This parser handles:
@@ -15,7 +15,7 @@
  */
 
 /**
- * Converts Agent OS instructions from Claude Code format to Gemini format.
+ * Converts workflow instructions from Claude Code format to Gemini format.
  *
  * Key transformations:
  * 1. <step subagent="agent-name"> -> Instructions to use the agent_name tool
@@ -121,7 +121,7 @@ you should invoke: \`context_fetcher(task: "Get product pitch from mission-lite.
 }
 
 /**
- * Checks if content appears to contain Agent OS instructions
+ * Checks if content appears to contain workflow instructions
  * that need conversion.
  *
  * @param content The content to check
@@ -137,7 +137,7 @@ export function needsAgentOsConversion(content: string): boolean {
 }
 
 /**
- * Converts content from a file if it appears to be Agent OS instructions.
+ * Converts content from a file if it appears to be workflow instructions.
  * Otherwise returns content unchanged.
  *
  * @param content The file content
@@ -149,7 +149,7 @@ export function maybeConvertAgentOsInstructions(
   filePath: string,
 ): string {
   // Only convert files that appear to be in the .agent-os or .project-standards directory
-  // or contain Agent OS syntax (backward compatibility for .agent-os)
+  // or contain workflow syntax (backward compatibility for .agent-os)
   const isAgentOsFile =
     filePath.includes('.agent-os/') ||
     filePath.includes('/.agent-os/') ||

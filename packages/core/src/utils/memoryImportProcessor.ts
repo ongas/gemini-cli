@@ -285,7 +285,7 @@ export async function processImports(
           await fs.access(fullPath);
           let importedContent = await fs.readFile(fullPath, 'utf-8');
 
-          // Convert Agent OS instructions if needed
+          // Convert workflow instructions if needed
           importedContent = maybeConvertAgentOsInstructions(
             importedContent,
             fullPath,
@@ -360,7 +360,7 @@ export async function processImports(
       await fs.access(fullPath);
       let fileContent = await fs.readFile(fullPath, 'utf-8');
 
-      // Convert Agent OS instructions if needed
+      // Convert workflow instructions if needed
       fileContent = maybeConvertAgentOsInstructions(fileContent, fullPath);
 
       // Mark this file as processed for this import chain

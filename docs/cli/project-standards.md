@@ -10,12 +10,12 @@ Initialize project standards in your project:
 gemini --init-standards
 ```
 
-This creates a `.agent-os/` directory structure with template standards files that you can customize for your project.
+This creates a `.project-standards/` directory structure with template standards files that you can customize for your project.
 
 ### What Gets Created
 
 ```
-.agent-os/
+.project-standards/
 └── standards/
     ├── code-style.md         # General coding standards
     ├── best-practices.md     # Project best practices
@@ -30,7 +30,7 @@ This creates a `.agent-os/` directory structure with template standards files th
 
 ### Automatic Standards Injection
 
-The most powerful feature is automatic standards injection. When you're working in a project with `.agent-os/standards/`, these standards are automatically applied to relevant tasks.
+The most powerful feature is automatic standards injection. When you're working in a project with `.project-standards/standards/`, these standards are automatically applied to relevant tasks.
 
 1. **Task Detection**: When you send a prompt, Gemini CLI automatically detects the task type:
    - `coding` - Creating/modifying code
@@ -41,7 +41,7 @@ The most powerful feature is automatic standards injection. When you're working 
 
 2. **Language Detection**: Identifies programming languages mentioned in your prompt
 
-3. **Standards Loading**: Automatically loads relevant standards from `.agent-os/standards/`:
+3. **Standards Loading**: Automatically loads relevant standards from `.project-standards/standards/`:
    - General code style rules
    - Language-specific standards
    - Best practices
@@ -60,8 +60,8 @@ Write a JavaScript function to validate an email address
 **What Gemini CLI does automatically:**
 
 ```
-[Loads .agent-os/standards/code-style.md]
-[Loads .agent-os/standards/code-style/javascript-style.md]
+[Loads .project-standards/standards/code-style.md]
+[Loads .project-standards/standards/code-style/javascript-style.md]
 [Detects: coding task, JavaScript language]
 [Injects standards into prompt]
 ```
@@ -71,7 +71,7 @@ Write a JavaScript function to validate an email address
 ```
 [ProjectStandards] Starting context injection...
 [ProjectStandards] Detected task context: { taskType: 'coding', languages: [ 'javascript' ], needsStandards: true }
-[ProjectStandards] Found .agent-os directory: /path/to/your/project/.agent-os
+[ProjectStandards] Found .project-standards directory: /path/to/your/project/.project-standards
 [ProjectStandards] Loaded standards: [ 'languageSpecific', 'codeStyle', 'bestPractices', 'techStack' ]
 [ProjectStandards] Injecting project standards context (2847 characters) into prompt
 ```
@@ -80,7 +80,7 @@ Write a JavaScript function to validate an email address
 
 ## Customizing Standards
 
-Edit the files in `.agent-os/standards/` to match your project's needs:
+Edit the files in `.project-standards/standards/` to match your project's needs:
 
 ### code-style.md
 
@@ -130,7 +130,7 @@ Your technology stack and architectural decisions:
 
 ### Language-Specific Standards
 
-Create files in `.agent-os/standards/code-style/` for language-specific rules:
+Create files in `.project-standards/standards/code-style/` for language-specific rules:
 
 **javascript-style.md:**
 
@@ -194,15 +194,15 @@ Standards are NOT applied for git operations or general questions.
 
 ### Sub-Agent Standards
 
-When using the `task` tool to create sub-agents, they automatically inherit the same standards from your project's `.agent-os/` directory. This ensures consistency across all levels of task delegation.
+When using the `task` tool to create sub-agents, they automatically inherit the same standards from your project's `.project-standards/` directory. This ensures consistency across all levels of task delegation.
 
 ### Multi-Project Standards
 
-Each project can have its own `.agent-os/` directory. Gemini CLI searches up the directory tree from your current working directory to find the nearest `.agent-os/` directory.
+Each project can have its own `.project-standards/` directory. Gemini CLI searches up the directory tree from your current working directory to find the nearest `.project-standards/` directory.
 
 ### Disabling Standards Injection
 
-If you need to temporarily work without standards injection, work in a directory that doesn't have a `.agent-os/` parent directory.
+If you need to temporarily work without standards injection, work in a directory that doesn't have a `.project-standards/` parent directory.
 
 ## Troubleshooting
 
@@ -210,7 +210,7 @@ If you need to temporarily work without standards injection, work in a directory
 
 Check that:
 
-1. You have a `.agent-os/standards/` directory in your project or a parent directory
+1. You have a `.project-standards/standards/` directory in your project or a parent directory
 2. The standard files contain content (not empty)
 3. Your prompt includes keywords that trigger task detection (like "write", "create", "implement")
 4. You see `[ProjectStandards]` log messages indicating detection
@@ -224,7 +224,7 @@ If standards files are very large, they consume more tokens. Keep standards conc
 The console will show:
 
 ```
-[ProjectStandards] No .agent-os directory found, skipping context injection
+[ProjectStandards] No .project-standards directory found, skipping context injection
 ```
 
-This means you need to run `gemini --init-standards` or you're not in a directory that has access to a `.agent-os/` directory.
+This means you need to run `gemini --init-standards` or you're not in a directory that has access to a `.project-standards/` directory.

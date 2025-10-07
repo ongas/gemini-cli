@@ -239,7 +239,7 @@ export async function parseArguments(settings: Settings): Promise<CliArgs> {
         .option('init-standards', {
           type: 'boolean',
           description:
-            'Initialize project standards directory (.agent-os) by copying the template with code style and best practices files.',
+            'Initialize project standards directory (.project-standards) by copying the template with code style and best practices files.',
         })
         .option('experimental-acp', {
           type: 'boolean',

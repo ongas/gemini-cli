@@ -7,7 +7,7 @@
 /**
  * Project Standards Injector
  *
- * Automatically discovers and injects project standards from .agent-os/ directories
+ * Automatically discovers and injects project standards from .project-standards/ directories
  * into Gemini prompts based on task detection, similar to Claude Code's behavior.
  */
 
@@ -89,7 +89,7 @@ export function detectTaskContext(prompt: string): TaskDetectionResult {
 }
 
 /**
- * Find .agent-os directory in current working directory or parent directories
+ * Find .project-standards directory in current working directory or parent directories
  */
 export async function findProjectStandardsDirectory(
   startDir: string,
@@ -98,12 +98,12 @@ export async function findProjectStandardsDirectory(
   const root = path.parse(currentDir).root;
 
   while (currentDir !== root) {
-    const agentOsPath = path.join(currentDir, '.agent-os');
+    const projectStandardsPath = path.join(currentDir, '.project-standards');
     try {
-      const stats = await fs.stat(agentOsPath);
+      const stats = await fs.stat(projectStandardsPath);
       if (stats.isDirectory()) {
-        logger.debug(`Found .agent-os at: ${agentOsPath}`);
-        return agentOsPath;
+        logger.debug(`Found .project-standards at: ${projectStandardsPath}`);
+        return projectStandardsPath;
       }
     } catch {
       // Directory doesn't exist, continue searching
@@ -121,9 +121,9 @@ export async function findProjectStandardsDirectory(
  * Load project standards files
  */
 export async function loadProjectStandards(
-  agentOsDir: string,
+  projectStandardsDir: string,
 ): Promise<ProjectStandards> {
-  const standardsDir = path.join(agentOsDir, 'standards');
+  const standardsDir = path.join(projectStandardsDir, 'standards');
   const standards: ProjectStandards = {
     languageSpecific: {},
   };
@@ -198,7 +198,7 @@ export function buildContextFromStandards(
   // Add header
   contextParts.push('# Project Standards\n');
   contextParts.push(
-    'The following standards are automatically loaded from the .agent-os/ directory of this project.\n',
+    'The following standards are automatically loaded from the .project-standards/ directory of this project.\n',
   );
   contextParts.push('Apply these standards to all work in this project.\n\n');
 
@@ -261,19 +261,25 @@ export async function injectProjectStandards(
   console.log('[ProjectStandards] Detected task context:', taskContext);
   logger.debug('Detected task context:', taskContext);
 
-  // Find .agent-os directory
-  const agentOsDir = await findProjectStandardsDirectory(workingDirectory);
-  console.log('[ProjectStandards] Found .agent-os directory:', agentOsDir);
-  if (!agentOsDir) {
+  // Find .project-standards directory
+  const projectStandardsDir =
+    await findProjectStandardsDirectory(workingDirectory);
+  console.log(
+    '[ProjectStandards] Found .project-standards directory:',
+    projectStandardsDir,
+  );
+  if (!projectStandardsDir) {
     console.log(
-      '[ProjectStandards] No .agent-os directory found, skipping context injection',
+      '[ProjectStandards] No .project-standards directory found, skipping context injection',
     );
-    logger.debug('No .agent-os directory found, skipping context injection');
+    logger.debug(
+      'No .project-standards directory found, skipping context injection',
+    );
     return userPrompt;
   }
 
   // Load standards
-  const standards = await loadProjectStandards(agentOsDir);
+  const standards = await loadProjectStandards(projectStandardsDir);
   console.log('[ProjectStandards] Loaded standards:', Object.keys(standards));
 
   // Build context
@@ -305,13 +311,14 @@ export async function getProjectStandardsSystemMessage(
   workingDirectory: string,
 ): Promise<string | null> {
   const taskContext = detectTaskContext(userPrompt);
-  const agentOsDir = await findProjectStandardsDirectory(workingDirectory);
+  const projectStandardsDir =
+    await findProjectStandardsDirectory(workingDirectory);
 
-  if (!agentOsDir) {
+  if (!projectStandardsDir) {
     return null;
   }
 
-  const standards = await loadProjectStandards(agentOsDir);
+  const standards = await loadProjectStandards(projectStandardsDir);
   const context = buildContextFromStandards(standards, taskContext);
 
   return context || null;

@@ -131,7 +131,8 @@ export function needsAgentOsConversion(content: string): boolean {
   return (
     content.includes('subagent') ||
     content.includes('<step') ||
-    content.includes('@.agent-os/')
+    content.includes('@.agent-os/') ||
+    content.includes('@.project-standards/')
   );
 }
 
@@ -147,10 +148,13 @@ export function maybeConvertAgentOsInstructions(
   content: string,
   filePath: string,
 ): string {
-  // Only convert files that appear to be in the .agent-os directory
-  // or contain Agent OS syntax
+  // Only convert files that appear to be in the .agent-os or .project-standards directory
+  // or contain Agent OS syntax (backward compatibility for .agent-os)
   const isAgentOsFile =
-    filePath.includes('.agent-os/') || filePath.includes('/.agent-os/');
+    filePath.includes('.agent-os/') ||
+    filePath.includes('/.agent-os/') ||
+    filePath.includes('.project-standards/') ||
+    filePath.includes('/.project-standards/');
 
   if (isAgentOsFile && needsAgentOsConversion(content)) {
     return convertAgentOsInstructions(content);

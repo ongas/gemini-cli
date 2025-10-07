@@ -215,29 +215,31 @@ export async function main() {
     const path = await import('node:path');
 
     const cwd = process.cwd();
-    const standardsDir = path.join(cwd, '.agent-os');
+    const standardsDir = path.join(cwd, '.project-standards');
 
     // Find the template directory (bundled with package)
     // When running from bundle, assets are in bundle/ directory
     const scriptPath = process.argv[1];
     const packageRoot = path.dirname(scriptPath); // This is the bundle directory
-    const templateDir = path.join(packageRoot, '.agent-os-template');
+    const templateDir = path.join(packageRoot, '.project-standards-template');
 
     try {
-      // Copy .agent-os template to current directory
+      // Copy .project-standards template to current directory
       if (fs.existsSync(standardsDir)) {
-        console.log('✓ .agent-os already exists in current directory');
+        console.log('✓ .project-standards already exists in current directory');
       } else {
         if (!fs.existsSync(templateDir)) {
           console.error(`Error: Template not found at ${templateDir}`);
           process.exit(1);
         }
         await fs.promises.cp(templateDir, standardsDir, { recursive: true });
-        console.log('✓ Initialized .agent-os in current directory');
+        console.log('✓ Initialized .project-standards in current directory');
       }
 
       console.log('\nProject standards initialized successfully!');
-      console.log('You can customize the standards in .agent-os/standards/');
+      console.log(
+        'You can customize the standards in .project-standards/standards/',
+      );
       console.log('These will be automatically injected into coding prompts.');
       process.exit(0);
     } catch (error) {

@@ -1,5 +1,5 @@
 {
-  "name": "gemini-aos",
+  "name": "gemini-ma",
   "version": "0.7.1",
   "engines": {
     "node": ">=20.0.0"
@@ -62,7 +62,7 @@
     }
   },
   "bin": {
-    "gemini-aos": "bundle/gemini.js"
+    "gemini-ma": "bundle/gemini.js"
   },
   "files": [
     "bundle/",

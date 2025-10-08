@@ -62,6 +62,39 @@ guidance here. The entire markdown content becomes the agent's system prompt.
 2. **First paragraph**: Used as the agent description (shown to orchestrator)
 3. **Entire file**: Becomes the system prompt
 4. **Filename**: Converted to agent name (e.g., `code-reviewer.md` → `code_reviewer`)
+5. **Tools (Optional)**: Specify allowed tools using `**Tools:** tool1, tool2, tool3`
+
+#### Restricting Agent Tools
+
+By default, markdown agents get access to all standard tools. To restrict an agent to specific tools (for security or focus), add a **Tools:** line after the description:
+
+```markdown
+# Read-Only Analyzer
+
+Analyzes code without making changes.
+
+**Tools:** read_file, glob, search_file_content, list_directory
+
+## Instructions
+...
+```
+
+**Available tools:**
+- `read_file` - Read file contents
+- `write_file` - Write/create files
+- `list_directory` - List directory contents (ls)
+- `glob` - Find files by pattern
+- `search_file_content` - Search within files (grep)
+- `run_shell_command` - Execute bash commands
+- `web_fetch` - Fetch web pages
+- `google_web_search` - Search the web
+- `task` - Delegate to sub-agents
+- `memory` - Store/retrieve memory
+- `replace` - Find/replace in files
+- `read_many_files` - Read multiple files at once
+- `write_todos_list` - Manage todo lists
+
+Omit the **Tools:** line to give the agent access to all tools.
 
 #### Example: Code Review Agent
 

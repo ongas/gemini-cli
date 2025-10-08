@@ -171,6 +171,22 @@ export class MarkdownAgentLoader {
       description = `Specialized agent for ${displayName.toLowerCase()} tasks`;
     }
 
+    // Parse tools if specified (format: **Tools:** tool1, tool2, tool3)
+    const toolsMatch = content.match(/\*\*Tools:\*\*\s*([^\n]+)/i);
+    const tools = toolsMatch
+      ? toolsMatch[1]
+          .split(',')
+          .map((t) => t.trim())
+          .filter((t) => t.length > 0)
+      : undefined;
+
+    if (debugMode && tools) {
+      console.log(
+        `[MarkdownAgentLoader] Parsed ${tools.length} tools from ${filePath}:`,
+        tools,
+      );
+    }
+
     // The entire markdown content becomes the system prompt
     const systemPrompt = content.trim();
 
@@ -208,6 +224,7 @@ export class MarkdownAgentLoader {
         systemPrompt,
         query: '${task}',
       },
+      ...(tools && { toolConfig: { tools } }),
     };
 
     return agent;

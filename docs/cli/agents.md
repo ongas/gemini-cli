@@ -90,7 +90,7 @@ potential issues in existing code.
    - Performance issues
    - Code style violations
    - Missing error handling
-3. Check against project standards from `.project-standards/standards/`
+3. Check against project standards from `.project-standards/`
 4. Return structured findings
 
 ## Output Format

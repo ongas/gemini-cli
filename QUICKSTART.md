@@ -54,7 +54,7 @@ You should see:
 ```
 ✓ Initialized .project-standards in current directory
 Project standards initialized successfully!
-You can customize the standards in .project-standards/standards/
+You can customize the standards in .project-standards/
 These will be automatically injected into coding prompts.
 ```
 
@@ -89,7 +89,7 @@ You'll see console output showing standards being automatically loaded:
 [ProjectStandards] Injecting project standards context (2847 characters) into prompt
 ```
 
-The generated code will follow the standards in `.project-standards/standards/`.
+The generated code will follow the standards in `.project-standards/`.
 
 ### 6. Test Sub-Agent Delegation
 
@@ -116,8 +116,8 @@ mkdir my-app && cd my-app
 gemini --init-standards
 
 # Customize standards
-nano .project-standards/standards/code-style.md
-nano .project-standards/standards/best-practices.md
+nano .project-standards/code-style.md
+nano .project-standards/best-practices.md
 
 # Start coding - standards will be automatically applied
 echo "Create a REST API endpoint for user registration" | gemini --prompt-interactive
@@ -175,7 +175,7 @@ Check console output for `[ProjectStandards]` messages. If you see "No .project-
 ## Next Steps
 
 - Read [docs/cli/project-standards.md](./docs/cli/project-standards.md) for complete documentation on project standards
-- Customize `.project-standards/standards/` files for your project
+- Customize `.project-standards/` files for your project
 - Explore the `task` tool for delegating complex work to sub-agents
 - Read about other features in the [docs](./docs/) directory
 

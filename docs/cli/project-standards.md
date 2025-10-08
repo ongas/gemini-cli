@@ -16,21 +16,20 @@ This creates a `.project-standards/` directory structure with template standards
 
 ```
 .project-standards/
-└── standards/
-    ├── code-style.md         # General coding standards
-    ├── best-practices.md     # Project best practices
-    ├── tech-stack.md         # Technology stack guidelines
-    └── code-style/           # Language-specific standards
-        ├── javascript-style.md
-        ├── html-style.md
-        └── css-style.md
+├── code-style.md         # General coding standards
+├── best-practices.md     # Project best practices
+├── tech-stack.md         # Technology stack guidelines
+└── code-style/           # Language-specific standards
+    ├── javascript-style.md
+    ├── html-style.md
+    └── css-style.md
 ```
 
 ## How It Works
 
 ### Automatic Standards Injection
 
-The most powerful feature is automatic standards injection. When you're working in a project with `.project-standards/standards/`, these standards are automatically applied to relevant tasks.
+The most powerful feature is automatic standards injection. When you're working in a project with `.project-standards/`, these standards are automatically applied to relevant tasks.
 
 1. **Task Detection**: When you send a prompt, Gemini CLI automatically detects the task type:
    - `coding` - Creating/modifying code
@@ -41,7 +40,7 @@ The most powerful feature is automatic standards injection. When you're working 
 
 2. **Language Detection**: Identifies programming languages mentioned in your prompt
 
-3. **Standards Loading**: Automatically loads relevant standards from `.project-standards/standards/`:
+3. **Standards Loading**: Automatically loads relevant standards from `.project-standards/`:
    - General code style rules
    - Language-specific standards
    - Best practices
@@ -60,8 +59,8 @@ Write a JavaScript function to validate an email address
 **What Gemini CLI does automatically:**
 
 ```
-[Loads .project-standards/standards/code-style.md]
-[Loads .project-standards/standards/code-style/javascript-style.md]
+[Loads .project-standards/code-style.md]
+[Loads .project-standards/code-style/javascript-style.md]
 [Detects: coding task, JavaScript language]
 [Injects standards into prompt]
 ```
@@ -80,7 +79,7 @@ Write a JavaScript function to validate an email address
 
 ## Customizing Standards
 
-Edit the files in `.project-standards/standards/` to match your project's needs:
+Edit the files in `.project-standards/` to match your project's needs:
 
 ### code-style.md
 
@@ -130,7 +129,7 @@ Your technology stack and architectural decisions:
 
 ### Language-Specific Standards
 
-Create files in `.project-standards/standards/code-style/` for language-specific rules:
+Create files in `.project-standards/code-style/` for language-specific rules:
 
 **javascript-style.md:**
 
@@ -210,7 +209,7 @@ If you need to temporarily work without standards injection, work in a directory
 
 Check that:
 
-1. You have a `.project-standards/standards/` directory in your project or a parent directory
+1. You have a `.project-standards/` directory in your project or a parent directory
 2. The standard files contain content (not empty)
 3. Your prompt includes keywords that trigger task detection (like "write", "create", "implement")
 4. You see `[ProjectStandards]` log messages indicating detection

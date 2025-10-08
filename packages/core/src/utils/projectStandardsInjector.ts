@@ -123,14 +123,13 @@ export async function findProjectStandardsDirectory(
 export async function loadProjectStandards(
   projectStandardsDir: string,
 ): Promise<ProjectStandards> {
-  const standardsDir = path.join(projectStandardsDir, 'standards');
   const standards: ProjectStandards = {
     languageSpecific: {},
   };
 
   try {
     // Load core standards files
-    const codeStylePath = path.join(standardsDir, 'code-style.md');
+    const codeStylePath = path.join(projectStandardsDir, 'code-style.md');
     try {
       standards.codeStyle = await fs.readFile(codeStylePath, 'utf-8');
       logger.debug('Loaded code-style.md');
@@ -138,7 +137,10 @@ export async function loadProjectStandards(
       logger.debug('No code-style.md found');
     }
 
-    const bestPracticesPath = path.join(standardsDir, 'best-practices.md');
+    const bestPracticesPath = path.join(
+      projectStandardsDir,
+      'best-practices.md',
+    );
     try {
       standards.bestPractices = await fs.readFile(bestPracticesPath, 'utf-8');
       logger.debug('Loaded best-practices.md');
@@ -146,7 +148,7 @@ export async function loadProjectStandards(
       logger.debug('No best-practices.md found');
     }
 
-    const techStackPath = path.join(standardsDir, 'tech-stack.md');
+    const techStackPath = path.join(projectStandardsDir, 'tech-stack.md');
     try {
       standards.techStack = await fs.readFile(techStackPath, 'utf-8');
       logger.debug('Loaded tech-stack.md');
@@ -155,7 +157,7 @@ export async function loadProjectStandards(
     }
 
     // Load language-specific standards
-    const codeStyleSubdir = path.join(standardsDir, 'code-style');
+    const codeStyleSubdir = path.join(projectStandardsDir, 'code-style');
     try {
       const files = await fs.readdir(codeStyleSubdir);
       for (const file of files) {

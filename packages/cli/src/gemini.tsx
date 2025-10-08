@@ -237,9 +237,7 @@ export async function main() {
       }
 
       console.log('\nProject standards initialized successfully!');
-      console.log(
-        'You can customize the standards in .project-standards/standards/',
-      );
+      console.log('You can customize the standards in .project-standards/');
       console.log('These will be automatically injected into coding prompts.');
       process.exit(0);
     } catch (error) {

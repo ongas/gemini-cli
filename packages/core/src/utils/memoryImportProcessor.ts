@@ -8,7 +8,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { isSubpath } from './paths.js';
 import { marked, type Token } from 'marked';
-import { maybeConvertAgentOsInstructions } from './agentOsInstructionParser.js';
+import { maybeConvertClaudeCodeInstructions } from './claudeCodeInstructionParser.js';
 
 // Simple console logger for import processing
 const logger = {
@@ -286,7 +286,7 @@ export async function processImports(
           let importedContent = await fs.readFile(fullPath, 'utf-8');
 
           // Convert workflow instructions if needed
-          importedContent = maybeConvertAgentOsInstructions(
+          importedContent = maybeConvertClaudeCodeInstructions(
             importedContent,
             fullPath,
           );
@@ -361,7 +361,7 @@ export async function processImports(
       let fileContent = await fs.readFile(fullPath, 'utf-8');
 
       // Convert workflow instructions if needed
-      fileContent = maybeConvertAgentOsInstructions(fileContent, fullPath);
+      fileContent = maybeConvertClaudeCodeInstructions(fileContent, fullPath);
 
       // Mark this file as processed for this import chain
       const newImportState: ImportState = {

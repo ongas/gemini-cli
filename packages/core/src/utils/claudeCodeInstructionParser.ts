@@ -8,6 +8,9 @@
  * Parses workflow instructions and converts Claude Code-specific syntax
  * to Gemini CLI-compatible syntax.
  *
+ * This parser provides compatibility for workflows written for Claude Code
+ * (Anthropic's official CLI), allowing them to work with Gemini CLI.
+ *
  * This parser handles:
  * - <step subagent="..."> directives
  * - Claude Code Task tool references
@@ -15,7 +18,7 @@
  */
 
 /**
- * Converts workflow instructions from Claude Code format to Gemini format.
+ * Converts workflow instructions from Claude Code format to Gemini CLI format.
  *
  * Key transformations:
  * 1. <step subagent="agent-name"> -> Instructions to use the agent_name tool
@@ -25,7 +28,7 @@
  * @param content The original instruction content
  * @returns Transformed content compatible with Gemini CLI
  */
-export function convertAgentOsInstructions(content: string): string {
+export function convertClaudeCodeInstructions(content: string): string {
   let converted = content;
 
   // Pattern 1: Convert <step subagent="agent-name"> attributes
@@ -121,43 +124,34 @@ you should invoke: \`context_fetcher(task: "Get product pitch from mission-lite.
 }
 
 /**
- * Checks if content appears to contain workflow instructions
- * that need conversion.
+ * Checks if content appears to contain Claude Code workflow syntax
+ * that needs conversion.
  *
  * @param content The content to check
  * @returns true if conversion is likely needed
  */
-export function needsAgentOsConversion(content: string): boolean {
+export function needsClaudeCodeConversion(content: string): boolean {
   return (
     content.includes('subagent') ||
-    content.includes('<step') ||
-    content.includes('@.agent-os/') ||
-    content.includes('@.project-standards/')
+    content.includes('<step')
   );
 }
 
 /**
- * Converts content from a file if it appears to be workflow instructions.
+ * Converts content from a file if it appears to contain Claude Code workflow syntax.
  * Otherwise returns content unchanged.
  *
  * @param content The file content
  * @param filePath The path to the file (for context)
  * @returns Converted or original content
  */
-export function maybeConvertAgentOsInstructions(
+export function maybeConvertClaudeCodeInstructions(
   content: string,
   filePath: string,
 ): string {
-  // Only convert files that appear to be in the .agent-os or .project-standards directory
-  // or contain workflow syntax (backward compatibility for .agent-os)
-  const isAgentOsFile =
-    filePath.includes('.agent-os/') ||
-    filePath.includes('/.agent-os/') ||
-    filePath.includes('.project-standards/') ||
-    filePath.includes('/.project-standards/');
-
-  if (isAgentOsFile && needsAgentOsConversion(content)) {
-    return convertAgentOsInstructions(content);
+  // Convert if content contains Claude Code workflow syntax
+  if (needsClaudeCodeConversion(content)) {
+    return convertClaudeCodeInstructions(content);
   }
 
   return content;

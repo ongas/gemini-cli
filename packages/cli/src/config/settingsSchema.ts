@@ -1006,9 +1006,9 @@ const SETTINGS_SCHEMA = {
         label: 'Enable Subagents',
         category: 'Experimental',
         requiresRestart: true,
-        default: true, // Enabled by default to support Agent OS workflows
+        default: true, // Enabled by default to support multi-agent workflows
         description:
-          'Enable subagents for Agent OS workflows and specialized tasks.',
+          'Enable subagents for multi-agent workflows and specialized tasks.',
         showInDialog: false,
       },
     },

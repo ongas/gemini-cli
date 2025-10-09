@@ -201,6 +201,13 @@ export class ToolRegistry {
       }
     }
     this.tools.set(tool.name, tool);
+
+    // Log MCP tool registration for visibility
+    if (tool instanceof DiscoveredMCPTool) {
+      console.log(
+        `✓ Registered MCP tool: ${tool.name} (from ${tool.serverName})`,
+      );
+    }
   }
 
   private removeDiscoveredTools(): void {

@@ -13,7 +13,8 @@ Within Gemini CLI, `packages/cli` is the frontend for users to send and receive 
 
 ## Advanced features
 
-- **[Agent-OS Integration](./agent-os.md):** Structured workflows, automatic standards injection, and sub-agent capabilities for AI-powered development.
+- **[Project Standards](./project-standards.md):** Automatic injection of coding standards and best practices into every prompt.
+- **[Custom Agents](./agents.md):** Define specialized sub-agents that the orchestrator can autonomously invoke for focused tasks.
 - **[Checkpointing](./checkpointing.md):** Automatically save and restore snapshots of your session and files.
 - **[Enterprise Configuration](./enterprise.md):** Deploying and manage Gemini CLI in an enterprise environment.
 - **[Sandboxing](./sandbox.md):** Isolate tool execution in a secure, containerized environment.

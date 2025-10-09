@@ -37,20 +37,14 @@ for (const file of sbFiles) {
   copyFileSync(join(root, file), join(bundleDir, basename(file)));
 }
 
-// Copy Agent-OS assets
-const agentsDir = join(root, 'agents');
-const templateDir = join(root, '.agent-os-template');
-
-if (existsSync(agentsDir)) {
-  cpSync(agentsDir, join(bundleDir, 'agents'), { recursive: true });
-  console.log('Copied agents/ to bundle/');
-}
+// Copy project standards template
+const templateDir = join(root, '.project-standards-template');
 
 if (existsSync(templateDir)) {
-  cpSync(templateDir, join(bundleDir, '.agent-os-template'), {
+  cpSync(templateDir, join(bundleDir, '.project-standards-template'), {
     recursive: true,
   });
-  console.log('Copied .agent-os-template/ to bundle/');
+  console.log('Copied .project-standards-template/ to bundle/');
 }
 
 console.log('Assets copied to bundle/');

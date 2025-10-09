@@ -39,7 +39,7 @@ import { handleFallback } from '../fallback/handler.js';
 import { isFunctionResponse } from '../utils/messageInspectors.js';
 import { partListUnionToString } from './geminiRequest.js';
 import { uiTelemetryService } from '../telemetry/uiTelemetry.js';
-import { injectAgentOsContext } from '../utils/agentOsContextInjector.js';
+import { injectProjectStandards } from '../utils/projectStandardsInjector.js';
 
 export enum StreamEventType {
   /** A regular content chunk from the API. */
@@ -237,7 +237,7 @@ export class GeminiChat {
     });
     this.sendPromise = streamDonePromise;
 
-    // Inject Agent-OS context if applicable
+    // Inject project standards context if applicable
     let messageWithContext = params.message;
     // Extract text from PartListUnion for context injection
     if (Array.isArray(params.message)) {
@@ -254,7 +254,7 @@ export class GeminiChat {
             : firstTextPart.text;
 
         const workingDir = this.config.getTargetDir();
-        const textWithContext = await injectAgentOsContext(
+        const textWithContext = await injectProjectStandards(
           originalText,
           workingDir,
         );
@@ -272,7 +272,7 @@ export class GeminiChat {
       }
     } else if (typeof params.message === 'string') {
       const workingDir = this.config.getTargetDir();
-      messageWithContext = await injectAgentOsContext(
+      messageWithContext = await injectProjectStandards(
         params.message,
         workingDir,
       );

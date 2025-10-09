@@ -136,15 +136,92 @@ npm run build:all
 
 To skip building the sandbox container, you can use `npm run build` instead.
 
-### Running
+### Running the Development Build
 
-To start the Gemini CLI from the source code (after building), run the following command from the root directory:
+There are several ways to run your development build of Gemini CLI. Choose the approach that best fits your workflow.
+
+#### Option 1: Direct Execution (No Installation)
+
+Run directly from the repository without any setup:
 
 ```bash
+# From the repo root
 npm start
+
+# Or run the bundle directly
+node bundle/gemini.js
 ```
 
-If you'd like to run the source build outside of the gemini-cli folder, you can utilize `npm link path/to/gemini-cli/packages/cli` (see: [docs](https://docs.npmjs.com/cli/v9/commands/npm-link)) or `alias gemini="node path/to/gemini-cli/packages/cli"` to run with `gemini`
+**Pros:** Simple, no setup required
+**Cons:** Must be in the repo directory, long command
+
+#### Option 2: Shell Alias (Recommended for Development)
+
+Add an alias to your shell configuration (`~/.bashrc`, `~/.zshrc`, etc.):
+
+```bash
+# Add this to your shell config
+alias gemini='NODE_NO_WARNINGS=1 node /absolute/path/to/gemini-cli/bundle/gemini.js'
+
+# Then reload your shell
+source ~/.bashrc  # or ~/.zshrc
+```
+
+Now you can run `gemini` from anywhere.
+
+**Pros:** Fast, works from any directory, easy to update
+**Cons:** Must update alias if you move the repo
+
+#### Option 3: npm link (Global Development Install)
+
+Create a global symlink to your development build:
+
+```bash
+# From the repo root
+npm link
+```
+
+This creates a global `gemini-ma` command that points to your development bundle.
+
+**Pros:** Works like a real installation, auto-updates when you rebuild
+**Cons:** Command name is `gemini-ma` (not `gemini`), can conflict with production installs
+
+To uninstall:
+```bash
+npm unlink -g
+```
+
+#### Option 4: Wrapper Script (Most Flexible)
+
+Create a standalone script in your PATH:
+
+```bash
+# Create the script
+mkdir -p ~/bin
+cat > ~/bin/gemini << 'EOF'
+#!/bin/bash
+NODE_NO_WARNINGS=1 node /absolute/path/to/gemini-cli/bundle/gemini.js "$@"
+EOF
+
+# Make it executable
+chmod +x ~/bin/gemini
+
+# Ensure ~/bin is in PATH (if not already)
+export PATH="$HOME/bin:$PATH"
+```
+
+**Pros:** Clean command name (`gemini`), portable, easy to switch versions
+**Cons:** Requires PATH setup, manual script creation
+
+#### Rebuilding After Changes
+
+After making code changes, rebuild the bundle:
+
+```bash
+npm run bundle
+```
+
+All methods above will automatically use the new build (no reinstallation needed).
 
 ### Running Tests
 

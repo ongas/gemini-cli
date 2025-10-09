@@ -191,6 +191,12 @@ To uninstall:
 npm unlink -g
 ```
 
+**Troubleshooting:** If `gemini-ma` shows the Node.js REPL instead of the CLI, your shell has cached the old command location. Fix it with:
+```bash
+hash -r  # Clear bash command cache
+# Or just open a new terminal
+```
+
 #### Option 4: Wrapper Script
 
 Create a standalone script in your PATH:

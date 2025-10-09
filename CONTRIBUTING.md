@@ -161,16 +161,16 @@ Add an alias to your shell configuration (`~/.bashrc`, `~/.zshrc`, etc.):
 
 ```bash
 # Add this to your shell config
-alias gemini-dev='NODE_NO_WARNINGS=1 node /absolute/path/to/gemini-cli/bundle/gemini.js'
+alias gemini-ma='NODE_NO_WARNINGS=1 node /absolute/path/to/gemini-cli/bundle/gemini.js'
 
 # Then reload your shell
 source ~/.bashrc  # or ~/.zshrc
 ```
 
-Now you can run `gemini-dev` from anywhere without conflicting with a production `gemini` installation.
+Now you can run `gemini-ma` from anywhere.
 
-**Pros:** Fast, works from any directory, doesn't conflict with production install
-**Cons:** Must update alias if you move the repo, different command name
+**Pros:** Fast, works from any directory, matches package name
+**Cons:** Must update alias if you move the repo
 
 #### Option 3: npm link (Global Development Install)
 
@@ -191,28 +191,26 @@ To uninstall:
 npm unlink -g
 ```
 
-#### Option 4: Wrapper Script (Custom Command Name)
+#### Option 4: Wrapper Script
 
 Create a standalone script in your PATH:
 
 ```bash
-# Create the script (use gemini-dev to avoid conflicts)
+# Create the script
 mkdir -p ~/bin
-cat > ~/bin/gemini-dev << 'EOF'
+cat > ~/bin/gemini-ma << 'EOF'
 #!/bin/bash
 NODE_NO_WARNINGS=1 node /absolute/path/to/gemini-cli/bundle/gemini.js "$@"
 EOF
 
 # Make it executable
-chmod +x ~/bin/gemini-dev
+chmod +x ~/bin/gemini-ma
 
 # Ensure ~/bin is in PATH (if not already)
 export PATH="$HOME/bin:$PATH"
 ```
 
-**Note:** If you want to replace your production `gemini` installation entirely, name the script `gemini` instead of `gemini-dev`.
-
-**Pros:** Portable, easy to switch versions, can choose command name
+**Pros:** Portable, easy to switch versions, matches package name
 **Cons:** Requires PATH setup, manual script creation
 
 #### Rebuilding After Changes

@@ -20,10 +20,7 @@ import { toParts } from '../code_assist/converter.js';
 import { createUserContent } from '@google/genai';
 import { retryWithBackoff } from '../utils/retry.js';
 import type { Config } from '../config/config.js';
-import {
-  DEFAULT_GEMINI_FLASH_MODEL,
-  getEffectiveModel,
-} from '../config/models.js';
+import { getEffectiveModel } from '../config/models.js';
 import { hasCycleInSchema, MUTATOR_KINDS } from '../tools/tools.js';
 import type { StructuredError } from './turn.js';
 import {
@@ -544,15 +541,6 @@ export class GeminiChat {
         this.config.isInFallbackMode(),
         model,
       );
-
-      if (
-        this.config.getQuotaErrorOccurred() &&
-        modelToUse === DEFAULT_GEMINI_FLASH_MODEL
-      ) {
-        throw new Error(
-          'Please submit a new query to continue with the Flash model.',
-        );
-      }
 
       return this.config.getContentGenerator().generateContentStream(
         {

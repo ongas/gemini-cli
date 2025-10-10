@@ -224,18 +224,22 @@ function analyzeContextSize(
 ): ContextSizeInfo {
   const historyTokens = estimateTokenCount(history);
   const systemTokens = estimateStringTokens(systemInstruction);
-  const toolsTokens = tools
-    ? estimateStringTokens(JSON.stringify(tools))
-    : 0;
+  const toolsTokens = tools ? estimateStringTokens(JSON.stringify(tools)) : 0;
   const total = historyTokens + systemTokens + toolsTokens;
 
   const breakdown =
-    `Context size: ~${(total/1000).toFixed(1)}K tokens\n` +
-    `  • History: ${(historyTokens/1000).toFixed(1)}K tokens\n` +
-    `  • System: ${(systemTokens/1000).toFixed(1)}K tokens\n` +
-    `  • Tools: ${(toolsTokens/1000).toFixed(1)}K tokens`;
+    `Context size: ~${(total / 1000).toFixed(1)}K tokens\n` +
+    `  • History: ${(historyTokens / 1000).toFixed(1)}K tokens\n` +
+    `  • System: ${(systemTokens / 1000).toFixed(1)}K tokens\n` +
+    `  • Tools: ${(toolsTokens / 1000).toFixed(1)}K tokens`;
 
-  return { total, history: historyTokens, systemInstruction: systemTokens, tools: toolsTokens, breakdown };
+  return {
+    total,
+    history: historyTokens,
+    systemInstruction: systemTokens,
+    tools: toolsTokens,
+    breakdown,
+  };
 }
 
 interface TrimResult {
@@ -255,7 +259,7 @@ function checkAndTrimContext(
   tools: Tool[] | undefined,
 ): TrimResult {
   const limit = tokenLimit(model);
-  const safeLimit = Math.floor(limit * 0.70); // Use 70% of limit as safety threshold
+  const safeLimit = Math.floor(limit * 0.7); // Use 70% of limit as safety threshold
 
   const sizeInfo = analyzeContextSize(history, systemInstruction, tools);
 
@@ -287,7 +291,7 @@ function checkAndTrimContext(
     return {
       trimmedHistory: history.slice(trimIndex),
       warning:
-        `⚠️  Context too large (~${(sizeInfo.total/1000).toFixed(1)}K tokens, limit: ${(limit/1000).toFixed(0)}K).\n` +
+        `⚠️  Context too large (~${(sizeInfo.total / 1000).toFixed(1)}K tokens, limit: ${(limit / 1000).toFixed(0)}K).\n` +
         `Trimmed ${Math.floor(trimIndex / 2)} conversation turn(s), but context is still large.\n` +
         `Consider:\n` +
         `  • Starting a new chat session (/clear)\n` +
@@ -755,24 +759,24 @@ export class GeminiChat {
       if (!hasFinishReason) {
         throw new InvalidStreamError(
           'Model stream ended without a finish reason.\n\n' +
-          'This can happen due to:\n' +
-          '  • Temporary API issues (try again in a moment)\n' +
-          '  • Rate limiting (wait 30-60 seconds)\n' +
-          '  • Request too large (start a new chat with /clear)\n' +
-          '  • Safety filters (try rephrasing your request)',
+            'This can happen due to:\n' +
+            '  • Temporary API issues (try again in a moment)\n' +
+            '  • Rate limiting (wait 30-60 seconds)\n' +
+            '  • Request too large (start a new chat with /clear)\n' +
+            '  • Safety filters (try rephrasing your request)',
           'NO_FINISH_REASON',
         );
       } else {
         throw new InvalidStreamError(
           'Model stream ended with empty response text.\n\n' +
-          'This usually means:\n' +
-          '  • Content was filtered by safety systems\n' +
-          '  • Request was too complex or large\n' +
-          '  • Temporary API issue\n\n' +
-          'Try:\n' +
-          '  • Rephrasing your request\n' +
-          '  • Starting a new chat session (/clear)\n' +
-          '  • Waiting a moment and trying again',
+            'This usually means:\n' +
+            '  • Content was filtered by safety systems\n' +
+            '  • Request was too complex or large\n' +
+            '  • Temporary API issue\n\n' +
+            'Try:\n' +
+            '  • Rephrasing your request\n' +
+            '  • Starting a new chat session (/clear)\n' +
+            '  • Waiting a moment and trying again',
           'NO_RESPONSE_TEXT',
         );
       }

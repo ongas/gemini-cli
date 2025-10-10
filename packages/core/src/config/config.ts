@@ -1145,11 +1145,12 @@ export class Config {
 
         if (isAllowed && !isExcluded) {
           try {
-            const messageBusEnabled = this.getEnableMessageBusIntegration();
+            // Always pass message bus to subagents for tool confirmation support
+            // This allows subagents to request user approval for file writes, shell commands, etc.
             const wrapper = new SubagentToolWrapper(
               definition,
               this,
-              messageBusEnabled ? this.getMessageBus() : undefined,
+              this.getMessageBus(),
             );
             registry.registerTool(wrapper);
             if (this.getDebugMode()) {

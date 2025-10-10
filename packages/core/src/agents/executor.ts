@@ -28,6 +28,9 @@ import { MemoryTool } from '../tools/memoryTool.js';
 import { ReadFileTool } from '../tools/read-file.js';
 import { ReadManyFilesTool } from '../tools/read-many-files.js';
 import { WebSearchTool } from '../tools/web-search.js';
+import { WriteFileTool } from '../tools/write-file.js';
+import { EditTool } from '../tools/edit.js';
+import { ShellTool } from '../tools/shell.js';
 import type {
   AgentDefinition,
   AgentInputs,
@@ -713,35 +716,25 @@ When you have completed your task, you MUST call the \`${TASK_COMPLETE_TOOL_NAME
   }
 
   /**
-   * Validates that all tools in a registry are safe for non-interactive use.
+   * Validates that all tools in a registry are safe for subagent use.
    *
-   * @throws An error if a tool is not on the allow-list for non-interactive execution.
+   * With message bus support, subagents can request user confirmation for any tool,
+   * so no validation is needed. This method is kept for backwards compatibility.
+   *
+   * @throws An error if a tool is not safe (currently never throws with message bus support)
    */
   private static async validateTools(
     toolRegistry: ToolRegistry,
     agentName: string,
   ): Promise<void> {
-    // Tools that are non-interactive. This is temporary until we have tool
-    // confirmations for subagents.
-    const allowlist = new Set([
-      LSTool.Name,
-      ReadFileTool.Name,
-      GrepTool.Name,
-      RipGrepTool.Name,
-      GlobTool.Name,
-      ReadManyFilesTool.Name,
-      MemoryTool.Name,
-      WebSearchTool.Name,
-    ]);
-    for (const tool of toolRegistry.getAllTools()) {
-      if (!allowlist.has(tool.name)) {
-        throw new Error(
-          `Tool "${tool.name}" is not on the allow-list for non-interactive ` +
-            `execution in agent "${agentName}". Only tools that do not require user ` +
-            `confirmation can be used in subagents.`,
-        );
-      }
-    }
+    // With message bus integration, all tools are safe because they can request
+    // user confirmation when needed. No validation required.
+    //
+    // If message bus were disabled, we would need to restrict to read-only tools:
+    // const readOnlyTools = [LSTool.Name, ReadFileTool.Name, GrepTool.Name, ...];
+
+    // No-op - all tools are allowed with confirmation support
+    return;
   }
 
   /**

@@ -534,16 +534,18 @@ export async function main() {
     // Log available agents for user awareness (non-debug mode)
     if (!argv.listExtensions && config.isInteractive()) {
       const agentRegistry = config.getAgentRegistry();
-      const agents = agentRegistry.getAllDefinitions();
-      if (agents.length > 1) {
-        // More than just the default agent
-        const customAgents = agents.filter(
-          (a) => a.name !== 'codebase_investigator',
-        );
-        if (customAgents.length > 0) {
-          console.log(
-            `\n🤖 ${agents.length} specialized agents available (use --list-agents to see all)\n`,
+      if (agentRegistry) {
+        const agents = agentRegistry.getAllDefinitions();
+        if (agents.length > 1) {
+          // More than just the default agent
+          const customAgents = agents.filter(
+            (a) => a.name !== 'codebase_investigator',
           );
+          if (customAgents.length > 0) {
+            console.log(
+              `\n🤖 ${agents.length} specialized agents available (use --list-agents to see all)\n`,
+            );
+          }
         }
       }
     }

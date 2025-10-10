@@ -218,6 +218,7 @@ export async function main() {
     const geminiDir = path.join(cwd, '.gemini');
     const standardsDir = path.join(geminiDir, 'standards');
     const agentsDir = path.join(geminiDir, 'agents');
+    const commandsDir = path.join(geminiDir, 'commands');
 
     // Find the template directory (bundled with package)
     // Resolve the real path to handle npm link symlinks
@@ -252,13 +253,24 @@ export async function main() {
         initialized = true;
       }
 
+      // Create .gemini/commands directory
+      if (fs.existsSync(commandsDir)) {
+        console.log('✓ .gemini/commands/ already exists');
+      } else {
+        await fs.promises.mkdir(commandsDir, { recursive: true });
+        console.log('✓ Created .gemini/commands/ for custom slash commands');
+        initialized = true;
+      }
+
       if (initialized) {
         console.log('\n✨ Project initialized successfully!');
         console.log('\nNext steps:');
         console.log('  • Customize coding standards in .gemini/standards/');
         console.log('  • Add custom agents to .gemini/agents/');
+        console.log('  • Add custom slash commands to .gemini/commands/');
         console.log('  • Standards are auto-injected into prompts');
         console.log('  • Use agents with: gemini-ma --agent <agent-name>');
+        console.log('  • Use commands with: /command-name');
       } else {
         console.log('\n✓ All directories already exist');
       }

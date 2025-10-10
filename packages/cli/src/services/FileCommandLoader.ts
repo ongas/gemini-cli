@@ -96,7 +96,7 @@ export class FileCommandLoader implements ICommandLoader {
     const commandDirs = this.getCommandDirectories();
     for (const dirInfo of commandDirs) {
       try {
-        const files = await glob('**/*.toml', {
+        const files = await glob('**/*.{toml,md}', {
           ...globOptions,
           cwd: dirInfo.path,
         });
@@ -167,8 +167,8 @@ export class FileCommandLoader implements ICommandLoader {
   }
 
   /**
-   * Parses a single .toml file and transforms it into a SlashCommand object.
-   * @param filePath The absolute path to the .toml file.
+   * Parses a single .toml or .md file and transforms it into a SlashCommand object.
+   * @param filePath The absolute path to the file.
    * @param baseDir The root command directory for name calculation.
    * @param extensionName Optional extension name to prefix commands with.
    * @returns A promise resolving to a SlashCommand, or null if the file is invalid.
@@ -189,33 +189,53 @@ export class FileCommandLoader implements ICommandLoader {
       return null;
     }
 
-    let parsed: unknown;
-    try {
-      parsed = toml.parse(fileContent);
-    } catch (error: unknown) {
-      console.error(
-        `[FileCommandLoader] Failed to parse TOML file ${filePath}:`,
-        error instanceof Error ? error.message : String(error),
-      );
-      return null;
+    const isMarkdown = filePath.endsWith('.md');
+    let validDef: { prompt: string; description?: string };
+
+    if (isMarkdown) {
+      // For markdown files, extract first heading as description, use entire content as prompt
+      const lines = fileContent.trim().split('\n');
+      let description: string | undefined;
+
+      if (lines.length > 0 && lines[0].startsWith('#')) {
+        description = lines[0].replace(/^#+\s*/, '').trim();
+      }
+
+      validDef = {
+        prompt: fileContent,
+        description,
+      };
+    } else {
+      // Parse TOML
+      let parsed: unknown;
+      try {
+        parsed = toml.parse(fileContent);
+      } catch (error: unknown) {
+        console.error(
+          `[FileCommandLoader] Failed to parse TOML file ${filePath}:`,
+          error instanceof Error ? error.message : String(error),
+        );
+        return null;
+      }
+
+      const validationResult = TomlCommandDefSchema.safeParse(parsed);
+
+      if (!validationResult.success) {
+        console.error(
+          `[FileCommandLoader] Skipping invalid command file: ${filePath}. Validation errors:`,
+          validationResult.error.flatten(),
+        );
+        return null;
+      }
+
+      validDef = validationResult.data;
     }
-
-    const validationResult = TomlCommandDefSchema.safeParse(parsed);
-
-    if (!validationResult.success) {
-      console.error(
-        `[FileCommandLoader] Skipping invalid command file: ${filePath}. Validation errors:`,
-        validationResult.error.flatten(),
-      );
-      return null;
-    }
-
-    const validDef = validationResult.data;
 
     const relativePathWithExt = path.relative(baseDir, filePath);
+    const extLength = isMarkdown ? 3 : 5; // '.md' or '.toml'
     const relativePath = relativePathWithExt.substring(
       0,
-      relativePathWithExt.length - 5, // length of '.toml'
+      relativePathWithExt.length - extLength,
     );
     const baseCommandName = relativePath
       .split(path.sep)

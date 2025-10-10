@@ -30,6 +30,7 @@ import {
   logContentRetry,
   logContentRetryFailure,
 } from '../telemetry/loggers.js';
+import { tokenLimit } from './tokenLimits.js';
 import { ChatRecordingService } from '../services/chatRecordingService.js';
 import {
   ContentRetryEvent,
@@ -176,6 +177,136 @@ export class InvalidStreamError extends Error {
 }
 
 /**
+ * Estimates token count for content using the approximation: 1 token ≈ 4 characters.
+ * This is a fast, local estimation that doesn't require an API call.
+ */
+function estimateTokenCount(contents: Content[]): number {
+  let totalChars = 0;
+
+  for (const content of contents) {
+    if (!content.parts) continue;
+
+    for (const part of content.parts) {
+      if (part.text) {
+        totalChars += part.text.length;
+      }
+      // Note: We don't estimate tokens for images, files, etc.
+      // Those would need the actual countTokens API
+    }
+  }
+
+  return Math.ceil(totalChars / 4);
+}
+
+/**
+ * Estimates token count for a string.
+ */
+function estimateStringTokens(text: string | undefined): number {
+  if (!text) return 0;
+  return Math.ceil(text.length / 4);
+}
+
+interface ContextSizeInfo {
+  total: number;
+  history: number;
+  systemInstruction: number;
+  tools: number;
+  breakdown: string;
+}
+
+/**
+ * Analyzes context size and returns breakdown.
+ */
+function analyzeContextSize(
+  history: Content[],
+  systemInstruction: string | undefined,
+  tools: Tool[] | undefined,
+): ContextSizeInfo {
+  const historyTokens = estimateTokenCount(history);
+  const systemTokens = estimateStringTokens(systemInstruction);
+  const toolsTokens = tools
+    ? estimateStringTokens(JSON.stringify(tools))
+    : 0;
+  const total = historyTokens + systemTokens + toolsTokens;
+
+  const breakdown =
+    `Context size: ~${(total/1000).toFixed(1)}K tokens\n` +
+    `  • History: ${(historyTokens/1000).toFixed(1)}K tokens\n` +
+    `  • System: ${(systemTokens/1000).toFixed(1)}K tokens\n` +
+    `  • Tools: ${(toolsTokens/1000).toFixed(1)}K tokens`;
+
+  return { total, history: historyTokens, systemInstruction: systemTokens, tools: toolsTokens, breakdown };
+}
+
+interface TrimResult {
+  trimmedHistory: Content[];
+  warning?: string;
+  breakdown?: string;
+}
+
+/**
+ * Proactively checks context size and trims if necessary to prevent API failures.
+ * Uses smart prioritization: trims oldest conversation history first.
+ */
+function checkAndTrimContext(
+  model: string,
+  history: Content[],
+  systemInstruction: string | undefined,
+  tools: Tool[] | undefined,
+): TrimResult {
+  const limit = tokenLimit(model);
+  const safeLimit = Math.floor(limit * 0.70); // Use 70% of limit as safety threshold
+
+  const sizeInfo = analyzeContextSize(history, systemInstruction, tools);
+
+  if (sizeInfo.total < safeLimit) {
+    return { trimmedHistory: history };
+  }
+
+  // Context is too large - need to trim
+  const tokensToRemove = sizeInfo.total - safeLimit;
+
+  // Strategy: Trim oldest conversation history first (keep at least last 2 turns)
+  const minHistoryToKeep = Math.min(4, history.length); // Keep last 2 turns (user + model)
+  let removedTokens = 0;
+  let trimIndex = 0;
+
+  for (let i = 0; i < history.length - minHistoryToKeep; i++) {
+    const msgTokens = estimateTokenCount([history[i]]);
+    removedTokens += msgTokens;
+    trimIndex = i + 1;
+
+    if (removedTokens >= tokensToRemove) {
+      break;
+    }
+  }
+
+  if (removedTokens < tokensToRemove) {
+    // Even after trimming all old history, still too large
+    // This means system instruction or tools are too large
+    return {
+      trimmedHistory: history.slice(trimIndex),
+      warning:
+        `⚠️  Context too large (~${(sizeInfo.total/1000).toFixed(1)}K tokens, limit: ${(limit/1000).toFixed(0)}K).\n` +
+        `Trimmed ${Math.floor(trimIndex / 2)} conversation turn(s), but context is still large.\n` +
+        `Consider:\n` +
+        `  • Starting a new chat session (/clear)\n` +
+        `  • Reducing system instructions\n` +
+        `  • Disabling unused tools`,
+      breakdown: sizeInfo.breakdown,
+    };
+  }
+
+  const removedTurns = Math.floor(trimIndex / 2);
+
+  return {
+    trimmedHistory: history.slice(trimIndex),
+    warning: `⚠️  Context approaching limit. Trimmed ${removedTurns} older conversation turn(s) to prevent errors.`,
+    breakdown: sizeInfo.breakdown,
+  };
+}
+
+/**
  * Chat session that enables sending messages to the model with previous
  * conversation context.
  *
@@ -296,11 +427,29 @@ export class GeminiChat {
 
     // Add user content to history ONCE before any attempts.
     this.history.push(userContent);
-    const requestContents = this.getHistory(true);
+    let requestContents = this.getHistory(true);
+
+    // Proactively check and trim context if needed
+    const { trimmedHistory, warning, breakdown } = checkAndTrimContext(
+      model,
+      requestContents,
+      this.generationConfig.systemInstruction,
+      this.generationConfig.tools,
+    );
+
+    requestContents = trimmedHistory;
 
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;
     return (async function* () {
+      // Show warning to user if trimming occurred
+      if (warning) {
+        console.warn('\n' + warning);
+        if (breakdown && self.config.getDebugMode()) {
+          console.warn(breakdown + '\n');
+        }
+      }
+
       try {
         let lastError: unknown = new Error('Request failed after all retries.');
 
@@ -605,12 +754,25 @@ export class GeminiChat {
     if (!hasToolCall && (!hasFinishReason || !responseText)) {
       if (!hasFinishReason) {
         throw new InvalidStreamError(
-          'Model stream ended without a finish reason.',
+          'Model stream ended without a finish reason.\n\n' +
+          'This can happen due to:\n' +
+          '  • Temporary API issues (try again in a moment)\n' +
+          '  • Rate limiting (wait 30-60 seconds)\n' +
+          '  • Request too large (start a new chat with /clear)\n' +
+          '  • Safety filters (try rephrasing your request)',
           'NO_FINISH_REASON',
         );
       } else {
         throw new InvalidStreamError(
-          'Model stream ended with empty response text.',
+          'Model stream ended with empty response text.\n\n' +
+          'This usually means:\n' +
+          '  • Content was filtered by safety systems\n' +
+          '  • Request was too complex or large\n' +
+          '  • Temporary API issue\n\n' +
+          'Try:\n' +
+          '  • Rephrasing your request\n' +
+          '  • Starting a new chat session (/clear)\n' +
+          '  • Waiting a moment and trying again',
           'NO_RESPONSE_TEXT',
         );
       }

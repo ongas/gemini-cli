@@ -417,19 +417,38 @@ Your core function is efficient and safe assistance. Balance extreme conciseness
   // Build custom agents section if any exist
   let customAgentsSuffix = '';
   if (customAgents.length > 0) {
-    customAgentsSuffix = '\n\n---\n\n# Available Specialist Agents\n\nYou have access to the following specialist agents. When a user request matches an agent\'s specialty, you should delegate to that agent using its tool.\n\n';
+    customAgentsSuffix = '\n\n---\n\n# Available Specialist Agents\n\nYou have access to specialized agents for specific tasks. **When you encounter a user request that matches an agent\'s specialty, you MUST delegate to that agent immediately** using its tool. Do not attempt to handle the request yourself if a specialist agent exists for it.\n\n';
 
     for (const agent of customAgents) {
       const description = agent.description || `Specialist agent: ${agent.displayName || agent.name}`;
       const provider = agent.modelConfig.provider || 'gemini';
       const model = agent.modelConfig.model;
 
-      customAgentsSuffix += `## ${agent.displayName || agent.name} (${agent.name})\n\n`;
+      // Extract trigger keywords from agent name and description
+      const agentNameLower = agent.name.toLowerCase();
+      const descriptionLower = description.toLowerCase();
+      let triggerHints = '';
+
+      // Common trigger patterns based on agent name
+      if (agentNameLower.includes('scaffold')) {
+        triggerHints = '**Trigger keywords:** scaffold, create project, new project, start project, initialize project, setup project, build from scratch\n\n';
+      } else if (agentNameLower.includes('review')) {
+        triggerHints = '**Trigger keywords:** review, check, analyze, audit, examine\n\n';
+      } else if (agentNameLower.includes('test')) {
+        triggerHints = '**Trigger keywords:** test, testing, unit test, write tests, generate tests\n\n';
+      } else if (agentNameLower.includes('doc')) {
+        triggerHints = '**Trigger keywords:** document, documentation, generate docs, write docs\n\n';
+      }
+
+      customAgentsSuffix += `## ${agent.displayName || agent.name}\n\n`;
+      customAgentsSuffix += `**Tool name:** \`${agent.name}\`\n\n`;
       customAgentsSuffix += `**Description:** ${description}\n\n`;
-      customAgentsSuffix += `**Provider:** ${provider} | **Model:** ${model}\n\n`;
-      customAgentsSuffix += `**When to use:** Delegate to this agent when the user's request matches its specialty area.\n\n`;
-      customAgentsSuffix += `**How to invoke:** Use the '${agent.name}' tool with the user's task as input.\n\n`;
+      customAgentsSuffix += triggerHints;
+      customAgentsSuffix += `**Provider/Model:** ${provider}/${model}\n\n`;
+      customAgentsSuffix += `**IMPORTANT:** When you see a user request about ${agent.name.replace(/_/g, ' ')}, immediately use: [tool_call: ${agent.name} with task="${'<user\\'s request>'}"]\n\n`;
     }
+
+    customAgentsSuffix += '\n**Remember:** Always check if a specialist agent exists for the user\'s request BEFORE taking action yourself.\n\n';
   }
 
   const memorySuffix =

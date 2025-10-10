@@ -104,6 +104,12 @@ export function getCoreSystemPrompt(
     .getAllToolNames()
     .includes(CodebaseInvestigatorAgent.name);
 
+  // Get custom agents (excluding built-in codebase_investigator)
+  const customAgents = config
+    .getAgentRegistry()
+    ?.getAllDefinitions()
+    .filter((agent) => agent.name !== 'codebase_investigator') || [];
+
   const basePrompt = systemMdEnabled
     ? fs.readFileSync(systemMdPath, 'utf8')
     : `You are an interactive CLI agent specializing in software engineering tasks. Your primary goal is to help users safely and efficiently, adhering strictly to the following instructions and utilizing your available tools.
@@ -408,12 +414,30 @@ Your core function is efficient and safe assistance. Balance extreme conciseness
     fs.writeFileSync(writePath, basePrompt);
   }
 
+  // Build custom agents section if any exist
+  let customAgentsSuffix = '';
+  if (customAgents.length > 0) {
+    customAgentsSuffix = '\n\n---\n\n# Available Specialist Agents\n\nYou have access to the following specialist agents. When a user request matches an agent\'s specialty, you should delegate to that agent using its tool.\n\n';
+
+    for (const agent of customAgents) {
+      const description = agent.description || `Specialist agent: ${agent.displayName || agent.name}`;
+      const provider = agent.modelConfig.provider || 'gemini';
+      const model = agent.modelConfig.model;
+
+      customAgentsSuffix += `## ${agent.displayName || agent.name} (${agent.name})\n\n`;
+      customAgentsSuffix += `**Description:** ${description}\n\n`;
+      customAgentsSuffix += `**Provider:** ${provider} | **Model:** ${model}\n\n`;
+      customAgentsSuffix += `**When to use:** Delegate to this agent when the user's request matches its specialty area.\n\n`;
+      customAgentsSuffix += `**How to invoke:** Use the '${agent.name}' tool with the user's task as input.\n\n`;
+    }
+  }
+
   const memorySuffix =
     userMemory && userMemory.trim().length > 0
       ? `\n\n---\n\n${userMemory.trim()}`
       : '';
 
-  return `${basePrompt}${memorySuffix}`;
+  return `${basePrompt}${customAgentsSuffix}${memorySuffix}`;
 }
 
 /**

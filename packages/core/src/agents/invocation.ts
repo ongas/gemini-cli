@@ -78,7 +78,17 @@ export class SubagentInvocation<
   ): Promise<ToolResult> {
     try {
       if (updateOutput) {
-        updateOutput('Subagent starting...\n');
+        const provider = this.definition.modelConfig.provider || 'gemini';
+        const model = this.definition.modelConfig.model;
+        const agentName = this.definition.displayName || this.definition.name;
+
+        updateOutput(`\n🤖 Agent Selected: ${agentName}\n`);
+        updateOutput(`   Provider: ${provider}\n`);
+        updateOutput(`   Model: ${model}\n`);
+        updateOutput(
+          `   Task: ${String(this.params['task'] || 'N/A').slice(0, 100)}...\n\n`,
+        );
+        updateOutput('Starting agent execution...\n');
       }
 
       // Create an activity callback to bridge the executor's events to the
@@ -102,19 +112,34 @@ export class SubagentInvocation<
 
       const output = await executor.run(this.params, signal);
 
-      const resultContent = `Subagent '${this.definition.name}' finished.
-Termination Reason: ${output.terminate_reason}
-Result:
-${output.result}`;
+      if (updateOutput) {
+        const agentName = this.definition.displayName || this.definition.name;
+        updateOutput(`\n✅ Agent Completed: ${agentName}\n`);
+        updateOutput(`   Status: ${output.terminate_reason}\n\n`);
+      }
 
-      const displayContent = `
-Subagent ${this.definition.name} Finished
+      // Format the result for better readability
+      let formattedResult = output.result;
 
-Termination Reason:\n ${output.terminate_reason}
+      // If result looks like JSON, try to parse and format it nicely
+      if (
+        typeof formattedResult === 'string' &&
+        formattedResult.trim().startsWith('{')
+      ) {
+        try {
+          const parsed = JSON.parse(formattedResult);
+          // If it has a 'result' field, extract it
+          if (parsed.result && typeof parsed.result === 'string') {
+            formattedResult = parsed.result;
+          }
+        } catch {
+          // If parsing fails, keep original
+        }
+      }
 
-Result:
-${output.result}
-`;
+      const resultContent = `Subagent '${this.definition.name}' finished.\n\n${formattedResult}`;
+
+      const displayContent = formattedResult;
 
       return {
         llmContent: [{ text: resultContent }],

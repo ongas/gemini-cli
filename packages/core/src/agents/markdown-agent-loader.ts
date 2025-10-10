@@ -187,6 +187,29 @@ export class MarkdownAgentLoader {
       );
     }
 
+    // Parse model configuration overrides
+    // Format: **Temperature:** 0.7 or **Temp:** 0.7
+    const tempMatch = content.match(
+      /\*\*(?:Temperature|Temp):\*\*\s*([0-9.]+)/i,
+    );
+    const temperature = tempMatch ? parseFloat(tempMatch[1]) : 0.2;
+
+    // Format: **Model:** gemini-2.0-flash-exp
+    const modelMatch = content.match(/\*\*Model:\*\*\s*([^\n]+)/i);
+    const model = modelMatch ? modelMatch[1].trim() : DEFAULT_GEMINI_MODEL;
+
+    // Format: **Provider:** ollama
+    const providerMatch = content.match(/\*\*Provider:\*\*\s*([^\n]+)/i);
+    const provider = providerMatch
+      ? providerMatch[1].trim().toLowerCase()
+      : undefined;
+
+    if (debugMode && (tempMatch || modelMatch || providerMatch)) {
+      console.log(
+        `[MarkdownAgentLoader] Model config from ${filePath}: model=${model}, temp=${temperature}, provider=${provider || 'default'}`,
+      );
+    }
+
     // The entire markdown content becomes the system prompt
     const systemPrompt = content.trim();
 
@@ -211,10 +234,11 @@ export class MarkdownAgentLoader {
         schema: z.unknown(),
       },
       modelConfig: {
-        model: DEFAULT_GEMINI_MODEL,
-        temp: 0.2,
+        model,
+        temp: temperature,
         top_p: 0.95,
         thinkingBudget: -1,
+        ...(provider && { provider }),
       },
       runConfig: {
         max_time_minutes: 5,

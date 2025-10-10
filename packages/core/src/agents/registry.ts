@@ -30,10 +30,18 @@ export class AgentRegistry {
     this.loadBuiltInAgents();
     await this.loadMarkdownAgents();
 
-    if (this.config.getDebugMode()) {
+    const debugMode = this.config.getDebugMode();
+
+    if (debugMode) {
       console.log(
-        `[AgentRegistry] Initialized with ${this.agents.size} agents.`,
+        `[AgentRegistry] Initialized with ${this.agents.size} agents:`,
       );
+      for (const agent of this.agents.values()) {
+        const provider = agent.modelConfig.provider || 'gemini';
+        console.log(
+          `  - ${agent.displayName || agent.name} (${provider}/${agent.modelConfig.model})`,
+        );
+      }
     }
   }
 

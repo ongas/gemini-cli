@@ -24,6 +24,12 @@ export * from './core/geminiRequest.js';
 export * from './core/coreToolScheduler.js';
 export * from './core/nonInteractiveToolExecutor.js';
 
+// Export Agents
+export * from './agents/registry.js';
+export * from './agents/markdown-agent-loader.js';
+export * from './agents/codebase-investigator.js';
+export * from './agents/types.js';
+
 export * from './fallback/types.js';
 
 export * from './code_assist/codeAssist.js';

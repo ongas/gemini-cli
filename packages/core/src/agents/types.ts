@@ -155,6 +155,7 @@ export interface ModelConfig {
   temp: number;
   top_p: number;
   thinkingBudget?: number;
+  provider?: string;
 }
 
 /**

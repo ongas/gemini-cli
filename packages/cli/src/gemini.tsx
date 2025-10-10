@@ -209,39 +209,182 @@ export async function main() {
 
   const argv = await parseArguments(settings.merged);
 
-  // Handle --init-standards flag
-  if (argv.initStandards) {
+  // Handle --init flag
+  if (argv.init) {
     const fs = await import('node:fs');
     const path = await import('node:path');
 
     const cwd = process.cwd();
-    const standardsDir = path.join(cwd, '.project-standards');
+    const geminiDir = path.join(cwd, '.gemini');
+    const standardsDir = path.join(geminiDir, 'standards');
+    const agentsDir = path.join(geminiDir, 'agents');
 
     // Find the template directory (bundled with package)
-    // When running from bundle, assets are in bundle/ directory
-    const scriptPath = process.argv[1];
+    // Resolve the real path to handle npm link symlinks
+    const scriptPath = fs.realpathSync(process.argv[1]);
     const packageRoot = path.dirname(scriptPath); // This is the bundle directory
-    const templateDir = path.join(packageRoot, '.project-standards-template');
+    const templateDir = path.join(packageRoot, '.gemini-template');
 
     try {
-      // Copy .project-standards template to current directory
+      let initialized = false;
+
+      // Create .gemini/standards from template
       if (fs.existsSync(standardsDir)) {
-        console.log('✓ .project-standards already exists in current directory');
+        console.log('✓ .gemini/standards/ already exists');
       } else {
         if (!fs.existsSync(templateDir)) {
           console.error(`Error: Template not found at ${templateDir}`);
           process.exit(1);
         }
         await fs.promises.cp(templateDir, standardsDir, { recursive: true });
-        console.log('✓ Initialized .project-standards in current directory');
+        console.log(
+          '✓ Created .gemini/standards/ with coding standards templates',
+        );
+        initialized = true;
       }
 
-      console.log('\nProject standards initialized successfully!');
-      console.log('You can customize the standards in .project-standards/');
-      console.log('These will be automatically injected into coding prompts.');
+      // Create .gemini/agents directory
+      if (fs.existsSync(agentsDir)) {
+        console.log('✓ .gemini/agents/ already exists');
+      } else {
+        await fs.promises.mkdir(agentsDir, { recursive: true });
+        console.log('✓ Created .gemini/agents/ for custom agent definitions');
+        initialized = true;
+      }
+
+      if (initialized) {
+        console.log('\n✨ Project initialized successfully!');
+        console.log('\nNext steps:');
+        console.log('  • Customize coding standards in .gemini/standards/');
+        console.log('  • Add custom agents to .gemini/agents/');
+        console.log('  • Standards are auto-injected into prompts');
+        console.log('  • Use agents with: gemini-ma --agent <agent-name>');
+      } else {
+        console.log('\n✓ All directories already exist');
+      }
       process.exit(0);
     } catch (error) {
-      console.error('Error initializing project standards:', error);
+      console.error('Error initializing project:', error);
+      process.exit(1);
+    }
+  }
+
+  // Handle --list-agents flag
+  if (argv.listAgents) {
+    try {
+      const path = await import('node:path');
+      const fs = await import('node:fs');
+      const { CodebaseInvestigatorAgent } = await import(
+        '@google/gemini-cli-core'
+      );
+
+      const cwd = process.cwd();
+      const geminiAgentsDir = path.join(cwd, '.gemini', 'agents');
+
+      // Start with built-in agents
+      const agents: any[] = [CodebaseInvestigatorAgent];
+
+      // Load custom agents from .gemini/agents/
+      if (fs.existsSync(geminiAgentsDir)) {
+        try {
+          const files = await fs.promises.readdir(geminiAgentsDir);
+          const mdFiles = files.filter((f: string) => f.endsWith('.md'));
+
+          for (const file of mdFiles) {
+            const filePath = path.join(geminiAgentsDir, file);
+            const content = await fs.promises.readFile(filePath, 'utf-8');
+
+            // Parse basic agent info from markdown
+            const lines = content.split('\n');
+            const firstLine = lines[0]?.trim();
+            const displayName = firstLine?.startsWith('#')
+              ? firstLine.replace(/^#+\s*/, '')
+              : file.replace('.md', '');
+            const agentName = file.replace('.md', '').replace(/-/g, '_');
+
+            // Extract description (first non-empty line after heading)
+            let description = '';
+            for (let i = 1; i < lines.length; i++) {
+              const line = lines[i].trim();
+              if (line && !line.startsWith('**') && !line.startsWith('#')) {
+                description = line;
+                break;
+              }
+            }
+
+            // Extract metadata
+            const providerMatch = content.match(
+              /\*\*Provider:\*\*\s*([^\n]+)/i,
+            );
+            const modelMatch = content.match(/\*\*Model:\*\*\s*([^\n]+)/i);
+            const tempMatch = content.match(
+              /\*\*(?:Temperature|Temp):\*\*\s*([0-9.]+)/i,
+            );
+            const toolsMatch = content.match(/\*\*Tools:\*\*\s*([^\n]+)/i);
+
+            agents.push({
+              name: agentName,
+              displayName,
+              description: description || `Custom agent: ${displayName}`,
+              modelConfig: {
+                provider: providerMatch
+                  ? providerMatch[1].trim().toLowerCase()
+                  : undefined,
+                model: modelMatch
+                  ? modelMatch[1].trim()
+                  : 'gemini-2.0-flash-exp',
+                temp: tempMatch ? parseFloat(tempMatch[1]) : 0.2,
+              },
+              toolConfig: toolsMatch
+                ? {
+                    tools: toolsMatch[1]
+                      .split(',')
+                      .map((t: string) => t.trim()),
+                  }
+                : undefined,
+            });
+          }
+        } catch (error) {
+          console.warn('Warning: Could not load custom agents:', error);
+        }
+      }
+
+      if (agents.length === 0) {
+        console.log('No agents found.');
+        console.log('\nTo add agents:');
+        console.log('  1. Run: gemini-ma --init');
+        console.log('  2. Create agent definitions in .gemini/agents/');
+        process.exit(0);
+      }
+
+      console.log('\n📋 Available Agents:\n');
+
+      for (const agent of agents) {
+        const provider = agent.modelConfig.provider || 'gemini';
+        const model = agent.modelConfig.model;
+        const temp = agent.modelConfig.temp;
+        const toolCount = agent.toolConfig?.tools?.length || 'all';
+
+        console.log(`  ${agent.displayName || agent.name}`);
+        console.log(`    Name: ${agent.name}`);
+        console.log(`    Provider: ${provider}`);
+        console.log(`    Model: ${model}`);
+        console.log(`    Temperature: ${temp}`);
+        console.log(`    Tools: ${toolCount}`);
+        console.log(`    Description: ${agent.description}`);
+        console.log('');
+      }
+
+      console.log('Usage:');
+      console.log('  gemini-ma --agent <agent-name> "<your task>"');
+      console.log('\nExample:');
+      console.log(
+        '  gemini-ma --agent code_investigator "Find error handling code"\n',
+      );
+
+      process.exit(0);
+    } catch (error) {
+      console.error('Error listing agents:', error);
       process.exit(1);
     }
   }
@@ -387,6 +530,23 @@ export async function main() {
       sessionId,
       argv,
     );
+
+    // Log available agents for user awareness (non-debug mode)
+    if (!argv.listExtensions && config.isInteractive()) {
+      const agentRegistry = config.getAgentRegistry();
+      const agents = agentRegistry.getAllDefinitions();
+      if (agents.length > 1) {
+        // More than just the default agent
+        const customAgents = agents.filter(
+          (a) => a.name !== 'codebase_investigator',
+        );
+        if (customAgents.length > 0) {
+          console.log(
+            `\n🤖 ${agents.length} specialized agents available (use --list-agents to see all)\n`,
+          );
+        }
+      }
+    }
 
     if (config.getListExtensions()) {
       console.log('Installed extensions:');

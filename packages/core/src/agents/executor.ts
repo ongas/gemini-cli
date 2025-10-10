@@ -39,6 +39,9 @@ import { templateString } from './utils.js';
 import { parseThought } from '../utils/thoughtUtils.js';
 import { type z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
+import { AuthType } from '../core/contentGenerator.js';
+import { OllamaContentGenerator } from '../core/ollamaContentGenerator.js';
+import { LoggingContentGenerator } from '../core/loggingContentGenerator.js';
 
 /** A callback function to report on agent activity. */
 export type ActivityCallback = (activity: SubagentActivityEvent) => void;
@@ -288,6 +291,45 @@ export class AgentExecutor<TOutput extends z.ZodTypeAny> {
     return { functionCalls, textResponse };
   }
 
+  /**
+   * Creates a provider-specific Config object for agents that specify a custom provider.
+   * This creates a new Config with a ContentGenerator configured for the specified provider.
+   */
+  private async createProviderSpecificConfig(
+    provider: string,
+    _model: string,
+  ): Promise<Config> {
+    // Clone the runtime context to avoid modifying the original
+    const providerConfig = Object.create(this.runtimeContext);
+
+    if (provider === 'ollama') {
+      // Get Ollama base URL from environment or use default
+      const ollamaBaseUrl =
+        process.env['OLLAMA_BASE_URL'] || 'http://localhost:11434';
+
+      // Create Ollama content generator
+      const ollamaGenerator = new LoggingContentGenerator(
+        new OllamaContentGenerator(ollamaBaseUrl, this.runtimeContext),
+        this.runtimeContext,
+      );
+
+      // Override getContentGenerator to return Ollama generator
+      providerConfig.getContentGenerator = () => ollamaGenerator;
+
+      // Override getContentGeneratorConfig to return Ollama config
+      providerConfig.getContentGeneratorConfig = () => ({
+        authType: AuthType.OLLAMA,
+        ollamaBaseUrl,
+      });
+    } else {
+      throw new Error(
+        `Unsupported provider: ${provider}. Only 'ollama' is currently supported.`,
+      );
+    }
+
+    return providerConfig;
+  }
+
   /** Initializes a `GeminiChat` instance for the agent run. */
   private async createChatObject(inputs: AgentInputs): Promise<GeminiChat> {
     const { promptConfig, modelConfig } = this.definition;
@@ -322,11 +364,16 @@ export class AgentExecutor<TOutput extends z.ZodTypeAny> {
         generationConfig.systemInstruction = systemInstruction;
       }
 
-      return new GeminiChat(
-        this.runtimeContext,
-        generationConfig,
-        startHistory,
-      );
+      // If agent specifies a provider, create agent-specific config
+      let runtimeConfig = this.runtimeContext;
+      if (modelConfig.provider) {
+        runtimeConfig = await this.createProviderSpecificConfig(
+          modelConfig.provider,
+          modelConfig.model,
+        );
+      }
+
+      return new GeminiChat(runtimeConfig, generationConfig, startHistory);
     } catch (error) {
       await reportError(
         error,
@@ -635,17 +682,10 @@ export class AgentExecutor<TOutput extends z.ZodTypeAny> {
     const dirContext = await getDirectoryContextString(this.runtimeContext);
     finalPrompt += `\n\n# Environment Context\n${dirContext}`;
 
-    // Append standard rules for non-interactive execution.
+    // Append task completion requirement.
     finalPrompt += `
-Important Rules:
-* You are running in a non-interactive mode. You CANNOT ask the user for input or clarification.
-* Work systematically using available tools to complete your task.
-* Always use absolute paths for file operations. Construct them using the provided "Environment Context".`;
 
-    finalPrompt += `
-* When you have completed your task, you MUST call the \`${TASK_COMPLETE_TOOL_NAME}\` tool.
-* Do not call any other tools in the same turn as \`${TASK_COMPLETE_TOOL_NAME}\`.
-* This is the ONLY way to complete your mission. If you stop calling tools without calling this, you have failed.`;
+When you have completed your task, you MUST call the \`${TASK_COMPLETE_TOOL_NAME}\` tool. Do not call any other tools in the same turn as \`${TASK_COMPLETE_TOOL_NAME}\`. This is the ONLY way to complete your mission.`;
 
     return finalPrompt;
   }

@@ -89,7 +89,8 @@ export interface CliArgs {
   useWriteTodos: boolean | undefined;
   outputFormat: string | undefined;
   continueSession: string | undefined;
-  initStandards: boolean | undefined;
+  init: boolean | undefined;
+  listAgents: boolean | undefined;
 }
 
 export async function parseArguments(settings: Settings): Promise<CliArgs> {
@@ -236,10 +237,15 @@ export async function parseArguments(settings: Settings): Promise<CliArgs> {
           description:
             'Continue a previous conversation session by tag name. Loads conversation history and appends new messages.',
         })
-        .option('init-standards', {
+        .option('init', {
           type: 'boolean',
           description:
-            'Initialize project standards directory (.project-standards) by copying the template with code style and best practices files.',
+            'Initialize gemini-cli project structure: creates .gemini/standards/ (coding standards) and .gemini/agents/ (custom agents) directories in the current directory.',
+        })
+        .option('list-agents', {
+          type: 'boolean',
+          description:
+            'List all available agents with their descriptions, providers, and models.',
         })
         .option('experimental-acp', {
           type: 'boolean',

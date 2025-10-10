@@ -241,7 +241,25 @@ export class MarkdownAgentLoader {
     }
 
     // The entire markdown content becomes the system prompt
-    const systemPrompt = content.trim();
+    // Append completion instructions to ensure agents know how to finish
+    const completionInstructions = `
+
+---
+
+## IMPORTANT: Task Completion
+
+When you have COMPLETED your task, you **MUST** call the \`complete_task\` tool to signal completion.
+
+**Required:** Call \`complete_task\` with your final output/result.
+
+Example:
+\`\`\`
+complete_task(result="Task completed successfully. [summary of what was done]")
+\`\`\`
+
+**Do NOT stop calling tools without calling complete_task** - this will result in an error.`;
+
+    const systemPrompt = content.trim() + completionInstructions;
 
     // Create the agent definition
     const agent: AgentDefinition = {

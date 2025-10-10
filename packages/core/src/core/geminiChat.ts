@@ -673,7 +673,7 @@ export class GeminiChat {
     let hasToolCall = false;
     let hasFinishReason = false;
 
-    const CHUNK_TIMEOUT_MS = 120000; // 2 minutes per chunk
+    const CHUNK_TIMEOUT_MS = 30000; // 30 seconds per chunk
     const streamIterator = this.stopBeforeSecondMutator(streamResponse);
 
     try {
@@ -882,18 +882,7 @@ export class GeminiChat {
               ];
               yield newChunk;
 
-              // Drain remaining chunks to properly close the stream
-              // This prevents the stream from hanging
-              (async () => {
-                try {
-                  for await (const _ of chunkStream) {
-                    // Discard remaining chunks
-                  }
-                } catch (_error) {
-                  // Ignore errors while draining
-                }
-              })();
-
+              // Return early - the finally block will handle cleanup
               return;
             }
             foundMutatorFunctionCall = true;

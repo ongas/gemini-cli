@@ -705,9 +705,25 @@ export const useGeminiStream = (
             // before we add loop detected message to history
             loopDetectedRef.current = true;
             break;
-          case ServerGeminiEventType.Retry:
-            // Will add the missing logic later
+          case ServerGeminiEventType.Retry: {
+            // Show retry progress to user with context
+            if (pendingHistoryItemRef.current) {
+              addItem(pendingHistoryItemRef.current, userMessageTimestamp);
+              setPendingHistoryItem(null);
+            }
+            // Check if we're in fallback mode to give more context
+            const retryMessage = config.isInFallbackMode()
+              ? 'Quota limit reached. Switching to Flash model and retrying...'
+              : 'Request encountered an issue. Retrying...';
+            addItem(
+              {
+                type: MessageType.INFO,
+                text: retryMessage,
+              },
+              userMessageTimestamp,
+            );
             break;
+          }
           default: {
             // enforces exhaustive switch-case
             const unreachable: never = event;
@@ -721,14 +737,18 @@ export const useGeminiStream = (
       return StreamProcessingStatus.Completed;
     },
     [
-      handleContentEvent,
-      handleUserCancelledEvent,
-      handleErrorEvent,
-      scheduleToolCalls,
+      addItem,
+      config,
       handleChatCompressionEvent,
+      handleCitationEvent,
+      handleContentEvent,
+      handleErrorEvent,
       handleFinishedEvent,
       handleMaxSessionTurnsEvent,
-      handleCitationEvent,
+      handleUserCancelledEvent,
+      pendingHistoryItemRef,
+      scheduleToolCalls,
+      setPendingHistoryItem,
     ],
   );
 

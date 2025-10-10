@@ -167,7 +167,14 @@ export function parseGoogleApiError(error: unknown): GoogleApiError | null {
     if (typeof gaxiosError.response.data === 'string') {
       try {
         const parsedData = JSON.parse(gaxiosError.response.data);
-        if (parsedData.error) {
+        // Handle case where data is an array like [{ error: {...} }]
+        if (
+          Array.isArray(parsedData) &&
+          parsedData.length > 0 &&
+          parsedData[0].error
+        ) {
+          outerError = parsedData[0].error;
+        } else if (parsedData.error) {
           outerError = parsedData.error;
         }
       } catch (_) {

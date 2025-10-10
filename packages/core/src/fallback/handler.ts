@@ -16,15 +16,21 @@ export async function handleFallback(
   error?: unknown,
 ): Promise<string | boolean | null> {
   // Applicability Checks
-  if (authType !== AuthType.LOGIN_WITH_GOOGLE) return null;
+  if (authType !== AuthType.LOGIN_WITH_GOOGLE) {
+    return null;
+  }
 
   const fallbackModel = DEFAULT_GEMINI_FLASH_MODEL;
 
-  if (failedModel === fallbackModel) return null;
+  if (failedModel === fallbackModel) {
+    return null;
+  }
 
   // Consult UI Handler for Intent
   const fallbackModelHandler = config.fallbackModelHandler;
-  if (typeof fallbackModelHandler !== 'function') return null;
+  if (typeof fallbackModelHandler !== 'function') {
+    return null;
+  }
 
   try {
     // Pass the specific failed model to the UI handler.

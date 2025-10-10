@@ -124,25 +124,35 @@ export async function retryWithBackoff<T>(
     } catch (error) {
       const classifiedError = classifyGoogleError(error);
 
-      if (classifiedError instanceof TerminalQuotaError) {
-        if (onPersistent429 && authType === AuthType.LOGIN_WITH_GOOGLE) {
-          try {
-            const fallbackModel = await onPersistent429(
-              authType,
-              classifiedError,
-            );
-            if (fallbackModel) {
-              attempt = 0; // Reset attempts and retry with the new model.
-              currentDelay = initialDelayMs;
-              continue;
-            }
-          } catch (fallbackError) {
-            console.warn('Model fallback failed:', fallbackError);
+      // Handle ANY quota error (Terminal or Retryable) - try fallback first
+      if (
+        (classifiedError instanceof TerminalQuotaError ||
+          classifiedError instanceof RetryableQuotaError) &&
+        onPersistent429 &&
+        authType === AuthType.LOGIN_WITH_GOOGLE
+      ) {
+        try {
+          const fallbackModel = await onPersistent429(
+            authType,
+            classifiedError,
+          );
+
+          if (fallbackModel) {
+            attempt = 0; // Reset attempts and retry with the new model.
+            currentDelay = initialDelayMs;
+            continue;
           }
+        } catch (fallbackError) {
+          console.warn('Model fallback failed:', fallbackError);
         }
-        throw classifiedError; // Throw if no fallback or fallback failed.
       }
 
+      // If we get here with a TerminalQuotaError, throw it
+      if (classifiedError instanceof TerminalQuotaError) {
+        throw classifiedError;
+      }
+
+      // For RetryableQuotaError, only retry if fallback wasn't available or failed
       if (classifiedError instanceof RetryableQuotaError) {
         if (attempt >= maxAttempts) {
           throw classifiedError;

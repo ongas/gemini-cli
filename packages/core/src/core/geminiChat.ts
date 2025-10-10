@@ -673,37 +673,73 @@ export class GeminiChat {
     let hasToolCall = false;
     let hasFinishReason = false;
 
-    for await (const chunk of this.stopBeforeSecondMutator(streamResponse)) {
-      hasFinishReason =
-        chunk?.candidates?.some((candidate) => candidate.finishReason) ?? false;
-      if (isValidResponse(chunk)) {
-        const content = chunk.candidates?.[0]?.content;
-        if (content?.parts) {
-          if (content.parts.some((part) => part.thought)) {
-            // Record thoughts
-            this.recordThoughtFromContent(content);
-          }
-          if (content.parts.some((part) => part.functionCall)) {
-            hasToolCall = true;
-          }
+    const CHUNK_TIMEOUT_MS = 120000; // 2 minutes per chunk
+    const streamIterator = this.stopBeforeSecondMutator(streamResponse);
 
-          modelResponseParts.push(
-            ...content.parts.filter((part) => !part.thought),
+    try {
+      while (true) {
+        // Wrap each chunk read with a timeout
+        const timeoutPromise = new Promise<{ done: true; value: undefined }>(
+          (_, reject) =>
+            setTimeout(
+              () => reject(new Error('Stream chunk timeout')),
+              CHUNK_TIMEOUT_MS,
+            ),
+        );
+
+        const chunkPromise = streamIterator.next();
+
+        let result;
+        try {
+          result = await Promise.race([chunkPromise, timeoutPromise]);
+        } catch (_timeoutError) {
+          console.warn(
+            'Stream stalled - no chunks received for 2 minutes. Treating as incomplete stream.',
           );
+          // Stream stalled, break out and handle validation below
+          break;
         }
-      }
 
-      // Record token usage if this chunk has usageMetadata
-      if (chunk.usageMetadata) {
-        this.chatRecordingService.recordMessageTokens(chunk.usageMetadata);
-        if (chunk.usageMetadata.promptTokenCount !== undefined) {
-          uiTelemetryService.setLastPromptTokenCount(
-            chunk.usageMetadata.promptTokenCount,
-          );
+        if (result.done) {
+          break;
         }
-      }
 
-      yield chunk; // Yield every chunk to the UI immediately.
+        const chunk = result.value;
+        hasFinishReason =
+          chunk?.candidates?.some((candidate) => candidate.finishReason) ??
+          false;
+        if (isValidResponse(chunk)) {
+          const content = chunk.candidates?.[0]?.content;
+          if (content?.parts) {
+            if (content.parts.some((part) => part.thought)) {
+              // Record thoughts
+              this.recordThoughtFromContent(content);
+            }
+            if (content.parts.some((part) => part.functionCall)) {
+              hasToolCall = true;
+            }
+
+            modelResponseParts.push(
+              ...content.parts.filter((part) => !part.thought),
+            );
+          }
+        }
+
+        // Record token usage if this chunk has usageMetadata
+        if (chunk.usageMetadata) {
+          this.chatRecordingService.recordMessageTokens(chunk.usageMetadata);
+          if (chunk.usageMetadata.promptTokenCount !== undefined) {
+            uiTelemetryService.setLastPromptTokenCount(
+              chunk.usageMetadata.promptTokenCount,
+            );
+          }
+        }
+
+        yield chunk; // Yield every chunk to the UI immediately.
+      }
+    } catch (error) {
+      console.error('Stream processing error:', error);
+      throw error;
     }
 
     // String thoughts and consolidate text parts.
@@ -818,40 +854,60 @@ export class GeminiChat {
   ): AsyncGenerator<GenerateContentResponse> {
     let foundMutatorFunctionCall = false;
 
-    for await (const chunk of chunkStream) {
-      const candidate = chunk.candidates?.[0];
-      const content = candidate?.content;
-      if (!candidate || !content?.parts) {
-        yield chunk;
-        continue;
-      }
-
-      const truncatedParts: Part[] = [];
-      for (const part of content.parts) {
-        if (this.isMutatorFunctionCall(part)) {
-          if (foundMutatorFunctionCall) {
-            // This is the second mutator call.
-            // Truncate and return immedaitely.
-            const newChunk = new GenerateContentResponse();
-            newChunk.candidates = [
-              {
-                ...candidate,
-                content: {
-                  ...content,
-                  parts: truncatedParts,
-                },
-                finishReason: FinishReason.STOP,
-              },
-            ];
-            yield newChunk;
-            return;
-          }
-          foundMutatorFunctionCall = true;
+    try {
+      for await (const chunk of chunkStream) {
+        const candidate = chunk.candidates?.[0];
+        const content = candidate?.content;
+        if (!candidate || !content?.parts) {
+          yield chunk;
+          continue;
         }
-        truncatedParts.push(part);
-      }
 
-      yield chunk;
+        const truncatedParts: Part[] = [];
+        for (const part of content.parts) {
+          if (this.isMutatorFunctionCall(part)) {
+            if (foundMutatorFunctionCall) {
+              // This is the second mutator call.
+              // Truncate and return immediately, but first drain the stream
+              const newChunk = new GenerateContentResponse();
+              newChunk.candidates = [
+                {
+                  ...candidate,
+                  content: {
+                    ...content,
+                    parts: truncatedParts,
+                  },
+                  finishReason: FinishReason.STOP,
+                },
+              ];
+              yield newChunk;
+
+              // Drain remaining chunks to properly close the stream
+              // This prevents the stream from hanging
+              (async () => {
+                try {
+                  for await (const _ of chunkStream) {
+                    // Discard remaining chunks
+                  }
+                } catch (_error) {
+                  // Ignore errors while draining
+                }
+              })();
+
+              return;
+            }
+            foundMutatorFunctionCall = true;
+          }
+          truncatedParts.push(part);
+        }
+
+        yield chunk;
+      }
+    } finally {
+      // Ensure stream is closed if we exit early
+      if (chunkStream.return) {
+        await chunkStream.return();
+      }
     }
   }
 

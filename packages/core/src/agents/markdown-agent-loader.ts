@@ -171,6 +171,36 @@ export class MarkdownAgentLoader {
       description = `Specialized agent for ${displayName.toLowerCase()} tasks`;
     }
 
+    // Enhance description to make it more actionable for Gemini's tool selection
+    // Add "Use this tool when..." prefix to help Gemini understand when to invoke it
+    if (!description.toLowerCase().includes('use this tool')) {
+      const agentNameLower = agentName.toLowerCase();
+      let useCaseHint = '';
+
+      if (agentNameLower.includes('scaffold')) {
+        useCaseHint =
+          'Use this tool when the user wants to create, scaffold, setup, or initialize a new project. ';
+      } else if (agentNameLower.includes('review')) {
+        useCaseHint =
+          'Use this tool when the user wants to review, audit, or analyze code. ';
+      } else if (agentNameLower.includes('test')) {
+        useCaseHint =
+          'Use this tool when the user wants to generate, write, or create tests. ';
+      } else if (agentNameLower.includes('doc')) {
+        useCaseHint =
+          'Use this tool when the user wants to generate or write documentation. ';
+      }
+
+      if (useCaseHint) {
+        description = useCaseHint + description;
+        if (debugMode) {
+          console.log(
+            `[MarkdownAgentLoader] Enhanced description for ${agentName}: ${description.substring(0, 100)}...`,
+          );
+        }
+      }
+    }
+
     // Parse tools if specified (format: **Tools:** tool1, tool2, tool3)
     const toolsMatch = content.match(/\*\*Tools:\*\*\s*([^\n]+)/i);
     const tools = toolsMatch

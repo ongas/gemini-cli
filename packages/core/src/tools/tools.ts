@@ -641,6 +641,7 @@ export enum ToolConfirmationOutcome {
   ProceedAlways = 'proceed_always',
   ProceedAlwaysServer = 'proceed_always_server',
   ProceedAlwaysTool = 'proceed_always_tool',
+  ProceedAlwaysAgent = 'proceed_always_agent', // Auto-approve all tools from a specific agent
   ModifyWithEditor = 'modify_with_editor',
   Cancel = 'cancel',
 }

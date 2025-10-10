@@ -1120,8 +1120,14 @@ export class Config {
     }
 
     // Register Subagents as Tools
+    console.log(
+      `[Config] EnableSubagents: ${this.getEnableSubagents()}, DebugMode: ${this.getDebugMode()}`,
+    );
     if (this.getEnableSubagents()) {
       const agentDefinitions = this.agentRegistry.getAllDefinitions();
+      console.log(
+        `[Config] Registering ${agentDefinitions.length} agents as tools...`,
+      );
       for (const definition of agentDefinitions) {
         // We must respect the main allowed/exclude lists for agents too.
         const excludeTools = this.getExcludeTools() || [];
@@ -1130,6 +1136,12 @@ export class Config {
         const isExcluded = excludeTools.includes(definition.name);
         const isAllowed =
           !allowedTools || allowedTools.includes(definition.name);
+
+        if (this.getDebugMode()) {
+          console.log(
+            `[Config] Agent '${definition.name}': isAllowed=${isAllowed}, isExcluded=${isExcluded}, allowedTools=${allowedTools?.join(',')}`,
+          );
+        }
 
         if (isAllowed && !isExcluded) {
           try {
@@ -1140,18 +1152,25 @@ export class Config {
               messageBusEnabled ? this.getMessageBus() : undefined,
             );
             registry.registerTool(wrapper);
+            if (this.getDebugMode()) {
+              console.log(
+                `[Config] Successfully registered agent '${definition.name}' as tool`,
+              );
+            }
           } catch (error) {
             console.error(
               `Failed to wrap agent '${definition.name}' as a tool:`,
               error,
             );
           }
-        } else if (this.getDebugMode()) {
+        } else {
           console.log(
             `[Config] Skipping registration of agent '${definition.name}' due to allow/exclude configuration.`,
           );
         }
       }
+    } else if (this.getDebugMode()) {
+      console.log('[Config] Subagents are DISABLED');
     }
 
     await registry.discoverAllTools();

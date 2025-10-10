@@ -445,7 +445,7 @@ Your core function is efficient and safe assistance. Balance extreme conciseness
       customAgentsSuffix += `**Description:** ${description}\n\n`;
       customAgentsSuffix += triggerHints;
       customAgentsSuffix += `**Provider/Model:** ${provider}/${model}\n\n`;
-      customAgentsSuffix += `**IMPORTANT:** When you see a user request about ${agent.name.replace(/_/g, ' ')}, immediately use: [tool_call: ${agent.name} with task="${'<user\\'s request>'}"]\n\n`;
+      customAgentsSuffix += `**IMPORTANT:** When you see a user request about ${agent.name.replace(/_/g, ' ')}, immediately use: [tool_call: ${agent.name} with task="<user's request>"]\n\n`;
     }
 
     customAgentsSuffix += '\n**Remember:** Always check if a specialist agent exists for the user\'s request BEFORE taking action yourself.\n\n';

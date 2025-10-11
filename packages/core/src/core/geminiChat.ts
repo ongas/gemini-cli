@@ -62,7 +62,7 @@ interface ContentRetryOptions {
 }
 
 const INVALID_CONTENT_RETRY_OPTIONS: ContentRetryOptions = {
-  maxAttempts: 2, // 1 initial call + 1 retry
+  maxAttempts: 3, // 1 initial call + 2 retries (especially for Flash throttling)
   initialDelayMs: 500,
 };
 
@@ -454,11 +454,11 @@ export class GeminiChat {
       try {
         let lastError: unknown = new Error('Request failed after all retries.');
 
-        for (
-          let attempt = 0;
-          attempt < INVALID_CONTENT_RETRY_OPTIONS.maxAttempts;
-          attempt++
-        ) {
+        // Start with Pro retry limits, but will adjust dynamically if we fall back to Flash
+        const MAX_FLASH_ATTEMPTS = 4; // Flash: 1 initial + 3 retries
+        const MAX_PRO_ATTEMPTS = INVALID_CONTENT_RETRY_OPTIONS.maxAttempts; // Pro: 1 initial + 2 retries
+
+        for (let attempt = 0; attempt < MAX_FLASH_ATTEMPTS; attempt++) {
           try {
             if (attempt > 0) {
               yield { type: StreamEventType.RETRY };
@@ -481,25 +481,34 @@ export class GeminiChat {
             lastError = error;
             const isContentError = error instanceof InvalidStreamError;
 
+            // Check dynamically: use Flash limits if in fallback mode, otherwise Pro limits
+            const maxAttempts = self.config.isInFallbackMode()
+              ? MAX_FLASH_ATTEMPTS
+              : MAX_PRO_ATTEMPTS;
+
             if (isContentError) {
               // Check if we have more attempts left.
-              if (attempt < INVALID_CONTENT_RETRY_OPTIONS.maxAttempts - 1) {
+              if (attempt < maxAttempts - 1) {
+                // Longer delays for Flash fallback retries
+                const retryDelay = self.config.isInFallbackMode()
+                  ? 2000 * (attempt + 1) // Flash: 2s, 4s, 6s
+                  : INVALID_CONTENT_RETRY_OPTIONS.initialDelayMs *
+                    (attempt + 1); // Pro: 500ms, 1s
+
+                console.log(
+                  `[RETRY] ${self.config.isInFallbackMode() ? 'Flash' : 'Pro'} returned empty response. Retrying in ${retryDelay}ms... (attempt ${attempt + 1}/${maxAttempts})`,
+                );
+
                 logContentRetry(
                   self.config,
                   new ContentRetryEvent(
                     attempt,
                     (error as InvalidStreamError).type,
-                    INVALID_CONTENT_RETRY_OPTIONS.initialDelayMs,
+                    retryDelay,
                     model,
                   ),
                 );
-                await new Promise((res) =>
-                  setTimeout(
-                    res,
-                    INVALID_CONTENT_RETRY_OPTIONS.initialDelayMs *
-                      (attempt + 1),
-                  ),
-                );
+                await new Promise((res) => setTimeout(res, retryDelay));
                 continue;
               }
             }
@@ -541,6 +550,13 @@ export class GeminiChat {
         this.config.isInFallbackMode(),
         model,
       );
+
+      console.log('[API CALL DEBUG] Calling API with model:', modelToUse);
+      console.log(
+        '[API CALL DEBUG] isInFallbackMode:',
+        this.config.isInFallbackMode(),
+      );
+      console.log('[API CALL DEBUG] requested model:', model);
 
       return this.config.getContentGenerator().generateContentStream(
         {
@@ -678,6 +694,7 @@ export class GeminiChat {
 
     try {
       while (true) {
+        console.log('[STREAM DEBUG] Waiting for next chunk...');
         // Wrap each chunk read with a timeout
         const timeoutPromise = new Promise<{ done: true; value: undefined }>(
           (_, reject) =>
@@ -692,19 +709,35 @@ export class GeminiChat {
         let result;
         try {
           result = await Promise.race([chunkPromise, timeoutPromise]);
+          console.log('[STREAM DEBUG] Chunk received, done:', result.done);
         } catch (_timeoutError) {
           console.warn(
-            'Stream stalled - no chunks received for 2 minutes. Treating as incomplete stream.',
+            '[STREAM DEBUG] Stream stalled - no chunks received for 30 seconds. Treating as incomplete stream.',
           );
           // Stream stalled, break out and handle validation below
           break;
         }
 
         if (result.done) {
+          console.log('[STREAM DEBUG] Stream complete');
           break;
         }
 
         const chunk = result.value;
+
+        // Debug logging
+        const chunkInfo = {
+          hasCandidate: !!chunk?.candidates?.[0],
+          hasParts: !!chunk?.candidates?.[0]?.content?.parts,
+          partsCount: chunk?.candidates?.[0]?.content?.parts?.length || 0,
+          hasFinishReason: !!chunk?.candidates?.[0]?.finishReason,
+          finishReason: chunk?.candidates?.[0]?.finishReason,
+        };
+        console.log(
+          '[STREAM DEBUG] Received chunk:',
+          JSON.stringify(chunkInfo),
+        );
+
         hasFinishReason =
           chunk?.candidates?.some((candidate) => candidate.finishReason) ??
           false;
@@ -717,6 +750,7 @@ export class GeminiChat {
             }
             if (content.parts.some((part) => part.functionCall)) {
               hasToolCall = true;
+              console.log('[STREAM DEBUG] Tool call detected');
             }
 
             modelResponseParts.push(
@@ -736,6 +770,7 @@ export class GeminiChat {
         }
 
         yield chunk; // Yield every chunk to the UI immediately.
+        console.log('[STREAM DEBUG] Chunk yielded, waiting for next...');
       }
     } catch (error) {
       console.error('Stream processing error:', error);

@@ -714,6 +714,17 @@ class EditToolInvocation implements ToolInvocation<EditToolParams, ToolResult> {
       onConfirm: async (outcome: ToolConfirmationOutcome) => {
         if (outcome === ToolConfirmationOutcome.ProceedAlways) {
           this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
+        } else if (
+          outcome === ToolConfirmationOutcome.ProceedAlwaysAllSessions
+        ) {
+          // Add to persistent storage for all sessions
+          const approvalStorage = this.config.getApprovalStorage();
+          await approvalStorage.approveKind(
+            Kind.Edit,
+            'Always allow edit operations',
+          );
+          // Also set session-level approval
+          this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
         }
 
         if (ideConfirmation) {

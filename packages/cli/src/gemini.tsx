@@ -306,52 +306,78 @@ export async function main() {
             const filePath = path.join(geminiAgentsDir, file);
             const content = await fs.promises.readFile(filePath, 'utf-8');
 
+            // Parse YAML front matter if present
+            let provider: string | undefined;
+            let model: string | undefined;
+            let temperature: number | undefined;
+            let tools: string | undefined;
+
+            const yamlMatch = content.match(/^---\n([\s\S]*?)\n---/);
+            if (yamlMatch) {
+              const yaml = yamlMatch[1];
+              const providerMatch = yaml.match(/^Provider:\s*(.+)$/m);
+              const modelMatch = yaml.match(/^Model:\s*(.+)$/m);
+              const tempMatch = yaml.match(/^Temperature:\s*([0-9.]+)$/m);
+              const toolsMatch = yaml.match(/^Tools:\s*(.+)$/m);
+
+              provider = providerMatch
+                ? providerMatch[1].trim().toLowerCase()
+                : undefined;
+              model = modelMatch ? modelMatch[1].trim() : undefined;
+              temperature = tempMatch ? parseFloat(tempMatch[1]) : undefined;
+              tools = toolsMatch ? toolsMatch[1].trim() : undefined;
+            }
+
             // Parse basic agent info from markdown
             const lines = content.split('\n');
-            const firstLine = lines[0]?.trim();
-            const displayName = firstLine?.startsWith('#')
-              ? firstLine.replace(/^#+\s*/, '')
-              : file.replace('.md', '');
-            const agentName = file.replace('.md', '').replace(/-/g, '_');
-
-            // Extract description (first non-empty line after heading)
+            let displayName = file.replace('.md', '');
             let description = '';
-            for (let i = 1; i < lines.length; i++) {
+
+            // Find first heading and description (skip YAML front matter)
+            let skipYaml = false;
+            for (let i = 0; i < lines.length; i++) {
               const line = lines[i].trim();
-              if (line && !line.startsWith('**') && !line.startsWith('#')) {
+
+              if (i === 0 && line === '---') {
+                skipYaml = true;
+                continue;
+              }
+              if (skipYaml && line === '---') {
+                skipYaml = false;
+                continue;
+              }
+              if (skipYaml) continue;
+
+              if (line.startsWith('#') && !displayName) {
+                displayName = line.replace(/^#+\s*/, '');
+              } else if (
+                line &&
+                !line.startsWith('**') &&
+                !line.startsWith('#') &&
+                !description
+              ) {
                 description = line;
                 break;
               }
             }
 
-            // Extract metadata
-            const providerMatch = content.match(
-              /\*\*Provider:\*\*\s*([^\n]+)/i,
-            );
-            const modelMatch = content.match(/\*\*Model:\*\*\s*([^\n]+)/i);
-            const tempMatch = content.match(
-              /\*\*(?:Temperature|Temp):\*\*\s*([0-9.]+)/i,
-            );
-            const toolsMatch = content.match(/\*\*Tools:\*\*\s*([^\n]+)/i);
+            const agentName = file.replace('.md', '').replace(/-/g, '_');
 
             agents.push({
               name: agentName,
               displayName,
               description: description || `Custom agent: ${displayName}`,
               modelConfig: {
-                provider: providerMatch
-                  ? providerMatch[1].trim().toLowerCase()
-                  : undefined,
-                model: modelMatch
-                  ? modelMatch[1].trim()
-                  : 'gemini-2.0-flash-exp',
-                temp: tempMatch ? parseFloat(tempMatch[1]) : 0.2,
+                provider: provider || 'gemini',
+                model: model || 'gemini-2.0-flash-exp',
+                temp: temperature !== undefined ? temperature : 0.2,
               },
-              toolConfig: toolsMatch
+              toolConfig: tools
                 ? {
-                    tools: toolsMatch[1]
-                      .split(',')
-                      .map((t: string) => t.trim()),
+                    tools:
+                      tools === 'all'
+                        ? ['all']
+                        : tools.split(',').map((t: string) => t.trim()),
                   }
                 : undefined,
             });
@@ -397,6 +423,61 @@ export async function main() {
       process.exit(0);
     } catch (error) {
       console.error('Error listing agents:', error);
+      process.exit(1);
+    }
+  }
+
+  // Handle --agent flag
+  if (argv.agent) {
+    const path = await import('node:path');
+    const fs = await import('node:fs');
+
+    const cwd = process.cwd();
+    const agentFileName = argv.agent.replace(/_/g, '-') + '.md';
+    const agentFilePath = path.join(cwd, '.gemini', 'agents', agentFileName);
+
+    if (!fs.existsSync(agentFilePath)) {
+      console.error(`Error: Agent file not found: ${agentFilePath}`);
+      console.error(`\nAvailable agents:`);
+      console.error(`  Run: gemini-ma --list-agents`);
+      process.exit(1);
+    }
+
+    try {
+      const content = await fs.promises.readFile(agentFilePath, 'utf-8');
+
+      // Parse YAML front matter
+      const yamlMatch = content.match(/^---\n([\s\S]*?)\n---/);
+      if (yamlMatch) {
+        const yaml = yamlMatch[1];
+        const providerMatch = yaml.match(/^Provider:\s*(.+)$/m);
+        const modelMatch = yaml.match(/^Model:\s*(.+)$/m);
+
+        const provider = providerMatch
+          ? providerMatch[1].trim().toLowerCase()
+          : 'gemini';
+        const model = modelMatch ? modelMatch[1].trim() : undefined;
+
+        // Override the model and auth based on provider
+        if (provider === 'ollama' && model) {
+          process.env['GEMINI_MODEL'] = model;
+          // Set auth type for Ollama in merged settings
+          if (!settings.merged.security) {
+            settings.merged.security = {};
+          }
+          if (!settings.merged.security.auth) {
+            settings.merged.security.auth = {};
+          }
+          settings.merged.security.auth.selectedType = 'ollama';
+          console.log(`\n🤖 Using ${argv.agent} agent (Ollama: ${model})`);
+          console.log(`[DEBUG] Set security.auth.selectedType to: ${settings.merged.security.auth.selectedType}\n`);
+        } else if (model) {
+          process.env['GEMINI_MODEL'] = model;
+          console.log(`\n🤖 Using ${argv.agent} agent (${provider}: ${model})\n`);
+        }
+      }
+    } catch (error) {
+      console.error(`Error loading agent ${argv.agent}:`, error);
       process.exit(1);
     }
   }

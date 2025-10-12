@@ -91,6 +91,7 @@ export interface CliArgs {
   continueSession: string | undefined;
   init: boolean | undefined;
   listAgents: boolean | undefined;
+  agent: string | undefined;
 }
 
 export async function parseArguments(settings: Settings): Promise<CliArgs> {
@@ -246,6 +247,11 @@ export async function parseArguments(settings: Settings): Promise<CliArgs> {
           type: 'boolean',
           description:
             'List all available agents with their descriptions, providers, and models.',
+        })
+        .option('agent', {
+          type: 'string',
+          description:
+            'Use a specific agent for this session. Agent name should match a file in .gemini/agents/ (without .md extension, use underscores for hyphens).',
         })
         .option('experimental-acp', {
           type: 'boolean',
@@ -746,18 +752,27 @@ export async function loadCliConfig(
     useModelRouter,
     enableMessageBusIntegration:
       settings.tools?.enableMessageBusIntegration ?? false,
-    enableSubagents: await shouldEnableSubagents(settings, cwd),
+    enableSubagents: await shouldEnableSubagents(settings, cwd, argv),
   });
 }
 
 /**
  * Determines if subagents should be enabled.
  * Auto-enables if custom agents are detected (.gemini/agents/ directory exists).
+ * IMPORTANT: Disabled when --agent flag is used to prevent the active agent
+ * from being registered as a subagent tool (which would create a second
+ * content generator with incorrect auth type).
  */
 async function shouldEnableSubagents(
   settings: Settings,
   cwd: string,
+  argv: CliArgs,
 ): Promise<boolean> {
+  // If using --agent flag, disable subagents to avoid registering the active agent as a tool
+  if (argv.agent) {
+    return false;
+  }
+
   // If explicitly set in settings, use that value
   if (settings.experimental?.enableSubagents !== undefined) {
     return settings.experimental.enableSubagents;

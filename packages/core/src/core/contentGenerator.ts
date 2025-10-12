@@ -105,6 +105,10 @@ export async function createContentGenerator(
   gcConfig: Config,
   sessionId?: string,
 ): Promise<ContentGenerator> {
+  console.log(`[DEBUG createContentGenerator] Received auth type: ${config.authType}`);
+  console.log(`[DEBUG createContentGenerator] AuthType.OLLAMA = ${AuthType.OLLAMA}`);
+  console.log(`[DEBUG createContentGenerator] Match? ${config.authType === AuthType.OLLAMA}`);
+  console.log(`[DEBUG createContentGenerator] Stack:\n${new Error().stack}`);
   const version = process.env['CLI_VERSION'] || process.version;
   const userAgent = `GeminiCLI/${version} (${process.platform}; ${process.arch})`;
   const baseHeaders: Record<string, string> = {

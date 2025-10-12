@@ -97,8 +97,11 @@ class BrowserActionToolInvocation extends BaseToolInvocation<
   }
 
   async execute(signal: AbortSignal): Promise<ToolResult> {
-    const apiUrl = process.env.BROWSER_USE_API_URL || 'http://localhost:11236';
-    const endpoint = `${apiUrl}/browser/action`;
+    // Primary: Local API with visible browser (port 11236)
+    // Fallback: Docker API with headless browser (port 11237)
+    const primaryUrl =
+      process.env['BROWSER_USE_API_URL'] || 'http://localhost:11236';
+    const fallbackUrl = 'http://localhost:11237';
 
     const requestBody = {
       task: this.params.task,
@@ -106,94 +109,124 @@ class BrowserActionToolInvocation extends BaseToolInvocation<
       max_steps: this.params.max_steps || 100,
     };
 
-    try {
-      // Create a combined abort controller that respects both the tool's signal and timeout
-      const timeoutController = new AbortController();
-      const timeoutId = setTimeout(
-        () => timeoutController.abort(),
-        BROWSER_ACTION_TIMEOUT_MS,
-      );
+    // Try primary API first, then fallback if it fails
+    const urlsToTry = [primaryUrl];
+    if (primaryUrl !== fallbackUrl) {
+      urlsToTry.push(fallbackUrl);
+    }
 
-      // Combine signals if the tool signal is already provided
-      const combinedSignal = signal.aborted ? signal : timeoutController.signal;
-
-      // Listen to the tool signal and abort timeout controller if needed
-      if (!signal.aborted) {
-        signal.addEventListener('abort', () => {
-          clearTimeout(timeoutId);
-          timeoutController.abort();
-        });
-      }
+    let lastError: unknown;
+    for (const apiUrl of urlsToTry) {
+      const endpoint = `${apiUrl}/browser/action`;
 
       try {
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-          signal: combinedSignal,
-        });
+        // Quick health check first to see if API is available
+        const healthCheck = await fetch(`${apiUrl}/health`, {
+          signal: AbortSignal.timeout(2000), // 2 second timeout for health check
+        }).catch(() => null);
 
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          throw new Error(
-            `Browser API request failed with status ${response.status} ${response.statusText}`,
-          );
+        if (!healthCheck?.ok) {
+          // API not responding, try next one
+          if (apiUrl === primaryUrl && urlsToTry.length > 1) {
+            console.log(
+              `Primary browser API (${primaryUrl}) not available, trying fallback (${fallbackUrl})...`,
+            );
+            continue;
+          }
+          throw new Error(`API not responding at ${apiUrl}`);
         }
 
-        const result: BrowserActionResponse = await response.json();
+        // Create a combined abort controller that respects both the tool's signal and timeout
+        const timeoutController = new AbortController();
+        const timeoutId = setTimeout(
+          () => timeoutController.abort(),
+          BROWSER_ACTION_TIMEOUT_MS,
+        );
 
-        if (!result.success) {
-          const errorMessage = result.error || 'Unknown error occurred';
-          return {
-            llmContent: `Browser action failed: ${errorMessage}`,
-            returnDisplay: `Error: ${errorMessage}`,
-            error: {
-              message: errorMessage,
-              type: ToolErrorType.WEB_FETCH_PROCESSING_ERROR,
+        // Combine signals if the tool signal is already provided
+        const combinedSignal = signal.aborted
+          ? signal
+          : timeoutController.signal;
+
+        // Listen to the tool signal and abort timeout controller if needed
+        if (!signal.aborted) {
+          signal.addEventListener('abort', () => {
+            clearTimeout(timeoutId);
+            timeoutController.abort();
+          });
+        }
+
+        try {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
             },
+            body: JSON.stringify(requestBody),
+            signal: combinedSignal,
+          });
+
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+            throw new Error(
+              `Browser API request failed with status ${response.status} ${response.statusText}`,
+            );
+          }
+
+          const result: BrowserActionResponse = await response.json();
+
+          if (!result.success) {
+            const errorMessage = result.error || 'Unknown error occurred';
+            return {
+              llmContent: `Browser action failed: ${errorMessage}`,
+              returnDisplay: `Error: ${errorMessage}`,
+              error: {
+                message: errorMessage,
+                type: ToolErrorType.WEB_FETCH_PROCESSING_ERROR,
+              },
+            };
+          }
+
+          // Format the result for display
+          let resultText = '';
+          if (result.result) {
+            resultText = result.result;
+          } else if (result.final_result) {
+            resultText = JSON.stringify(result.final_result, null, 2);
+          } else {
+            resultText = 'Browser action completed successfully';
+          }
+
+          const stepsInfo =
+            result.steps_taken !== undefined
+              ? ` (${result.steps_taken} steps)`
+              : '';
+
+          const apiMode = apiUrl.includes('11237')
+            ? '(headless)'
+            : '(visible browser)';
+          return {
+            llmContent: resultText,
+            returnDisplay: `✅ Browser action completed${stepsInfo} ${apiMode}\n\n${resultText}`,
           };
+        } finally {
+          clearTimeout(timeoutId);
         }
-
-        // Format the result for display
-        let resultText = '';
-        if (result.result) {
-          resultText = result.result;
-        } else if (result.final_result) {
-          resultText = JSON.stringify(result.final_result, null, 2);
-        } else {
-          resultText = 'Browser action completed successfully';
+      } catch (error: unknown) {
+        lastError = error;
+        // If this isn't the last URL to try, continue to next
+        if (apiUrl !== urlsToTry[urlsToTry.length - 1]) {
+          console.log(`Failed to use ${apiUrl}, trying next API...`);
+          continue;
         }
-
-        const stepsInfo =
-          result.steps_taken !== undefined
-            ? ` (${result.steps_taken} steps)`
-            : '';
-
-        return {
-          llmContent: resultText,
-          returnDisplay: `✅ Browser action completed${stepsInfo}\n\n${resultText}`,
-        };
-      } finally {
-        clearTimeout(timeoutId);
+        // This was the last option, fall through to error handling
       }
-    } catch (error: unknown) {
-      if (signal.aborted) {
-        const errorMessage = 'Browser action was cancelled';
-        return {
-          llmContent: `Error: ${errorMessage}`,
-          returnDisplay: `Error: ${errorMessage}`,
-          error: {
-            message: errorMessage,
-            type: ToolErrorType.WEB_FETCH_PROCESSING_ERROR,
-          },
-        };
-      }
+    }
 
-      const errorMessage = `Error executing browser action: ${getErrorMessage(error)}`;
-      console.error(errorMessage, error);
+    // All APIs failed
+    if (signal.aborted) {
+      const errorMessage = 'Browser action was cancelled';
       return {
         llmContent: `Error: ${errorMessage}`,
         returnDisplay: `Error: ${errorMessage}`,
@@ -203,6 +236,17 @@ class BrowserActionToolInvocation extends BaseToolInvocation<
         },
       };
     }
+
+    const errorMessage = `Error executing browser action (tried ${urlsToTry.join(', ')}): ${getErrorMessage(lastError)}`;
+    console.error(errorMessage, lastError);
+    return {
+      llmContent: `Error: ${errorMessage}`,
+      returnDisplay: `Error: ${errorMessage}`,
+      error: {
+        message: errorMessage,
+        type: ToolErrorType.WEB_FETCH_PROCESSING_ERROR,
+      },
+    };
   }
 }
 

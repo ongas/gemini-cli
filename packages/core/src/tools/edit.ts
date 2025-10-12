@@ -304,12 +304,21 @@ class EditToolInvocation implements ToolInvocation<EditToolParams, ToolResult> {
         ) {
           // Add to persistent storage for all sessions
           const approvalStorage = this.config.getApprovalStorage();
-          await approvalStorage.approveKind(
-            Kind.Edit,
-            'Always allow edit operations',
-          );
-          // Also set session-level approval
-          this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
+          try {
+            await approvalStorage.approveKind(
+              Kind.Edit,
+              'Always allow edit operations',
+            );
+            console.log(
+              `[DEBUG] Persistent approval saved for edit operations`,
+            );
+            // Also set session-level approval
+            this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
+          } catch (error) {
+            console.error(`[ERROR] Failed to save persistent approval:`, error);
+            // Still set session-level approval even if persistent save fails
+            this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
+          }
         }
 
         if (ideConfirmation) {

@@ -114,12 +114,24 @@ export class ShellToolInvocation extends BaseToolInvocation<
         ) {
           // Add to persistent storage for all sessions
           for (const command of commandsToConfirm) {
-            await approvalStorage.approveCommand(
-              command,
-              `Shell command: ${command}`,
-            );
-            // Also add to session allowlist
-            this.allowlist.add(command);
+            try {
+              await approvalStorage.approveCommand(
+                command,
+                `Shell command: ${command}`,
+              );
+              console.log(
+                `[DEBUG] Persistent approval saved for shell command: ${command}`,
+              );
+              // Also add to session allowlist
+              this.allowlist.add(command);
+            } catch (error) {
+              console.error(
+                `[ERROR] Failed to save persistent approval for ${command}:`,
+                error,
+              );
+              // Still add to session allowlist even if persistent save fails
+              this.allowlist.add(command);
+            }
           }
         }
       },

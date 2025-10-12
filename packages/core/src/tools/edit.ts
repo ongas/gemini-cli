@@ -247,6 +247,15 @@ class EditToolInvocation implements ToolInvocation<EditToolParams, ToolResult> {
       return false;
     }
 
+    // Check persistent approvals
+    const approvalStorage = this.config.getApprovalStorage();
+    const kindApproval = await approvalStorage.isKindApproved(Kind.Edit);
+    if (kindApproval) {
+      // Also set session-level approval for performance
+      this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
+      return false;
+    }
+
     let editData: CalculatedEdit;
     try {
       editData = await this.calculateEdit(this.params, abortSignal);
@@ -289,6 +298,17 @@ class EditToolInvocation implements ToolInvocation<EditToolParams, ToolResult> {
       newContent: editData.newContent,
       onConfirm: async (outcome: ToolConfirmationOutcome) => {
         if (outcome === ToolConfirmationOutcome.ProceedAlways) {
+          this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
+        } else if (
+          outcome === ToolConfirmationOutcome.ProceedAlwaysAllSessions
+        ) {
+          // Add to persistent storage for all sessions
+          const approvalStorage = this.config.getApprovalStorage();
+          await approvalStorage.approveKind(
+            Kind.Edit,
+            'Always allow edit operations',
+          );
+          // Also set session-level approval
           this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
         }
 

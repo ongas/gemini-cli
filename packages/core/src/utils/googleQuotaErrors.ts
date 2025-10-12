@@ -97,10 +97,17 @@ export function classifyGoogleError(error: unknown): unknown {
     for (const violation of quotaFailure.violations) {
       const quotaId = violation.quotaId ?? '';
       if (quotaId.includes('PerDay') || quotaId.includes('Daily')) {
-        return new TerminalQuotaError(
-          `Reached a daily quota limit: ${violation.description}`,
-          googleApiError,
-        );
+        let message = `Reached a daily quota limit: ${violation.description}`;
+
+        // Add reset time information if available in quotaDimensions
+        if (violation.quotaDimensions) {
+          const resetTime = violation.quotaDimensions['reset_time'];
+          if (resetTime) {
+            message += `\nQuota resets at: ${resetTime}`;
+          }
+        }
+
+        return new TerminalQuotaError(message, googleApiError);
       }
     }
   }
@@ -108,10 +115,21 @@ export function classifyGoogleError(error: unknown): unknown {
   if (errorInfo) {
     const quotaLimit = errorInfo.metadata?.['quota_limit'] ?? '';
     if (quotaLimit.includes('PerDay') || quotaLimit.includes('Daily')) {
-      return new TerminalQuotaError(
-        `Reached a daily quota limit: ${errorInfo.reason}`,
-        googleApiError,
-      );
+      let message = `Reached a daily quota limit: ${errorInfo.reason}`;
+
+      // Check for reset time in metadata
+      const resetTime =
+        errorInfo.metadata?.['reset_time'] ||
+        errorInfo.metadata?.['quota_reset_time'];
+      if (resetTime) {
+        message += `\nQuota resets at: ${resetTime}`;
+      } else {
+        // Provide general guidance if no specific reset time is available
+        message +=
+          '\nQuota typically resets at midnight Pacific Time (UTC-8/-7)';
+      }
+
+      return new TerminalQuotaError(message, googleApiError);
     }
   }
 

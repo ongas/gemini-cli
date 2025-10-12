@@ -165,11 +165,20 @@ function extractCuratedHistory(comprehensiveHistory: Content[]): Content[] {
  */
 export class InvalidStreamError extends Error {
   readonly type: 'NO_FINISH_REASON' | 'NO_RESPONSE_TEXT';
+  readonly finishReason?: FinishReason;
+  readonly shouldRetry: boolean;
 
-  constructor(message: string, type: 'NO_FINISH_REASON' | 'NO_RESPONSE_TEXT') {
+  constructor(
+    message: string,
+    type: 'NO_FINISH_REASON' | 'NO_RESPONSE_TEXT',
+    finishReason?: FinishReason,
+    shouldRetry: boolean = true,
+  ) {
     super(message);
     this.name = 'InvalidStreamError';
     this.type = type;
+    this.finishReason = finishReason;
+    this.shouldRetry = shouldRetry;
   }
 }
 
@@ -484,22 +493,38 @@ export class GeminiChat {
             lastError = error;
             const isContentError = error instanceof InvalidStreamError;
 
+            // Check if this error should be retried (e.g., not safety/recitation blocks)
+            const shouldRetryError =
+              isContentError && (error as InvalidStreamError).shouldRetry;
+
             // Check dynamically: use Flash limits if in fallback mode, otherwise Pro limits
             const maxAttempts = self.config.isInFallbackMode()
               ? MAX_FLASH_ATTEMPTS
               : MAX_PRO_ATTEMPTS;
 
-            if (isContentError) {
+            if (shouldRetryError) {
               // Check if we have more attempts left.
               if (attempt < maxAttempts - 1) {
-                // Longer delays for Flash fallback retries
-                const retryDelay = self.config.isInFallbackMode()
-                  ? 2000 * (attempt + 1) // Flash: 2s, 4s, 6s
-                  : INVALID_CONTENT_RETRY_OPTIONS.initialDelayMs *
-                    (attempt + 1); // Pro: 500ms, 1s
+                // Retry delays: Flash gets slightly longer delays but not excessive
+                // Most Flash issues are transient throttling, not hard quota limits
+                let retryDelay;
+                if (self.config.isInFallbackMode()) {
+                  // Flash: 5s, 10s, 15s (transient throttling clears quickly)
+                  retryDelay = 5000 * (attempt + 1);
+                } else {
+                  // Pro: 500ms, 1s, 1.5s (shorter delays for non-fallback)
+                  retryDelay =
+                    INVALID_CONTENT_RETRY_OPTIONS.initialDelayMs *
+                    (attempt + 1);
+                }
+
+                const totalSeconds = Math.round(retryDelay / 1000);
+                const modelName = self.config.isInFallbackMode()
+                  ? 'Flash'
+                  : 'Pro';
 
                 console.log(
-                  `[RETRY] ${self.config.isInFallbackMode() ? 'Flash' : 'Pro'} returned empty response. Retrying in ${retryDelay}ms... (attempt ${attempt + 1}/${maxAttempts})`,
+                  `\n[RETRY] ${modelName} returned empty response. (attempt ${attempt + 1}/${maxAttempts})`,
                 );
 
                 logContentRetry(
@@ -511,7 +536,23 @@ export class GeminiChat {
                     model,
                   ),
                 );
-                await new Promise((res) => setTimeout(res, retryDelay));
+
+                // Show countdown every 5 seconds
+                let remaining = totalSeconds;
+                console.log(`⏳ Waiting ${remaining}s before retry...`);
+
+                while (remaining > 0) {
+                  // Wait 5 seconds or remaining time, whichever is less
+                  const waitTime = Math.min(5, remaining);
+                  await new Promise((res) => setTimeout(res, waitTime * 1000));
+                  remaining -= waitTime;
+
+                  if (remaining > 0) {
+                    console.log(`⏳ Waiting ${remaining}s before retry...`);
+                  }
+                }
+
+                console.log('🔄 Retrying now...\n');
                 continue;
               }
             }
@@ -754,12 +795,26 @@ export class GeminiChat {
 
     let hasToolCall = false;
     let hasFinishReason = false;
+    let lastFinishReason: FinishReason | undefined;
 
-    const CHUNK_TIMEOUT_MS = 30000; // 30 seconds per chunk
+    // Use shorter timeout in fallback mode since Flash throttling often results in no chunks at all
+    const CHUNK_TIMEOUT_MS = this.config.isInFallbackMode() ? 10000 : 30000; // 10s for Flash, 30s for Pro
+    const MAX_CHUNKS = 1000; // Maximum chunks to prevent infinite loops
+    let chunkCount = 0;
     const streamIterator = this.stopBeforeSecondMutator(streamResponse);
 
     try {
       while (true) {
+        chunkCount++;
+
+        // Safety limit: prevent infinite streaming loops
+        if (chunkCount > MAX_CHUNKS) {
+          console.warn(
+            `[STREAM DEBUG] Reached maximum chunk limit (${MAX_CHUNKS}). Aborting stream to prevent infinite loop.`,
+          );
+          break;
+        }
+
         console.log('[STREAM DEBUG] Waiting for next chunk...');
         // Wrap each chunk read with a timeout
         const timeoutPromise = new Promise<{ done: true; value: undefined }>(
@@ -807,6 +862,12 @@ export class GeminiChat {
         hasFinishReason =
           chunk?.candidates?.some((candidate) => candidate.finishReason) ??
           false;
+
+        // Capture the last finish reason we see
+        if (chunk?.candidates?.[0]?.finishReason) {
+          lastFinishReason = chunk.candidates[0].finishReason;
+        }
+
         if (isValidResponse(chunk)) {
           const content = chunk.candidates?.[0]?.content;
           if (content?.parts) {
@@ -892,6 +953,57 @@ export class GeminiChat {
           'NO_FINISH_REASON',
         );
       } else {
+        // Use the finish reason to provide more accurate error classification
+        console.log(
+          '[EMPTY RESPONSE DEBUG] Finish reason:',
+          lastFinishReason,
+          'In fallback mode:',
+          this.config.isInFallbackMode(),
+        );
+
+        // Check finish reason to distinguish between different types of failures
+        if (lastFinishReason === FinishReason.SAFETY) {
+          // Safety blocks should NOT retry - they will fail the same way again
+          throw new InvalidStreamError(
+            'Model response was blocked by safety filters.\n\n' +
+              'The content violated safety policies. Try:\n' +
+              '  • Rephrasing your request in a different way\n' +
+              '  • Avoiding sensitive or controversial topics\n' +
+              '  • Starting a new chat session (/clear)',
+            'NO_RESPONSE_TEXT',
+            lastFinishReason,
+            false, // Don't retry safety blocks
+          );
+        }
+
+        if (lastFinishReason === FinishReason.RECITATION) {
+          // Recitation blocks should NOT retry - they will fail the same way again
+          throw new InvalidStreamError(
+            'Model response was blocked due to recitation.\n\n' +
+              'The content matched copyrighted material. Try:\n' +
+              '  • Asking for a summary or paraphrase instead\n' +
+              '  • Requesting original content\n' +
+              '  • Starting a new chat session (/clear)',
+            'NO_RESPONSE_TEXT',
+            lastFinishReason,
+            false, // Don't retry recitation blocks
+          );
+        }
+
+        // For OTHER finish reason or STOP with empty text, check if we're in fallback mode
+        // This is more likely to be quota exhaustion if we just switched to Flash
+        if (this.config.isInFallbackMode()) {
+          throw new InvalidStreamError(
+            'Flash model returned empty response (likely quota exhausted).\n\n' +
+              'Both Pro and Flash models may have hit quota limits.\n' +
+              'Please wait a moment and send your message again manually.',
+            'NO_RESPONSE_TEXT',
+            lastFinishReason,
+            true, // Do retry for potential quota issues
+          );
+        }
+
+        // Default empty response error for non-fallback cases
         throw new InvalidStreamError(
           'Model stream ended with empty response text.\n\n' +
             'This usually means:\n' +
@@ -903,6 +1015,8 @@ export class GeminiChat {
             '  • Starting a new chat session (/clear)\n' +
             '  • Waiting a moment and trying again',
           'NO_RESPONSE_TEXT',
+          lastFinishReason,
+          true, // Do retry for other potential transient issues
         );
       }
     }

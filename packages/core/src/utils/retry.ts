@@ -130,21 +130,36 @@ export async function retryWithBackoff<T>(
         onPersistent429 &&
         authType === AuthType.LOGIN_WITH_GOOGLE
       ) {
+        console.log(
+          '[RETRY DEBUG] TerminalQuotaError detected, attempting fallback...',
+        );
         try {
           const fallbackModel = await onPersistent429(
             authType,
             classifiedError,
           );
 
+          console.log(
+            `[RETRY DEBUG] Fallback handler returned: ${fallbackModel}`,
+          );
+
           if (fallbackModel) {
+            console.log(
+              '[RETRY DEBUG] Fallback successful, resetting attempts and continuing...',
+            );
             attempt = 0; // Reset attempts and retry with the new model.
             currentDelay = initialDelayMs;
             continue;
+          } else {
+            console.log(
+              '[RETRY DEBUG] Fallback returned falsy, throwing error',
+            );
           }
         } catch (fallbackError) {
           console.warn('Model fallback failed:', fallbackError);
         }
         // If fallback failed or wasn't available, throw the terminal error
+        console.log('[RETRY DEBUG] Throwing TerminalQuotaError');
         throw classifiedError;
       }
 
@@ -154,10 +169,13 @@ export async function retryWithBackoff<T>(
         if (attempt >= maxAttempts) {
           throw classifiedError;
         }
+        // Cap retry delay at 60 seconds even if API requests longer
+        // Excessive delays (e.g., 90s+) hurt UX more than helping with throttling
+        const cappedDelay = Math.min(classifiedError.retryDelayMs, 60000);
         console.warn(
-          `Attempt ${attempt} failed: ${classifiedError.message}. Retrying after ${classifiedError.retryDelayMs}ms...`,
+          `Attempt ${attempt} failed: ${classifiedError.message}. Retrying after ${cappedDelay}ms...`,
         );
-        await delay(classifiedError.retryDelayMs);
+        await delay(cappedDelay);
         continue;
       }
 

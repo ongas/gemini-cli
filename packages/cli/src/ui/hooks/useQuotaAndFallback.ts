@@ -104,24 +104,16 @@ export function useQuotaAndFallback({
       setModelSwitchedFromQuotaError(true);
       config.setQuotaErrorOccurred(true);
 
-      // Interactive Fallback for Pro quota
+      // Automatic Fallback for Pro quota (no user prompt)
       if (error instanceof TerminalQuotaError) {
-        if (isDialogPending.current) {
-          return 'stop'; // A dialog is already active, so just stop this request.
-        }
-        isDialogPending.current = true;
-
-        const intent: FallbackIntent = await new Promise<FallbackIntent>(
-          (resolve) => {
-            setProQuotaRequest({
-              failedModel,
-              fallbackModel,
-              resolve,
-            });
+        historyManager.addItem(
+          {
+            type: MessageType.INFO,
+            text: 'Switched to fallback model. Tip: Press Ctrl+P (or Up Arrow) to recall your previous prompt and submit it again if you wish.',
           },
+          Date.now(),
         );
-
-        return intent;
+        return 'retry'; // Automatically retry with fallback model
       }
 
       return 'stop';

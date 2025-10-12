@@ -36,6 +36,12 @@ import { SmartEditStrategyEvent } from '../telemetry/types.js';
 import { logSmartEditStrategy } from '../telemetry/loggers.js';
 import { SmartEditCorrectionEvent } from '../telemetry/types.js';
 import { logSmartEditCorrectionEvent } from '../telemetry/loggers.js';
+import {
+  detectIndentationStyle,
+  normalizeIndentation,
+  validatePythonSyntax,
+  tryFixPythonIndentation,
+} from '../utils/indentationNormalizer.js';
 
 interface ReplacementContext {
   params: EditToolParams;
@@ -232,6 +238,54 @@ function detectLineEnding(content: string): '\r\n' | '\n' {
   return content.includes('\r\n') ? '\r\n' : '\n';
 }
 
+/**
+ * Pre-flight indentation normalization strategy.
+ * Normalizes both old_string and new_string to match the file's indentation style.
+ * This prevents failures due to indentation mismatches.
+ */
+async function calculateNormalizedReplacement(
+  context: ReplacementContext,
+): Promise<ReplacementResult | null> {
+  const { currentContent, params } = context;
+  const { old_string, new_string } = params;
+
+  // Detect file's indentation style
+  const fileIndentStyle = detectIndentationStyle(currentContent);
+
+  // Normalize both old_string and new_string to match the file
+  const normalizedOldString = normalizeIndentation(old_string, fileIndentStyle);
+  const normalizedNewString = normalizeIndentation(new_string, fileIndentStyle);
+
+  // Only proceed if normalization actually changed something
+  if (
+    normalizedOldString === old_string &&
+    normalizedNewString === new_string
+  ) {
+    return null; // No normalization needed
+  }
+
+  // Try the exact match with normalized strings
+  const normalizedCode = currentContent;
+  const exactOccurrences = normalizedCode.split(normalizedOldString).length - 1;
+
+  if (exactOccurrences > 0) {
+    let modifiedCode = safeLiteralReplace(
+      normalizedCode,
+      normalizedOldString,
+      normalizedNewString,
+    );
+    modifiedCode = restoreTrailingNewline(currentContent, modifiedCode);
+    return {
+      newContent: modifiedCode,
+      occurrences: exactOccurrences,
+      finalOldString: normalizedOldString,
+      finalNewString: normalizedNewString,
+    };
+  }
+
+  return null;
+}
+
 export async function calculateReplacement(
   config: Config,
   context: ReplacementContext,
@@ -255,6 +309,14 @@ export async function calculateReplacement(
     const event = new SmartEditStrategyEvent('exact');
     logSmartEditStrategy(config, event);
     return exactResult;
+  }
+
+  // Try indentation-normalized replacement (prevents IndentationError)
+  const normalizedResult = await calculateNormalizedReplacement(context);
+  if (normalizedResult) {
+    const event = new SmartEditStrategyEvent('normalized');
+    logSmartEditStrategy(config, event);
+    return normalizedResult;
   }
 
   const flexibleResult = await calculateFlexibleReplacement(context);
@@ -548,6 +610,36 @@ class EditToolInvocation implements ToolInvocation<EditToolParams, ToolResult> {
     );
 
     if (!initialError) {
+      // For Python files, validate syntax and try to fix indentation errors proactively
+      if (params.file_path.endsWith('.py')) {
+        const syntaxError = await validatePythonSyntax(
+          replacementResult.newContent,
+        );
+        if (syntaxError && syntaxError.includes('IndentationError')) {
+          // Try to fix the indentation automatically
+          const fileIndentStyle = detectIndentationStyle(currentContent);
+          const fixedContent = await tryFixPythonIndentation(
+            replacementResult.newContent,
+            fileIndentStyle,
+          );
+
+          // Verify the fix worked
+          const fixedError = await validatePythonSyntax(fixedContent);
+          if (!fixedError) {
+            // Success! Return the fixed version
+            return {
+              currentContent,
+              newContent: fixedContent,
+              occurrences: replacementResult.occurrences,
+              isNewFile: false,
+              error: undefined,
+              originalLineEnding,
+            };
+          }
+          // If fix failed, proceed with LLM correction below
+        }
+      }
+
       return {
         currentContent,
         newContent: replacementResult.newContent,

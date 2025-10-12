@@ -383,6 +383,89 @@ export async function processSingleFileContent(
         const lines = content.split('\n');
         const originalLineCount = lines.length;
 
+        // Smart read threshold: if file is very large and no explicit offset/limit provided
+        const SMART_READ_THRESHOLD = 5000; // lines
+        const isLargeFile = originalLineCount > SMART_READ_THRESHOLD;
+        const isExplicitRead = offset !== undefined || limit !== undefined;
+
+        // For large files without explicit pagination, use smart sampling
+        if (isLargeFile && !isExplicitRead) {
+          // Automatically extract:
+          // 1. First 50 lines (headers, initial context)
+          // 2. Last 50 lines (final results, conclusions)
+          // 3. Lines containing errors/failures (up to 100)
+          const firstLines = lines.slice(0, 50);
+          const lastLines = lines.slice(-50);
+
+          // Find error/failure lines
+          const errorPatterns =
+            /ERROR|FAILED|FAIL:|Exception|Traceback|AssertionError|SyntaxError|TypeError|ValueError/i;
+          const errorLines: string[] = [];
+          const errorLineNumbers: number[] = [];
+          for (let i = 0; i < lines.length && errorLines.length < 100; i++) {
+            if (errorPatterns.test(lines[i])) {
+              errorLines.push(`${i + 1}: ${lines[i]}`);
+              errorLineNumbers.push(i + 1);
+            }
+          }
+
+          const smartContent = [
+            `⚠️  LARGE FILE AUTO-SAMPLED: ${originalLineCount} lines (${(stats.size / 1024).toFixed(1)}KB)`,
+            ``,
+            `This file is too large to read completely (would use ~${Math.ceil(originalLineCount / 4000)}K tokens).`,
+            `Auto-extracted strategic excerpts:`,
+            ``,
+            `═══════════════════════════════════════════════════════════════`,
+            `📋 FIRST 50 LINES (headers/setup):`,
+            `═══════════════════════════════════════════════════════════════`,
+            ...firstLines.map((line, i) => `${i + 1}: ${line}`),
+            ``,
+            errorLines.length > 0
+              ? [
+                  `═══════════════════════════════════════════════════════════════`,
+                  `❌ ERRORS/FAILURES FOUND (${errorLines.length} matches):`,
+                  `═══════════════════════════════════════════════════════════════`,
+                  ...errorLines,
+                  ``,
+                ].join('\n')
+              : '',
+            `═══════════════════════════════════════════════════════════════`,
+            `📊 LAST 50 LINES (results/summary):`,
+            `═══════════════════════════════════════════════════════════════`,
+            ...lastLines.map(
+              (line, i) => `${originalLineCount - 50 + i + 1}: ${line}`,
+            ),
+            ``,
+            `═══════════════════════════════════════════════════════════════`,
+            `💡 TO READ MORE: Use targeted bash commands:`,
+            `═══════════════════════════════════════════════════════════════`,
+            ``,
+            `Specific line range:`,
+            `  run_shell_command("sed -n '100,200p' ${filePath}")`,
+            ``,
+            `Find specific text:`,
+            `  run_shell_command("grep -n 'search_term' ${filePath}")`,
+            ``,
+            `Get context around errors:`,
+            `  run_shell_command("grep -B 5 -A 10 'ERROR' ${filePath}")`,
+            ``,
+            errorLineNumbers.length > 0
+              ? `Quick access to first error (line ${errorLineNumbers[0]}):\n  run_shell_command("sed -n '${Math.max(1, errorLineNumbers[0] - 5)},${errorLineNumbers[0] + 10}p' ${filePath}")\n`
+              : '',
+          ]
+            .filter(Boolean)
+            .join('\n');
+
+          return {
+            llmContent: smartContent,
+            returnDisplay: `Smart-sampled large file (${originalLineCount} lines): ${relativePathForDisplay}`,
+            isTruncated: true,
+            originalLineCount,
+            linesShown: [1, originalLineCount],
+          };
+        }
+
+        // Normal read flow for regular files or explicit offset/limit
         const startLine = offset || 0;
         const effectiveLimit =
           limit === undefined ? DEFAULT_MAX_LINES_TEXT_FILE : limit;

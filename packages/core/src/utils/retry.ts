@@ -124,10 +124,9 @@ export async function retryWithBackoff<T>(
     } catch (error) {
       const classifiedError = classifyGoogleError(error);
 
-      // Handle ANY quota error (Terminal or Retryable) - try fallback first
+      // Handle TerminalQuotaError (daily limits) - try fallback to Flash model
       if (
-        (classifiedError instanceof TerminalQuotaError ||
-          classifiedError instanceof RetryableQuotaError) &&
+        classifiedError instanceof TerminalQuotaError &&
         onPersistent429 &&
         authType === AuthType.LOGIN_WITH_GOOGLE
       ) {
@@ -145,14 +144,12 @@ export async function retryWithBackoff<T>(
         } catch (fallbackError) {
           console.warn('Model fallback failed:', fallbackError);
         }
-      }
-
-      // If we get here with a TerminalQuotaError, throw it
-      if (classifiedError instanceof TerminalQuotaError) {
+        // If fallback failed or wasn't available, throw the terminal error
         throw classifiedError;
       }
 
-      // For RetryableQuotaError, only retry if fallback wasn't available or failed
+      // For RetryableQuotaError (per-minute throttling), wait and retry with same model
+      // Don't switch models - this is just temporary throttling
       if (classifiedError instanceof RetryableQuotaError) {
         if (attempt >= maxAttempts) {
           throw classifiedError;

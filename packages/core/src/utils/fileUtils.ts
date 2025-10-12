@@ -15,8 +15,11 @@ import { ToolErrorType } from '../tools/tool-error.js';
 import { BINARY_EXTENSIONS } from './ignorePatterns.js';
 
 // Constants for text file processing
-const DEFAULT_MAX_LINES_TEXT_FILE = 2000;
+// IMPORTANT: These limits prevent excessive context usage
+// Aggressive limits to avoid wasting tokens on large files
+const DEFAULT_MAX_LINES_TEXT_FILE = 500; // Reduced from 2000 - most files don't need more
 const MAX_LINE_LENGTH_TEXT_FILE = 2000;
+const MAX_CHARACTERS_PER_READ = 100000; // ~25K tokens max per read (4 chars ≈ 1 token)
 
 // Default values for encoding and separator format
 export const DEFAULT_ENCODING: BufferEncoding = 'utf-8';
@@ -380,60 +383,74 @@ export async function processSingleFileContent(
       case 'text': {
         // Use BOM-aware reader to avoid leaving a BOM character in content and to support UTF-16/32 transparently
         const content = await readFileWithEncoding(filePath);
+        const contentSize = content.length; // Total characters
         const lines = content.split('\n');
         const originalLineCount = lines.length;
 
-        // Smart read threshold: if file is very large and no explicit offset/limit provided
-        const SMART_READ_THRESHOLD = 5000; // lines
-        const isLargeFile = originalLineCount > SMART_READ_THRESHOLD;
+        // Smart read threshold: use BOTH line count AND character count
+        // This catches single-line huge files (like minified JS) and multi-line huge files
+        const SMART_READ_LINE_THRESHOLD = 1000; // Reduced from 5000 - be more aggressive
+        const SMART_READ_CHAR_THRESHOLD = 200000; // ~50K tokens
+        const isLargeFile =
+          originalLineCount > SMART_READ_LINE_THRESHOLD ||
+          contentSize > SMART_READ_CHAR_THRESHOLD;
         const isExplicitRead = offset !== undefined || limit !== undefined;
 
         // For large files without explicit pagination, use smart sampling
         if (isLargeFile && !isExplicitRead) {
           // Automatically extract:
-          // 1. First 50 lines (headers, initial context)
-          // 2. Last 50 lines (final results, conclusions)
-          // 3. Lines containing errors/failures (up to 100)
-          const firstLines = lines.slice(0, 50);
-          const lastLines = lines.slice(-50);
+          // 1. First 30 lines (headers, initial context) - reduced from 50
+          // 2. Last 30 lines (final results, conclusions) - reduced from 50
+          // 3. Lines containing errors/failures (up to 50) - reduced from 100
+          const firstLines = lines.slice(0, 30);
+          const lastLines = lines.slice(-30);
 
-          // Find error/failure lines
+          // Find error/failure lines (limit to 50 errors and respect char limit)
           const errorPatterns =
             /ERROR|FAILED|FAIL:|Exception|Traceback|AssertionError|SyntaxError|TypeError|ValueError/i;
           const errorLines: string[] = [];
           const errorLineNumbers: number[] = [];
-          for (let i = 0; i < lines.length && errorLines.length < 100; i++) {
+          let errorCharsUsed = 0;
+          const MAX_ERROR_CHARS = 30000; // ~7.5K tokens for errors
+          for (let i = 0; i < lines.length && errorLines.length < 50; i++) {
             if (errorPatterns.test(lines[i])) {
-              errorLines.push(`${i + 1}: ${lines[i]}`);
-              errorLineNumbers.push(i + 1);
+              const errorLine = `${i + 1}: ${lines[i]}`;
+              if (errorCharsUsed + errorLine.length < MAX_ERROR_CHARS) {
+                errorLines.push(errorLine);
+                errorLineNumbers.push(i + 1);
+                errorCharsUsed += errorLine.length;
+              } else {
+                break; // Stop adding errors if we hit char limit
+              }
             }
           }
 
           const smartContent = [
             `⚠️  LARGE FILE AUTO-SAMPLED: ${originalLineCount} lines (${(stats.size / 1024).toFixed(1)}KB)`,
             ``,
-            `This file is too large to read completely (would use ~${Math.ceil(originalLineCount / 4000)}K tokens).`,
-            `Auto-extracted strategic excerpts:`,
+            `This file exceeds read limits (>${SMART_READ_LINE_THRESHOLD} lines OR >${(SMART_READ_CHAR_THRESHOLD / 1000).toFixed(0)}K chars).`,
+            `Full read would waste ~${Math.ceil(contentSize / 4000)}K tokens.`,
+            `Auto-extracted strategic excerpts (much more efficient):`,
             ``,
             `═══════════════════════════════════════════════════════════════`,
-            `📋 FIRST 50 LINES (headers/setup):`,
+            `📋 FIRST 30 LINES (headers/setup):`,
             `═══════════════════════════════════════════════════════════════`,
             ...firstLines.map((line, i) => `${i + 1}: ${line}`),
             ``,
             errorLines.length > 0
               ? [
                   `═══════════════════════════════════════════════════════════════`,
-                  `❌ ERRORS/FAILURES FOUND (${errorLines.length} matches):`,
+                  `❌ ERRORS/FAILURES FOUND (${errorLines.length} matches, ${(errorCharsUsed / 1000).toFixed(1)}K chars):`,
                   `═══════════════════════════════════════════════════════════════`,
                   ...errorLines,
                   ``,
                 ].join('\n')
               : '',
             `═══════════════════════════════════════════════════════════════`,
-            `📊 LAST 50 LINES (results/summary):`,
+            `📊 LAST 30 LINES (results/summary):`,
             `═══════════════════════════════════════════════════════════════`,
             ...lastLines.map(
-              (line, i) => `${originalLineCount - 50 + i + 1}: ${line}`,
+              (line, i) => `${originalLineCount - 30 + i + 1}: ${line}`,
             ),
             ``,
             `═══════════════════════════════════════════════════════════════`,
@@ -470,10 +487,25 @@ export async function processSingleFileContent(
         const effectiveLimit =
           limit === undefined ? DEFAULT_MAX_LINES_TEXT_FILE : limit;
         // Ensure endLine does not exceed originalLineCount
-        const endLine = Math.min(startLine + effectiveLimit, originalLineCount);
+        let endLine = Math.min(startLine + effectiveLimit, originalLineCount);
         // Ensure selectedLines doesn't try to slice beyond array bounds if startLine is too high
         const actualStartLine = Math.min(startLine, originalLineCount);
-        const selectedLines = lines.slice(actualStartLine, endLine);
+        let selectedLines = lines.slice(actualStartLine, endLine);
+
+        // CRITICAL: Enforce character limit even if line limit isn't reached
+        // This prevents single-line huge files from consuming excessive tokens
+        let cumulativeChars = 0;
+        let truncatedAtLine = endLine;
+        for (let i = 0; i < selectedLines.length; i++) {
+          cumulativeChars += selectedLines[i].length + 1; // +1 for newline
+          if (cumulativeChars > MAX_CHARACTERS_PER_READ) {
+            // Truncate at this line
+            truncatedAtLine = actualStartLine + i;
+            selectedLines = selectedLines.slice(0, i);
+            break;
+          }
+        }
+        endLine = truncatedAtLine;
 
         let linesWereTruncatedInLength = false;
         const formattedLines = selectedLines.map((line) => {

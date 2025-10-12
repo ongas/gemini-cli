@@ -117,4 +117,41 @@ export class Storage {
   getHistoryFilePath(): string {
     return path.join(this.getProjectTempDir(), 'shell_history');
   }
+
+  getStorageDir(): string {
+    return path.join(this.getGeminiDir(), 'storage');
+  }
+
+  /**
+   * Get data from a JSON file in the storage directory
+   */
+  async get<T>(key: string): Promise<T | null> {
+    const storageDir = this.getStorageDir();
+    const filePath = path.join(storageDir, `${key}.json`);
+
+    try {
+      const data = await fs.promises.readFile(filePath, 'utf-8');
+      return JSON.parse(data) as T;
+    } catch (error: unknown) {
+      const err = error as NodeJS.ErrnoException;
+      if (err.code === 'ENOENT') {
+        return null; // File doesn't exist yet
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Save data to a JSON file in the storage directory
+   */
+  async set<T>(key: string, value: T): Promise<void> {
+    const storageDir = this.getStorageDir();
+
+    // Ensure storage directory exists
+    await fs.promises.mkdir(storageDir, { recursive: true, mode: 0o700 });
+
+    const filePath = path.join(storageDir, `${key}.json`);
+    const data = JSON.stringify(value, null, 2);
+    await fs.promises.writeFile(filePath, data, { mode: 0o600 });
+  }
 }

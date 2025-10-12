@@ -430,6 +430,9 @@ export class GeminiChat {
     this.history.push(userContent);
     let requestContents = this.getHistory(true);
 
+    // Trim old tool results to save tokens
+    requestContents = this.trimOldToolResults(requestContents);
+
     // Proactively check and trim context if needed
     const { trimmedHistory, warning, breakdown } = checkAndTrimContext(
       model,
@@ -650,6 +653,69 @@ export class GeminiChat {
 
   setTools(tools: Tool[]): void {
     this.generationConfig.tools = tools;
+  }
+
+  /**
+   * Trims old tool results (functionResponse) from history to save tokens.
+   * Keeps recent tool results (last 4 contents = 2 turns) in full.
+   * Older tool results are replaced with brief summaries.
+   */
+  private trimOldToolResults(contents: Content[]): Content[] {
+    if (contents.length <= 4) {
+      return contents; // Keep everything if conversation is short
+    }
+
+    // Keep last 4 contents (approximately 2 user-model turn pairs) at full size
+    const recentCount = 4;
+    const recentContents = contents.slice(-recentCount);
+    const olderContents = contents.slice(0, -recentCount);
+
+    const trimmedOlderContents = olderContents.map((content) => {
+      if (content.role !== 'user') {
+        return content; // Don't trim model responses
+      }
+
+      const hasFunctionResponse = content.parts?.some(
+        (part) => part.functionResponse,
+      );
+
+      if (!hasFunctionResponse) {
+        return content; // No tool results to trim
+      }
+
+      // Trim functionResponse parts
+      const trimmedParts = content.parts?.map((part) => {
+        if (!part.functionResponse) {
+          return part; // Keep non-tool parts as-is
+        }
+
+        const response = part.functionResponse.response;
+        const output = response?.output;
+
+        if (typeof output !== 'string' || output.length < 1000) {
+          return part; // Already small, keep as-is
+        }
+
+        // Replace large output with summary
+        const toolName = part.functionResponse.name || 'unknown_tool';
+        const outputPreview = output.substring(0, 200);
+        const summary = `[Tool result truncated: ${toolName} returned ${output.length} chars. First 200 chars: ${outputPreview}...]`;
+
+        return {
+          functionResponse: {
+            ...part.functionResponse,
+            response: { output: summary },
+          },
+        };
+      });
+
+      return {
+        ...content,
+        parts: trimmedParts,
+      };
+    });
+
+    return [...trimmedOlderContents, ...recentContents];
   }
 
   async maybeIncludeSchemaDepthContext(error: StructuredError): Promise<void> {

@@ -1,0 +1,42 @@
+description = "Manage persistent approval rules for commands and tools across all sessions."
+
+prompt = """
+## Mission: Manage Persistent Approval Rules
+
+You help the user view, add, or remove persistent approval rules that survive across all sessions.
+
+### Available Operations:
+
+1. **List all approval rules** (default if no args):
+   - Call `config.getApprovalStorage().loadRules()` to get all rules
+   - Display them in a formatted table with: ID, Type, Value, Description, Created, Last Used
+
+2. **Remove an approval rule**:
+   - If the user provides an ID or specifies which rule to remove
+   - Call `config.getApprovalStorage().removeRule(id)` with the rule ID
+   - Confirm the removal
+
+3. **Clear all approval rules**:
+   - If the user explicitly asks to clear/remove ALL rules
+   - Call `config.getApprovalStorage().clearAll()`
+   - Confirm the operation
+
+4. **Add a new approval rule**:
+   - If the user wants to add a rule for a specific command
+   - Call the appropriate method:
+     - `approveCommand(command, description)` for shell commands
+     - `approveKind(kind, description)` for tool kinds (e.g., "edit", "execute")
+     - `approveTool(toolName, description)` for specific tools
+     - `approveMcpServer(serverName, description)` for MCP servers
+
+### Important Notes:
+
+- Approval rules are stored in `.gemini/storage/persistent_approvals`
+- Command patterns support wildcards (e.g., "npm *" will match all npm commands)
+- When listing rules, format dates nicely and show when rules were last used
+- Be careful with "clear all" operations - always confirm before executing
+
+### User Request:
+
+{{args}}
+"""

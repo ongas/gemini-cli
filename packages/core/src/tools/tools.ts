@@ -639,6 +639,7 @@ export type ToolCallConfirmationDetails =
 export enum ToolConfirmationOutcome {
   ProceedOnce = 'proceed_once',
   ProceedAlways = 'proceed_always',
+  ProceedAlwaysAllSessions = 'proceed_always_all_sessions', // Persistent across sessions
   ProceedAlwaysServer = 'proceed_always_server',
   ProceedAlwaysTool = 'proceed_always_tool',
   ProceedAlwaysAgent = 'proceed_always_agent', // Auto-approve all tools from a specific agent

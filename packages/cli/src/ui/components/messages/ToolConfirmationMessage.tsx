@@ -154,9 +154,14 @@ export const ToolConfirmationMessage: React.FC<
     });
     if (isTrustedFolder) {
       options.push({
-        label: 'Yes, allow always',
+        label: 'Yes, allow always (this session)',
         value: ToolConfirmationOutcome.ProceedAlways,
-        key: 'Yes, allow always',
+        key: 'Yes, allow always (this session)',
+      });
+      options.push({
+        label: 'Yes, allow always (all sessions)',
+        value: ToolConfirmationOutcome.ProceedAlwaysAllSessions,
+        key: 'Yes, allow always (all sessions)',
       });
     }
     if (!config.getIdeMode() || !isDiffingEnabled) {
@@ -193,9 +198,14 @@ export const ToolConfirmationMessage: React.FC<
     });
     if (isTrustedFolder) {
       options.push({
-        label: `Yes, allow always ...`,
+        label: `Yes, allow always (this session) ...`,
         value: ToolConfirmationOutcome.ProceedAlways,
-        key: `Yes, allow always ...`,
+        key: `Yes, allow always (this session) ...`,
+      });
+      options.push({
+        label: `Yes, allow always (all sessions) ...`,
+        value: ToolConfirmationOutcome.ProceedAlwaysAllSessions,
+        key: `Yes, allow always (all sessions) ...`,
       });
     }
     options.push({
@@ -236,9 +246,14 @@ export const ToolConfirmationMessage: React.FC<
     });
     if (isTrustedFolder) {
       options.push({
-        label: 'Yes, allow always',
+        label: 'Yes, allow always (this session)',
         value: ToolConfirmationOutcome.ProceedAlways,
-        key: 'Yes, allow always',
+        key: 'Yes, allow always (this session)',
+      });
+      options.push({
+        label: 'Yes, allow always (all sessions)',
+        value: ToolConfirmationOutcome.ProceedAlwaysAllSessions,
+        key: 'Yes, allow always (all sessions)',
       });
     }
     options.push({

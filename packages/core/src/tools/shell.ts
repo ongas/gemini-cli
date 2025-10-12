@@ -76,8 +76,25 @@ export class ShellToolInvocation extends BaseToolInvocation<
   ): Promise<ToolCallConfirmationDetails | false> {
     const command = stripShellWrapper(this.params.command);
     const rootCommands = [...new Set(getCommandRoots(command))];
+
+    // Check persistent approvals first
+    const approvalStorage = this.config.getApprovalStorage();
+    const persistentlyApprovedCommands = new Set<string>();
+    for (const command of rootCommands) {
+      const persistentApproval =
+        await approvalStorage.isCommandApproved(command);
+      if (persistentApproval) {
+        persistentlyApprovedCommands.add(command);
+        // Also add to session allowlist for performance
+        this.allowlist.add(command);
+      }
+    }
+
+    // Filter out both session-approved and persistently-approved commands
     const commandsToConfirm = rootCommands.filter(
-      (command) => !this.allowlist.has(command),
+      (command) =>
+        !this.allowlist.has(command) &&
+        !persistentlyApprovedCommands.has(command),
     );
 
     if (commandsToConfirm.length === 0) {
@@ -92,6 +109,18 @@ export class ShellToolInvocation extends BaseToolInvocation<
       onConfirm: async (outcome: ToolConfirmationOutcome) => {
         if (outcome === ToolConfirmationOutcome.ProceedAlways) {
           commandsToConfirm.forEach((command) => this.allowlist.add(command));
+        } else if (
+          outcome === ToolConfirmationOutcome.ProceedAlwaysAllSessions
+        ) {
+          // Add to persistent storage for all sessions
+          for (const command of commandsToConfirm) {
+            await approvalStorage.approveCommand(
+              command,
+              `Shell command: ${command}`,
+            );
+            // Also add to session allowlist
+            this.allowlist.add(command);
+          }
         }
       },
     };

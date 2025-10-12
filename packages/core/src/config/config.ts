@@ -80,6 +80,7 @@ import { ProxyAgent, setGlobalDispatcher } from 'undici';
 
 import { AgentRegistry } from '../agents/registry.js';
 import { SubagentToolWrapper } from '../agents/subagent-tool-wrapper.js';
+import { ApprovalStorage } from './approvalStorage.js';
 
 export enum ApprovalMode {
   DEFAULT = 'default',
@@ -345,6 +346,7 @@ export class Config {
   private readonly enableToolOutputTruncation: boolean;
   private initialized: boolean = false;
   readonly storage: Storage;
+  private readonly approvalStorage: ApprovalStorage;
   private readonly fileExclusions: FileExclusions;
   private readonly eventEmitter?: EventEmitter;
   private readonly useSmartEdit: boolean;
@@ -447,6 +449,7 @@ export class Config {
     this.enableSubagents = params.enableSubagents ?? false;
     this.extensionManagement = params.extensionManagement ?? true;
     this.storage = new Storage(this.targetDir);
+    this.approvalStorage = new ApprovalStorage(this.storage);
     this.enablePromptCompletion = params.enablePromptCompletion ?? false;
     this.fileExclusions = new FileExclusions(this);
     this.eventEmitter = params.eventEmitter;
@@ -1026,6 +1029,10 @@ export class Config {
 
   getEnableSubagents(): boolean {
     return this.enableSubagents;
+  }
+
+  getApprovalStorage(): ApprovalStorage {
+    return this.approvalStorage;
   }
 
   async createToolRegistry(): Promise<ToolRegistry> {

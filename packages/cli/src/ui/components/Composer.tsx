@@ -7,6 +7,7 @@
 import { Box, Text, useIsScreenReaderEnabled } from 'ink';
 import { useMemo } from 'react';
 import { LoadingIndicator } from './LoadingIndicator.js';
+import { TodoChecklistDisplay } from './TodoChecklistDisplay.js';
 import { ContextSummaryDisplay } from './ContextSummaryDisplay.js';
 import { AutoAcceptIndicator } from './AutoAcceptIndicator.js';
 import { ShellModeIndicator } from './ShellModeIndicator.js';
@@ -63,6 +64,10 @@ export const Composer = () => {
           }
           elapsedTime={uiState.elapsedTime}
         />
+      )}
+
+      {!uiState.embeddedShellFocused && uiState.todoChecklist && (
+        <TodoChecklistDisplay checklist={uiState.todoChecklist} />
       )}
 
       {!uiState.isConfigInitialized && <ConfigInitDisplay />}

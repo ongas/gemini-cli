@@ -14,6 +14,7 @@ import type {
   ServerGeminiFinishedEvent,
   ServerGeminiStreamEvent as GeminiEvent,
   ThoughtSummary,
+  TodoChecklistSummary,
   ToolCallRequestInfo,
   GeminiErrorEventValue,
 } from '@google/gemini-cli-core';
@@ -111,6 +112,8 @@ export const useGeminiStream = (
   const turnCancelledRef = useRef(false);
   const [isResponding, setIsResponding] = useState<boolean>(false);
   const [thought, setThought] = useState<ThoughtSummary | null>(null);
+  const [todoChecklist, setTodoChecklist] =
+    useState<TodoChecklistSummary | null>(null);
   const [pendingHistoryItem, pendingHistoryItemRef, setPendingHistoryItem] =
     useStateAndRef<HistoryItemWithoutId | null>(null);
   const processedMemoryToolsRef = useRef<Set<string>>(new Set());
@@ -129,6 +132,80 @@ export const useGeminiStream = (
       async (completedToolCallsFromScheduler) => {
         // This onComplete is called when ALL scheduled tools for a given batch are done.
         if (completedToolCallsFromScheduler.length > 0) {
+          // Check if any WriteTodosTool calls succeeded and update the checklist
+          const writeTodosTools = completedToolCallsFromScheduler.filter(
+            (tc) =>
+              tc.request.name === 'write_todos_list' && tc.status === 'success',
+          );
+
+          if (writeTodosTools.length > 0) {
+            // Get the most recent WriteTodosTool call
+            const latestTodoTool = writeTodosTools[writeTodosTools.length - 1];
+            const todosParam = (latestTodoTool.request.args as { todos?: Array<{ description: string; status: string }> })?.todos;
+
+            if (todosParam && Array.isArray(todosParam)) {
+              // Helper function to convert to active/present continuous form
+              const toActiveForm = (description: string): string => {
+                // If already in present continuous (ending with 'ing'), return as is
+                if (description.match(/ing\s*$/i)) {
+                  return description;
+                }
+                // Common patterns for converting imperative to present continuous
+                const lowerDesc = description.toLowerCase();
+
+                // Handle common imperative verbs
+                if (lowerDesc.startsWith('run ')) {
+                  return description.replace(/^run /i, 'Running ');
+                }
+                if (lowerDesc.startsWith('fix ')) {
+                  return description.replace(/^fix /i, 'Fixing ');
+                }
+                if (lowerDesc.startsWith('implement ')) {
+                  return description.replace(/^implement /i, 'Implementing ');
+                }
+                if (lowerDesc.startsWith('add ')) {
+                  return description.replace(/^add /i, 'Adding ');
+                }
+                if (lowerDesc.startsWith('create ')) {
+                  return description.replace(/^create /i, 'Creating ');
+                }
+                if (lowerDesc.startsWith('test ')) {
+                  return description.replace(/^test /i, 'Testing ');
+                }
+                if (lowerDesc.startsWith('build ')) {
+                  return description.replace(/^build /i, 'Building ');
+                }
+                if (lowerDesc.startsWith('update ')) {
+                  return description.replace(/^update /i, 'Updating ');
+                }
+                if (lowerDesc.startsWith('write ')) {
+                  return description.replace(/^write /i, 'Writing ');
+                }
+                if (lowerDesc.startsWith('read ')) {
+                  return description.replace(/^read /i, 'Reading ');
+                }
+
+                // Default: just append 'ing' to the description
+                return description;
+              };
+
+              // Convert the todos to TodoChecklistSummary format
+              const todoItems = todosParam.map((todo, index) => ({
+                id: `todo-${Date.now()}-${index}`,
+                content: todo.description,
+                activeForm: toActiveForm(todo.description),
+                status: todo.status as 'pending' | 'in_progress' | 'completed',
+              }));
+
+              const currentTaskId = todoItems.find((t) => t.status === 'in_progress')?.id;
+
+              setTodoChecklist({
+                todos: todoItems,
+                currentTaskId,
+              });
+            }
+          }
+
           // Add the final state of these tools to the history for display.
           addItem(
             mapTrackedToolCallsToDisplay(
@@ -495,6 +572,7 @@ export const useGeminiStream = (
       );
       setIsResponding(false);
       setThought(null); // Reset thought when user cancels
+      setTodoChecklist(null); // Reset todo checklist when user cancels
     },
     [addItem, pendingHistoryItemRef, setPendingHistoryItem, setThought],
   );
@@ -519,6 +597,7 @@ export const useGeminiStream = (
         userMessageTimestamp,
       );
       setThought(null); // Reset thought when there's an error
+      setTodoChecklist(null); // Reset todo checklist when there's an error
     },
     [addItem, pendingHistoryItemRef, setPendingHistoryItem, config, setThought],
   );
@@ -664,6 +743,9 @@ export const useGeminiStream = (
         switch (event.type) {
           case ServerGeminiEventType.Thought:
             setThought(event.value);
+            break;
+          case ServerGeminiEventType.TodoUpdate:
+            setTodoChecklist(event.value);
             break;
           case ServerGeminiEventType.Content:
             geminiMessageBuffer = handleContentEvent(
@@ -815,6 +897,7 @@ export const useGeminiStream = (
           }
           startNewPrompt();
           setThought(null); // Reset thought when starting a new prompt
+          setTodoChecklist(null); // Reset todo checklist when starting a new prompt
         }
 
         setIsResponding(true);
@@ -1023,8 +1106,13 @@ export const useGeminiStream = (
 
       markToolsAsSubmitted(callIdsToMarkAsSubmitted);
 
-      // Don't continue if model was switched due to quota error
-      if (modelSwitchedFromQuotaError) {
+      // Don't continue if model was switched due to quota error during the FIRST turn
+      // After the initial fallback, we want to continue normally for subsequent turns
+      // This check is only relevant for the turn where quota error actually occurred
+      // Note: The flag is reset at the start of each new user question (non-continuation)
+      // so this should only block immediate tool response submission after a quota error,
+      // not tool responses in subsequent turns
+      if (modelSwitchedFromQuotaError && config.getQuotaErrorOccurred()) {
         return;
       }
 
@@ -1179,6 +1267,7 @@ export const useGeminiStream = (
     initError,
     pendingHistoryItems,
     thought,
+    todoChecklist,
     cancelOngoingRequest,
     pendingToolCalls: toolCalls,
     handleApprovalModeChange,

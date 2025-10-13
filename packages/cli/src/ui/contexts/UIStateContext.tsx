@@ -15,6 +15,7 @@ import type {
   HistoryItemWithoutId,
   StreamingState,
 } from '../types.js';
+import type { TodoChecklistSummary } from '@google/gemini-cli-core';
 import type { CommandContext, SlashCommand } from '../commands/types.js';
 import type { TextBuffer } from '../components/shared/text-buffer.js';
 import type {
@@ -68,6 +69,7 @@ export interface UIState {
   initError: string | null;
   pendingGeminiHistoryItems: HistoryItemWithoutId[];
   thought: ThoughtSummary | null;
+  todoChecklist: TodoChecklistSummary | null;
   shellModeActive: boolean;
   userMessages: string[];
   buffer: TextBuffer;

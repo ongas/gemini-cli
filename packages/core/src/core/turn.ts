@@ -53,6 +53,7 @@ export enum GeminiEventType {
   Error = 'error',
   ChatCompressed = 'chat_compressed',
   Thought = 'thought',
+  TodoUpdate = 'todo_update',
   MaxSessionTurns = 'max_session_turns',
   Finished = 'finished',
   LoopDetected = 'loop_detected',
@@ -110,6 +111,24 @@ export type ServerGeminiContentEvent = {
 export type ServerGeminiThoughtEvent = {
   type: GeminiEventType.Thought;
   value: ThoughtSummary;
+};
+
+export interface TodoItem {
+  id: string;
+  content: string;
+  activeForm: string;
+  status: 'pending' | 'in_progress' | 'completed';
+  subtasks?: TodoItem[];
+}
+
+export interface TodoChecklistSummary {
+  todos: TodoItem[];
+  currentTaskId?: string;
+}
+
+export type ServerGeminiTodoUpdateEvent = {
+  type: GeminiEventType.TodoUpdate;
+  value: TodoChecklistSummary;
 };
 
 export type ServerGeminiToolCallRequestEvent = {
@@ -189,6 +208,7 @@ export type ServerGeminiStreamEvent =
   | ServerGeminiLoopDetectedEvent
   | ServerGeminiMaxSessionTurnsEvent
   | ServerGeminiThoughtEvent
+  | ServerGeminiTodoUpdateEvent
   | ServerGeminiToolCallConfirmationEvent
   | ServerGeminiToolCallRequestEvent
   | ServerGeminiToolCallResponseEvent

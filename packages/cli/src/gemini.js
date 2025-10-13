@@ -1,0 +1,584 @@
+import { jsx as _jsx } from "react/jsx-runtime";
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+import React from 'react';
+import { render } from 'ink';
+import { AppContainer } from './ui/AppContainer.js';
+import { loadCliConfig, parseArguments } from './config/config.js';
+import * as cliConfig from './config/config.js';
+import { readStdin } from './utils/readStdin.js';
+import { basename } from 'node:path';
+import v8 from 'node:v8';
+import os from 'node:os';
+import dns from 'node:dns';
+import { start_sandbox } from './utils/sandbox.js';
+import { loadSettings, migrateDeprecatedSettings, SettingScope, } from './config/settings.js';
+import { themeManager } from './ui/themes/theme-manager.js';
+import { getStartupWarnings } from './utils/startupWarnings.js';
+import { getUserStartupWarnings } from './utils/userStartupWarnings.js';
+import { ConsolePatcher } from './ui/utils/ConsolePatcher.js';
+import { runNonInteractive } from './nonInteractiveCli.js';
+import { runAgentNonInteractive } from './runAgentNonInteractive.js';
+import { ExtensionStorage, loadExtensions } from './config/extension.js';
+import { cleanupCheckpoints, registerCleanup, runExitCleanup, } from './utils/cleanup.js';
+import { getCliVersion } from './utils/version.js';
+import { sessionId, logUserPrompt, AuthType, getOauthClient, } from '@google/gemini-cli-core';
+import { initializeApp, } from './core/initializer.js';
+import { validateAuthMethod } from './config/auth.js';
+import { setMaxSizedBoxDebugging } from './ui/components/shared/MaxSizedBox.js';
+import { validateNonInteractiveAuth } from './validateNonInterActiveAuth.js';
+import { detectAndEnableKittyProtocol } from './ui/utils/kittyProtocolDetector.js';
+import { checkForUpdates } from './ui/utils/updateCheck.js';
+import { handleAutoUpdate } from './utils/handleAutoUpdate.js';
+import { appEvents, AppEvent } from './utils/events.js';
+import { computeWindowTitle } from './utils/windowTitle.js';
+import { SettingsContext } from './ui/contexts/SettingsContext.js';
+import { SessionStatsProvider } from './ui/contexts/SessionContext.js';
+import { VimModeProvider } from './ui/contexts/VimModeContext.js';
+import { KeypressProvider } from './ui/contexts/KeypressContext.js';
+import { useKittyKeyboardProtocol } from './ui/hooks/useKittyKeyboardProtocol.js';
+import { relaunchAppInChildProcess, relaunchOnExitCode, } from './utils/relaunch.js';
+export function validateDnsResolutionOrder(order) {
+    const defaultValue = 'ipv4first';
+    if (order === undefined) {
+        return defaultValue;
+    }
+    if (order === 'ipv4first' || order === 'verbatim') {
+        return order;
+    }
+    // We don't want to throw here, just warn and use the default.
+    console.warn(`Invalid value for dnsResolutionOrder in settings: "${order}". Using default "${defaultValue}".`);
+    return defaultValue;
+}
+function getNodeMemoryArgs(isDebugMode) {
+    const totalMemoryMB = os.totalmem() / (1024 * 1024);
+    const heapStats = v8.getHeapStatistics();
+    const currentMaxOldSpaceSizeMb = Math.floor(heapStats.heap_size_limit / 1024 / 1024);
+    // Set target to 50% of total memory
+    const targetMaxOldSpaceSizeInMB = Math.floor(totalMemoryMB * 0.5);
+    if (isDebugMode) {
+        console.debug(`Current heap size ${currentMaxOldSpaceSizeMb.toFixed(2)} MB`);
+    }
+    if (process.env['GEMINI_CLI_NO_RELAUNCH']) {
+        return [];
+    }
+    if (targetMaxOldSpaceSizeInMB > currentMaxOldSpaceSizeMb) {
+        if (isDebugMode) {
+            console.debug(`Need to relaunch with more memory: ${targetMaxOldSpaceSizeInMB.toFixed(2)} MB`);
+        }
+        return [`--max-old-space-size=${targetMaxOldSpaceSizeInMB}`];
+    }
+    return [];
+}
+import { runZedIntegration } from './zed-integration/zedIntegration.js';
+import { loadSandboxConfig } from './config/sandboxConfig.js';
+import { ExtensionEnablementManager } from './config/extensions/extensionEnablement.js';
+export function setupUnhandledRejectionHandler() {
+    let unhandledRejectionOccurred = false;
+    process.on('unhandledRejection', (reason, _promise) => {
+        const errorMessage = `=========================================
+This is an unexpected error. Please file a bug report using the /bug tool.
+CRITICAL: Unhandled Promise Rejection!
+=========================================
+Reason: ${reason}${reason instanceof Error && reason.stack
+            ? `
+Stack trace:
+${reason.stack}`
+            : ''}`;
+        appEvents.emit(AppEvent.LogError, errorMessage);
+        if (!unhandledRejectionOccurred) {
+            unhandledRejectionOccurred = true;
+            appEvents.emit(AppEvent.OpenDebugConsole);
+        }
+    });
+}
+export async function startInteractiveUI(config, settings, startupWarnings, workspaceRoot = process.cwd(), initializationResult) {
+    const version = await getCliVersion();
+    setWindowTitle(basename(workspaceRoot), settings);
+    // Create wrapper component to use hooks inside render
+    const AppWrapper = () => {
+        const kittyProtocolStatus = useKittyKeyboardProtocol();
+        return (_jsx(SettingsContext.Provider, { value: settings, children: _jsx(KeypressProvider, { kittyProtocolEnabled: kittyProtocolStatus.enabled, config: config, debugKeystrokeLogging: settings.merged.general?.debugKeystrokeLogging, children: _jsx(SessionStatsProvider, { children: _jsx(VimModeProvider, { settings: settings, children: _jsx(AppContainer, { config: config, settings: settings, startupWarnings: startupWarnings, version: version, initializationResult: initializationResult }) }) }) }) }));
+    };
+    const instance = render(process.env['DEBUG'] ? (_jsx(React.StrictMode, { children: _jsx(AppWrapper, {}) })) : (_jsx(AppWrapper, {})), {
+        exitOnCtrlC: false,
+        isScreenReaderEnabled: config.getScreenReader(),
+    });
+    checkForUpdates()
+        .then((info) => {
+        handleAutoUpdate(info, settings, config.getProjectRoot());
+    })
+        .catch((err) => {
+        // Silently ignore update check errors.
+        if (config.getDebugMode()) {
+            console.error('Update check failed:', err);
+        }
+    });
+    registerCleanup(() => instance.unmount());
+}
+export async function main() {
+    setupUnhandledRejectionHandler();
+    const settings = loadSettings();
+    migrateDeprecatedSettings(settings);
+    await cleanupCheckpoints();
+    const argv = await parseArguments(settings.merged);
+    // Handle --init flag
+    if (argv.init) {
+        const fs = await import('node:fs');
+        const path = await import('node:path');
+        const cwd = process.cwd();
+        const geminiDir = path.join(cwd, '.gemini');
+        const standardsDir = path.join(geminiDir, 'standards');
+        const agentsDir = path.join(geminiDir, 'agents');
+        const commandsDir = path.join(geminiDir, 'commands');
+        // Find the template directory (bundled with package)
+        // Resolve the real path to handle npm link symlinks
+        const scriptPath = fs.realpathSync(process.argv[1]);
+        const packageRoot = path.dirname(scriptPath); // This is the bundle directory
+        const templateDir = path.join(packageRoot, '.gemini-template');
+        try {
+            let initialized = false;
+            // Create .gemini/standards from template
+            if (fs.existsSync(standardsDir)) {
+                console.log('✓ .gemini/standards/ already exists');
+            }
+            else {
+                if (!fs.existsSync(templateDir)) {
+                    console.error(`Error: Template not found at ${templateDir}`);
+                    process.exit(1);
+                }
+                await fs.promises.cp(templateDir, standardsDir, { recursive: true });
+                console.log('✓ Created .gemini/standards/ with coding standards templates');
+                initialized = true;
+            }
+            // Create .gemini/agents directory
+            if (fs.existsSync(agentsDir)) {
+                console.log('✓ .gemini/agents/ already exists');
+            }
+            else {
+                await fs.promises.mkdir(agentsDir, { recursive: true });
+                console.log('✓ Created .gemini/agents/ for custom agent definitions');
+                initialized = true;
+            }
+            // Create .gemini/commands directory
+            if (fs.existsSync(commandsDir)) {
+                console.log('✓ .gemini/commands/ already exists');
+            }
+            else {
+                await fs.promises.mkdir(commandsDir, { recursive: true });
+                console.log('✓ Created .gemini/commands/ for custom slash commands');
+                initialized = true;
+            }
+            if (initialized) {
+                console.log('\n✨ Project initialized successfully!');
+                console.log('\nNext steps:');
+                console.log('  • Customize coding standards in .gemini/standards/');
+                console.log('  • Add custom agents to .gemini/agents/');
+                console.log('  • Add custom slash commands to .gemini/commands/');
+                console.log('  • Standards are auto-injected into prompts');
+                console.log('  • Use agents with: gemini-ma --agent <agent-name>');
+                console.log('  • Use commands with: /command-name');
+            }
+            else {
+                console.log('\n✓ All directories already exist');
+            }
+            process.exit(0);
+        }
+        catch (error) {
+            console.error('Error initializing project:', error);
+            process.exit(1);
+        }
+    }
+    // Handle --list-agents flag
+    if (argv.listAgents) {
+        try {
+            const path = await import('node:path');
+            const fs = await import('node:fs');
+            const { CodebaseInvestigatorAgent } = await import('@google/gemini-cli-core');
+            const cwd = process.cwd();
+            const geminiAgentsDir = path.join(cwd, '.gemini', 'agents');
+            // Start with built-in agents
+            const agents = [CodebaseInvestigatorAgent];
+            // Load custom agents from .gemini/agents/
+            if (fs.existsSync(geminiAgentsDir)) {
+                try {
+                    const files = await fs.promises.readdir(geminiAgentsDir);
+                    const mdFiles = files.filter((f) => f.endsWith('.md'));
+                    for (const file of mdFiles) {
+                        const filePath = path.join(geminiAgentsDir, file);
+                        const content = await fs.promises.readFile(filePath, 'utf-8');
+                        // Parse YAML front matter if present
+                        let provider;
+                        let model;
+                        let temperature;
+                        let tools;
+                        const yamlMatch = content.match(/^---\n([\s\S]*?)\n---/);
+                        if (yamlMatch) {
+                            const yaml = yamlMatch[1];
+                            const providerMatch = yaml.match(/^Provider:\s*(.+)$/m);
+                            const modelMatch = yaml.match(/^Model:\s*(.+)$/m);
+                            const tempMatch = yaml.match(/^Temperature:\s*([0-9.]+)$/m);
+                            const toolsMatch = yaml.match(/^Tools:\s*(.+)$/m);
+                            provider = providerMatch
+                                ? providerMatch[1].trim().toLowerCase()
+                                : undefined;
+                            model = modelMatch ? modelMatch[1].trim() : undefined;
+                            temperature = tempMatch ? parseFloat(tempMatch[1]) : undefined;
+                            tools = toolsMatch ? toolsMatch[1].trim() : undefined;
+                        }
+                        // Parse basic agent info from markdown
+                        const lines = content.split('\n');
+                        let displayName = file.replace('.md', '');
+                        let description = '';
+                        // Find first heading and description (skip YAML front matter)
+                        let skipYaml = false;
+                        for (let i = 0; i < lines.length; i++) {
+                            const line = lines[i].trim();
+                            if (i === 0 && line === '---') {
+                                skipYaml = true;
+                                continue;
+                            }
+                            if (skipYaml && line === '---') {
+                                skipYaml = false;
+                                continue;
+                            }
+                            if (skipYaml)
+                                continue;
+                            if (line.startsWith('#') && !displayName) {
+                                displayName = line.replace(/^#+\s*/, '');
+                            }
+                            else if (line &&
+                                !line.startsWith('**') &&
+                                !line.startsWith('#') &&
+                                !description) {
+                                description = line;
+                                break;
+                            }
+                        }
+                        const agentName = file.replace('.md', '').replace(/-/g, '_');
+                        agents.push({
+                            name: agentName,
+                            displayName,
+                            description: description || `Custom agent: ${displayName}`,
+                            modelConfig: {
+                                provider: provider || 'gemini',
+                                model: model || 'gemini-2.0-flash-exp',
+                                temp: temperature !== undefined ? temperature : 0.2,
+                            },
+                            toolConfig: tools
+                                ? {
+                                    tools: tools === 'all'
+                                        ? ['all']
+                                        : tools.split(',').map((t) => t.trim()),
+                                }
+                                : undefined,
+                        });
+                    }
+                }
+                catch (error) {
+                    console.warn('Warning: Could not load custom agents:', error);
+                }
+            }
+            if (agents.length === 0) {
+                console.log('No agents found.');
+                console.log('\nTo add agents:');
+                console.log('  1. Run: gemini-ma --init');
+                console.log('  2. Create agent definitions in .gemini/agents/');
+                process.exit(0);
+            }
+            console.log('\n📋 Available Agents:\n');
+            for (const agent of agents) {
+                const provider = agent.modelConfig.provider || 'gemini';
+                const model = agent.modelConfig.model;
+                const temp = agent.modelConfig.temp;
+                const toolCount = agent.toolConfig?.tools?.length || 'all';
+                console.log(`  ${agent.displayName || agent.name}`);
+                console.log(`    Name: ${agent.name}`);
+                console.log(`    Provider: ${provider}`);
+                console.log(`    Model: ${model}`);
+                console.log(`    Temperature: ${temp}`);
+                console.log(`    Tools: ${toolCount}`);
+                console.log(`    Description: ${agent.description}`);
+                console.log('');
+            }
+            console.log('Usage:');
+            console.log('  gemini-ma --agent <agent-name> "<your task>"');
+            console.log('\nExample:');
+            console.log('  gemini-ma --agent code_investigator "Find error handling code"\n');
+            process.exit(0);
+        }
+        catch (error) {
+            console.error('Error listing agents:', error);
+            process.exit(1);
+        }
+    }
+    // Handle --agent flag
+    let agentFilePath;
+    if (argv.agent) {
+        const path = await import('node:path');
+        const fs = await import('node:fs');
+        const cwd = process.cwd();
+        const agentFileName = argv.agent.replace(/_/g, '-') + '.md';
+        agentFilePath = path.join(cwd, '.gemini', 'agents', agentFileName);
+        if (!fs.existsSync(agentFilePath)) {
+            console.error(`Error: Agent file not found: ${agentFilePath}`);
+            console.error(`\nAvailable agents:`);
+            console.error(`  Run: gemini-ma --list-agents`);
+            process.exit(1);
+        }
+        try {
+            const content = await fs.promises.readFile(agentFilePath, 'utf-8');
+            // Parse YAML front matter for provider config
+            const yamlMatch = content.match(/^---\n([\s\S]*?)\n---/);
+            if (yamlMatch) {
+                const yaml = yamlMatch[1];
+                const providerMatch = yaml.match(/^Provider:\s*(.+)$/m);
+                const modelMatch = yaml.match(/^Model:\s*(.+)$/m);
+                const provider = providerMatch
+                    ? providerMatch[1].trim().toLowerCase()
+                    : 'gemini';
+                const model = modelMatch ? modelMatch[1].trim() : undefined;
+                // Override the model and auth based on provider
+                if (provider === 'ollama' && model) {
+                    process.env['GEMINI_MODEL'] = model;
+                    // Set environment variable to indicate Ollama provider
+                    process.env['LOCAL_LLM_PROVIDER'] = 'ollama';
+                    // Set auth type for Ollama in merged settings
+                    if (!settings.merged.security) {
+                        settings.merged.security = {};
+                    }
+                    if (!settings.merged.security.auth) {
+                        settings.merged.security.auth = {};
+                    }
+                    settings.merged.security.auth.selectedType = 'local';
+                }
+                else if (provider === 'llamacpp' && model) {
+                    process.env['GEMINI_MODEL'] = model;
+                    // Set environment variable to indicate llama.cpp provider
+                    process.env['LOCAL_LLM_PROVIDER'] = 'llamacpp';
+                    // Set auth type for llama.cpp (use local auth type for local servers)
+                    if (!settings.merged.security) {
+                        settings.merged.security = {};
+                    }
+                    if (!settings.merged.security.auth) {
+                        settings.merged.security.auth = {};
+                    }
+                    settings.merged.security.auth.selectedType = 'local';
+                }
+                else if (model) {
+                    process.env['GEMINI_MODEL'] = model;
+                }
+            }
+        }
+        catch (error) {
+            console.error(`Error loading agent ${argv.agent}:`, error);
+            process.exit(1);
+        }
+    }
+    // Check for invalid input combinations early to prevent crashes
+    if (argv.promptInteractive && !process.stdin.isTTY) {
+        console.error('Error: The --prompt-interactive flag cannot be used when input is piped from stdin.');
+        process.exit(1);
+    }
+    const isDebugMode = cliConfig.isDebugMode(argv);
+    const consolePatcher = new ConsolePatcher({
+        stderr: true,
+        debugMode: isDebugMode,
+    });
+    consolePatcher.patch();
+    registerCleanup(consolePatcher.cleanup);
+    dns.setDefaultResultOrder(validateDnsResolutionOrder(settings.merged.advanced?.dnsResolutionOrder));
+    // Set a default auth type if one isn't set.
+    if (!settings.merged.security?.auth?.selectedType) {
+        if (process.env['CLOUD_SHELL'] === 'true') {
+            settings.setValue(SettingScope.User, 'selectedAuthType', AuthType.CLOUD_SHELL);
+        }
+    }
+    // Load custom themes from settings
+    themeManager.loadCustomThemes(settings.merged.ui?.customThemes);
+    if (settings.merged.ui?.theme) {
+        if (!themeManager.setActiveTheme(settings.merged.ui?.theme)) {
+            // If the theme is not found during initial load, log a warning and continue.
+            // The useThemeCommand hook in AppContainer.tsx will handle opening the dialog.
+            console.warn(`Warning: Theme "${settings.merged.ui?.theme}" not found.`);
+        }
+    }
+    // hop into sandbox if we are outside and sandboxing is enabled
+    if (!process.env['SANDBOX']) {
+        const memoryArgs = settings.merged.advanced?.autoConfigureMemory
+            ? getNodeMemoryArgs(isDebugMode)
+            : [];
+        const sandboxConfig = await loadSandboxConfig(settings.merged, argv);
+        // We intentially omit the list of extensions here because extensions
+        // should not impact auth or setting up the sandbox.
+        // TODO(jacobr): refactor loadCliConfig so there is a minimal version
+        // that only initializes enough config to enable refreshAuth or find
+        // another way to decouple refreshAuth from requiring a config.
+        if (sandboxConfig) {
+            const partialConfig = await loadCliConfig(settings.merged, [], new ExtensionEnablementManager(ExtensionStorage.getUserExtensionsDir()), sessionId, argv);
+            if (settings.merged.security?.auth?.selectedType &&
+                !settings.merged.security?.auth?.useExternal) {
+                // Validate authentication here because the sandbox will interfere with the Oauth2 web redirect.
+                try {
+                    const err = validateAuthMethod(settings.merged.security.auth.selectedType);
+                    if (err) {
+                        throw new Error(err);
+                    }
+                    await partialConfig.refreshAuth(settings.merged.security.auth.selectedType);
+                }
+                catch (err) {
+                    console.error('Error authenticating:', err);
+                    process.exit(1);
+                }
+            }
+            let stdinData = '';
+            if (!process.stdin.isTTY) {
+                stdinData = await readStdin();
+            }
+            // This function is a copy of the one from sandbox.ts
+            // It is moved here to decouple sandbox.ts from the CLI's argument structure.
+            const injectStdinIntoArgs = (args, stdinData) => {
+                const finalArgs = [...args];
+                if (stdinData) {
+                    const promptIndex = finalArgs.findIndex((arg) => arg === '--prompt' || arg === '-p');
+                    if (promptIndex > -1 && finalArgs.length > promptIndex + 1) {
+                        // If there's a prompt argument, prepend stdin to it
+                        finalArgs[promptIndex + 1] =
+                            `${stdinData}\n\n${finalArgs[promptIndex + 1]}`;
+                    }
+                    else {
+                        // If there's no prompt argument, add stdin as the prompt
+                        finalArgs.push('--prompt', stdinData);
+                    }
+                }
+                return finalArgs;
+            };
+            const sandboxArgs = injectStdinIntoArgs(process.argv, stdinData);
+            await relaunchOnExitCode(() => start_sandbox(sandboxConfig, memoryArgs, partialConfig, sandboxArgs));
+            process.exit(0);
+        }
+        else {
+            // Relaunch app so we always have a child process that can be internally
+            // restarted if needed.
+            await relaunchAppInChildProcess(memoryArgs, []);
+        }
+    }
+    // We are now past the logic handling potentially launching a child process
+    // to run Gemini CLI. It is now safe to perform expensive initialization that
+    // may have side effects.
+    {
+        const extensionEnablementManager = new ExtensionEnablementManager(ExtensionStorage.getUserExtensionsDir(), argv.extensions);
+        const extensions = loadExtensions(extensionEnablementManager);
+        const config = await loadCliConfig(settings.merged, extensions, extensionEnablementManager, sessionId, argv);
+        // Log available agents for user awareness (non-debug mode)
+        if (!argv.listExtensions && config.isInteractive()) {
+            const agentRegistry = config.getAgentRegistry();
+            if (agentRegistry) {
+                const agents = agentRegistry.getAllDefinitions();
+                if (agents.length > 1) {
+                    // More than just the default agent
+                    const customAgents = agents.filter((a) => a.name !== 'codebase_investigator');
+                    if (customAgents.length > 0) {
+                        console.log(`\n🤖 ${agents.length} specialized agents available (use --list-agents to see all)\n`);
+                    }
+                }
+            }
+        }
+        if (config.getListExtensions()) {
+            console.log('Installed extensions:');
+            for (const extension of extensions) {
+                console.log(`- ${extension.config.name}`);
+            }
+            process.exit(0);
+        }
+        const wasRaw = process.stdin.isRaw;
+        let kittyProtocolDetectionComplete;
+        if (config.isInteractive() && !wasRaw && process.stdin.isTTY) {
+            // Set this as early as possible to avoid spurious characters from
+            // input showing up in the output.
+            process.stdin.setRawMode(true);
+            // This cleanup isn't strictly needed but may help in certain situations.
+            process.on('SIGTERM', () => {
+                process.stdin.setRawMode(wasRaw);
+            });
+            process.on('SIGINT', () => {
+                process.stdin.setRawMode(wasRaw);
+            });
+            // Detect and enable Kitty keyboard protocol once at startup.
+            kittyProtocolDetectionComplete = detectAndEnableKittyProtocol();
+        }
+        setMaxSizedBoxDebugging(isDebugMode);
+        const initializationResult = await initializeApp(config, settings);
+        if (settings.merged.security?.auth?.selectedType ===
+            AuthType.LOGIN_WITH_GOOGLE &&
+            config.isBrowserLaunchSuppressed()) {
+            // Do oauth before app renders to make copying the link possible.
+            await getOauthClient(settings.merged.security.auth.selectedType, config);
+        }
+        if (config.getExperimentalZedIntegration()) {
+            return runZedIntegration(config, settings, extensions, argv);
+        }
+        let input = config.getQuestion();
+        const startupWarnings = [
+            ...(await getStartupWarnings()),
+            ...(await getUserStartupWarnings()),
+        ];
+        // Render UI, passing necessary config values. Check that there is no command line question.
+        if (config.isInteractive()) {
+            // Need kitty detection to be complete before we can start the interactive UI.
+            await kittyProtocolDetectionComplete;
+            await startInteractiveUI(config, settings, startupWarnings, process.cwd(), initializationResult);
+            return;
+        }
+        await config.initialize();
+        // If not a TTY, read from stdin
+        // This is for cases where the user pipes input directly into the command
+        if (!process.stdin.isTTY) {
+            const stdinData = await readStdin();
+            if (stdinData) {
+                input = `${stdinData}\n\n${input}`;
+            }
+        }
+        if (!input) {
+            console.error(`No input provided via stdin. Input can be provided by piping data into gemini or using the --prompt option.`);
+            process.exit(1);
+        }
+        const prompt_id = Math.random().toString(16).slice(2);
+        logUserPrompt(config, {
+            'event.name': 'user_prompt',
+            'event.timestamp': new Date().toISOString(),
+            prompt: input,
+            prompt_id,
+            auth_type: config.getContentGeneratorConfig()?.authType,
+            prompt_length: input.length,
+        });
+        const nonInteractiveConfig = await validateNonInteractiveAuth(settings.merged.security?.auth?.selectedType, settings.merged.security?.auth?.useExternal, config, settings);
+        if (config.getDebugMode()) {
+            console.log('Session ID: %s', sessionId);
+        }
+        // If --agent was specified, use proper agent execution with AgentExecutor
+        if (agentFilePath) {
+            await runAgentNonInteractive(nonInteractiveConfig, settings, agentFilePath, input);
+            await runExitCleanup();
+            // runAgentNonInteractive calls process.exit() itself
+            return;
+        }
+        await runNonInteractive(nonInteractiveConfig, settings, input, prompt_id, argv.continueSession);
+        // Call cleanup before process.exit, which causes cleanup to not run
+        await runExitCleanup();
+        process.exit(0);
+    }
+}
+function setWindowTitle(title, settings) {
+    if (!settings.merged.ui?.hideWindowTitle) {
+        const windowTitle = computeWindowTitle(title);
+        process.stdout.write(`\x1b]2;${windowTitle}\x07`);
+        process.on('exit', () => {
+            process.stdout.write(`\x1b]2;\x07`);
+        });
+    }
+}
+//# sourceMappingURL=gemini.js.map

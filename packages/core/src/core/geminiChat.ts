@@ -1043,19 +1043,27 @@ export class GeminiChat {
             `       -H "Content-Type: application/json" \\\n` +
             `       -d '{"model": "<your-model>", "messages": [{"role": "user", "content": "Say hello"}], "stream": true}'`;
 
+          const port = isLlamaCpp ? '8000' : '11434';
+          const startCommand = isLlamaCpp
+            ? `export HF_HOME="/path/to/models"
+python -m vllm.entrypoints.openai.api_server \\
+  --model Qwen/Qwen2.5-Coder-7B-Instruct \\
+  --host 0.0.0.0 --port ${port}`
+            : `ollama serve`;
+
           throw new InvalidStreamError(
             `❌ LOCAL LLM ERROR: Stream timed out without receiving any response\n\n` +
               `Server type: ${serverType}\n\n` +
-              `Troubleshooting:\n` +
-              `  1. Check if the ${serverType} server is running and accessible\n` +
-              `  2. Try a simpler test request first:\n` +
-              `     ${curlExample}\n\n` +
-              `  3. The server may be timing out on complex requests with tools/system instructions\n` +
-              `  4. Check server logs for errors or configuration issues\n` +
-              `  5. Consider:\n` +
-              `     • Reducing the number of tools available to the agent\n` +
-              `     • Using a more capable model (e.g., qwen2.5-coder:32b instead of 7b)\n` +
-              `     • Increasing server timeout settings if available`,
+              `Check server status:\n` +
+              `  # Is the server running?\n` +
+              `  curl -s ${defaultUrl}/health || echo "Server not responding"\n\n` +
+              `  # Check what's listening on port ${port}\n` +
+              `  lsof -i :${port}\n` +
+              `  # or: netstat -tulpn | grep ${port}\n\n` +
+              `Start ${serverType} server (if not running):\n` +
+              `  ${startCommand}\n\n` +
+              `Test with simple request:\n` +
+              `  ${curlExample}`,
             'NO_FINISH_REASON',
           );
         }

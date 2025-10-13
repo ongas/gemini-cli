@@ -13,18 +13,28 @@ import {
 } from './tools.js';
 
 // Inspired by langchain/deepagents.
-export const WRITE_TODOS_DESCRIPTION = `This tool helps you manage complex multi-step tasks by creating and tracking a todo list. The list helps you stay organized, avoid missing steps, and shows the user your progress.
+export const WRITE_TODOS_DESCRIPTION = `⚠️ **CRITICAL TOOL - USE FREQUENTLY** ⚠️
 
-## When to AUTOMATICALLY Use This Tool (Proactive Detection)
+This tool is MANDATORY for managing complex multi-step tasks. You MUST create and update a todo list to show the user your progress. Failure to use this tool makes it impossible for users to track what you're doing.
 
-**IMMEDIATELY create a todo list** when the user request contains these keywords or patterns:
-- "debug" / "fix bug" / "troubleshoot" / "investigate"
-- "failing test" / "test fails" / "pytest" / "test error"
-- "implement" / "create" / "build" (for features, not simple functions)
-- "refactor" (large-scale changes)
-- "optimize" / "improve performance"
-- "setup" / "configure" / "install"
-- Any task requiring 3+ distinct steps
+## WHEN TO USE (Read This FIRST Before Every Response!)
+
+**YOU MUST IMMEDIATELY create a todo list if ANY of these apply:**
+- User says "debug", "fix", "troubleshoot", "investigate", "error", "failing"
+- User says "test", "pytest", "run tests", "check tests"
+- User says "implement", "create", "build", "add feature"
+- User says "refactor", "restructure", "reorganize"
+- User says "optimize", "improve", "enhance", "performance"
+- User says "setup", "configure", "install", "initialize"
+- User request requires 3+ steps (even if they don't mention it)
+- You're planning to read multiple files, then make changes
+- You're going to run a command, analyze output, then act on it
+- **ANY debugging task** (this is the #1 use case - always create todos for debugging!)
+- **ANY test-related task** (always create todos when working with tests!)
+
+## DEFAULT TO CREATING TODOS
+
+**When in doubt, CREATE A TODO LIST.** It's better to create a todo list for a simple task than to skip it for a complex one. Users WANT to see your thought process and progress.
 
 ## Common Task Templates
 
@@ -66,14 +76,15 @@ DO NOT use for simple tasks completable in 1-2 steps or single-turn Q&A.
 - cancelled: As you update the todo list, some tasks are not required anymore due to the dynamic nature of the task. In this case, mark the subtasks as cancelled.
 
 
-## Methodology for using this tool
-1. Use this todo list list as soon as you receive a user request based on the complexity of the task.
-2. Keep track of every subtask that you update the list with.
-3. Mark a subtask as in_progress before you begin working on it. You should only have one subtask as in_progress at a time.
-4. Update the subtask list as you proceed in executing the task. The subtask list is not static and should reflect your progress and current plans, which may evolve as you acquire new information.
-5. Mark a subtask as completed when you have completed it.
-6. Mark a subtask as cancelled if the subtask is no longer needed.
-7. You must update the todo list as soon as you start, stop or cancel a subtask. Don't batch or wait to update the todo list.
+## Methodology for using this tool (FOLLOW STRICTLY!)
+
+1. **CREATE IMMEDIATELY** - Use this tool in your FIRST response if the task matches the criteria above. Don't wait.
+2. **UPDATE FREQUENTLY** - Call this tool every time you start, complete, or cancel a task. The user needs real-time updates.
+3. **ONE IN-PROGRESS ONLY** - Mark exactly ONE subtask as in_progress before working on it. Never have zero or multiple in-progress tasks.
+4. **BE SPECIFIC** - Tasks like "Fix the bug" are too vague. Use "Read failing test output", "Identify root cause in auth.py", etc.
+5. **EVOLVE THE LIST** - Add new tasks as you discover them. Remove tasks that are no longer needed.
+6. **MARK COMPLETED IMMEDIATELY** - As soon as a task succeeds, update the list. Don't batch updates.
+7. **FOR DEBUGGING: ALWAYS CREATE TODOS** - Debugging tasks are complex by nature. Every debugging request needs a todo list.
 
 
 ## Examples of When to Use the Todo List

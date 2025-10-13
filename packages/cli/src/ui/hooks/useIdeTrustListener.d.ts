@@ -10,7 +10,7 @@ export type RestartReason = 'NONE' | 'CONNECTION_CHANGE' | 'TRUST_CHANGE';
  * is needed because the trust state has changed.
  */
 export declare function useIdeTrustListener(): {
-    isIdeTrusted: boolean | undefined;
-    needsRestart: boolean;
-    restartReason: RestartReason;
+  isIdeTrusted: boolean | undefined;
+  needsRestart: boolean;
+  restartReason: RestartReason;
 };

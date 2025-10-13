@@ -16,4 +16,8 @@ import type { AnyDeclarativeTool, AnyToolInvocation } from '../index.js';
  *     invocations where the arguments start with that prefix.
  * @returns True if the invocation matches any pattern, false otherwise.
  */
-export declare function doesToolInvocationMatch(toolOrToolName: AnyDeclarativeTool | string, invocation: AnyToolInvocation, patterns: string[]): boolean;
+export declare function doesToolInvocationMatch(
+  toolOrToolName: AnyDeclarativeTool | string,
+  invocation: AnyToolInvocation,
+  patterns: string[],
+): boolean;

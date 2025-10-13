@@ -4,13 +4,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import type { HistoryItem } from '../types.js';
-type HistoryItemUpdater = (prevItem: HistoryItem) => Partial<Omit<HistoryItem, 'id'>>;
+type HistoryItemUpdater = (
+  prevItem: HistoryItem,
+) => Partial<Omit<HistoryItem, 'id'>>;
 export interface UseHistoryManagerReturn {
-    history: HistoryItem[];
-    addItem: (itemData: Omit<HistoryItem, 'id'>, baseTimestamp: number) => number;
-    updateItem: (id: number, updates: Partial<Omit<HistoryItem, 'id'>> | HistoryItemUpdater) => void;
-    clearItems: () => void;
-    loadHistory: (newHistory: HistoryItem[]) => void;
+  history: HistoryItem[];
+  addItem: (itemData: Omit<HistoryItem, 'id'>, baseTimestamp: number) => number;
+  updateItem: (
+    id: number,
+    updates: Partial<Omit<HistoryItem, 'id'>> | HistoryItemUpdater,
+  ) => void;
+  clearItems: () => void;
+  loadHistory: (newHistory: HistoryItem[]) => void;
 }
 /**
  * Custom hook to manage the chat history state.

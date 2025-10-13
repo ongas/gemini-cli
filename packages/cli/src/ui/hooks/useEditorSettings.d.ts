@@ -7,10 +7,17 @@ import type { LoadedSettings, SettingScope } from '../../config/settings.js';
 import { type HistoryItem } from '../types.js';
 import type { EditorType } from '@google/gemini-cli-core';
 interface UseEditorSettingsReturn {
-    isEditorDialogOpen: boolean;
-    openEditorDialog: () => void;
-    handleEditorSelect: (editorType: EditorType | undefined, scope: SettingScope) => void;
-    exitEditorDialog: () => void;
+  isEditorDialogOpen: boolean;
+  openEditorDialog: () => void;
+  handleEditorSelect: (
+    editorType: EditorType | undefined,
+    scope: SettingScope,
+  ) => void;
+  exitEditorDialog: () => void;
 }
-export declare const useEditorSettings: (loadedSettings: LoadedSettings, setEditorError: (error: string | null) => void, addItem: (item: Omit<HistoryItem, "id">, timestamp: number) => void) => UseEditorSettingsReturn;
+export declare const useEditorSettings: (
+  loadedSettings: LoadedSettings,
+  setEditorError: (error: string | null) => void,
+  addItem: (item: Omit<HistoryItem, 'id'>, timestamp: number) => void,
+) => UseEditorSettingsReturn;
 export {};

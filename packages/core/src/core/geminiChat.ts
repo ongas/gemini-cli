@@ -1051,21 +1051,37 @@ python -m vllm.entrypoints.openai.api_server \\
   --host 0.0.0.0 --port ${port}`
             : `ollama serve`;
 
-          throw new InvalidStreamError(
-            `❌ LOCAL LLM ERROR: Stream timed out without receiving any response\n\n` +
-              `Server type: ${serverType}\n\n` +
-              `Check server status:\n` +
-              `  # Is the server running?\n` +
-              `  curl -s ${defaultUrl}/health || echo "Server not responding"\n\n` +
-              `  # Check what's listening on port ${port}\n` +
-              `  lsof -i :${port}\n` +
-              `  # or: netstat -tulpn | grep ${port}\n\n` +
-              `Start ${serverType} server (if not running):\n` +
-              `  ${startCommand}\n\n` +
-              `Test with simple request:\n` +
-              `  ${curlExample}`,
-            'NO_FINISH_REASON',
-          );
+          // Build agent-aware guidance for llama.cpp timeouts
+          let errorMessage = `❌ LOCAL LLM ERROR: Stream timed out without receiving any response\n\nServer type: ${serverType}\nModel: ${model}\n`;
+
+          if (isLlamaCpp) {
+            errorMessage +=
+              `\n⚠️  LIKELY CAUSE: 7B models cannot handle tool calling\n` +
+              `Qwen2.5-Coder-7B times out when processing function/tool schemas.\n\n` +
+              `SOLUTIONS:\n` +
+              `  1. Use Ollama instead (supports tools with 7B models):\n` +
+              `     ollama pull qwen2.5-coder:7b\n` +
+              `     Then use agent: ollama-coder\n\n` +
+              `  2. Use a larger model with llama.cpp (32B+):\n` +
+              `     python -m vllm.entrypoints.openai.api_server \\\n` +
+              `       --model Qwen/Qwen2.5-Coder-32B-Instruct \\\n` +
+              `       --host 0.0.0.0 --port ${port}\n\n` +
+              `  3. Use simplified agent without tools:\n` +
+              `     Agent: llamacpp-coder (Q&A only, no file operations)\n`;
+          }
+
+          errorMessage +=
+            `\nDIAGNOSTICS:\n` +
+            `  # Check if server is running:\n` +
+            `  curl -s ${defaultUrl}/health\n\n` +
+            `  # Check what's listening on port ${port}:\n` +
+            `  lsof -i :${port}\n\n` +
+            `  # Start ${serverType} server:\n` +
+            `  ${startCommand}\n\n` +
+            `  # Test with simple request:\n` +
+            `  ${curlExample}`;
+
+          throw new InvalidStreamError(errorMessage, 'NO_FINISH_REASON');
         }
 
         throw new InvalidStreamError(

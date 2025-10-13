@@ -5,8 +5,8 @@
  */
 import type React from 'react';
 interface StatsDisplayProps {
-    duration: string;
-    title?: string;
+  duration: string;
+  title?: string;
 }
 export declare const StatsDisplay: React.FC<StatsDisplayProps>;
 export {};

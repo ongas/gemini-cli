@@ -5,133 +5,138 @@
  */
 import { Theme, lightTheme } from './theme.js';
 const googleCodeColors = {
-    type: 'light',
-    Background: 'white',
-    Foreground: '#444',
-    LightBlue: '#066',
-    AccentBlue: '#008',
-    AccentPurple: '#606',
-    AccentCyan: '#066',
-    AccentGreen: '#080',
-    AccentYellow: '#660',
-    AccentRed: '#800',
-    DiffAdded: '#C6EAD8',
-    DiffRemoved: '#FEDEDE',
-    Comment: '#5f6368',
-    Gray: lightTheme.Gray,
-    GradientColors: ['#066', '#606'],
+  type: 'light',
+  Background: 'white',
+  Foreground: '#444',
+  LightBlue: '#066',
+  AccentBlue: '#008',
+  AccentPurple: '#606',
+  AccentCyan: '#066',
+  AccentGreen: '#080',
+  AccentYellow: '#660',
+  AccentRed: '#800',
+  DiffAdded: '#C6EAD8',
+  DiffRemoved: '#FEDEDE',
+  Comment: '#5f6368',
+  Gray: lightTheme.Gray,
+  GradientColors: ['#066', '#606'],
 };
-export const GoogleCode = new Theme('Google Code', 'light', {
+export const GoogleCode = new Theme(
+  'Google Code',
+  'light',
+  {
     hljs: {
-        display: 'block',
-        overflowX: 'auto',
-        padding: '0.5em',
-        background: googleCodeColors.Background,
-        color: googleCodeColors.Foreground,
+      display: 'block',
+      overflowX: 'auto',
+      padding: '0.5em',
+      background: googleCodeColors.Background,
+      color: googleCodeColors.Foreground,
     },
     'hljs-comment': {
-        color: googleCodeColors.AccentRed,
+      color: googleCodeColors.AccentRed,
     },
     'hljs-quote': {
-        color: googleCodeColors.AccentRed,
+      color: googleCodeColors.AccentRed,
     },
     'hljs-keyword': {
-        color: googleCodeColors.AccentBlue,
+      color: googleCodeColors.AccentBlue,
     },
     'hljs-selector-tag': {
-        color: googleCodeColors.AccentBlue,
+      color: googleCodeColors.AccentBlue,
     },
     'hljs-section': {
-        color: googleCodeColors.AccentBlue,
+      color: googleCodeColors.AccentBlue,
     },
     'hljs-title': {
-        color: googleCodeColors.AccentPurple,
+      color: googleCodeColors.AccentPurple,
     },
     'hljs-name': {
-        color: googleCodeColors.AccentBlue,
+      color: googleCodeColors.AccentBlue,
     },
     'hljs-variable': {
-        color: googleCodeColors.AccentYellow,
+      color: googleCodeColors.AccentYellow,
     },
     'hljs-template-variable': {
-        color: googleCodeColors.AccentYellow,
+      color: googleCodeColors.AccentYellow,
     },
     'hljs-string': {
-        color: googleCodeColors.AccentGreen,
+      color: googleCodeColors.AccentGreen,
     },
     'hljs-selector-attr': {
-        color: googleCodeColors.AccentGreen,
+      color: googleCodeColors.AccentGreen,
     },
     'hljs-selector-pseudo': {
-        color: googleCodeColors.AccentGreen,
+      color: googleCodeColors.AccentGreen,
     },
     'hljs-regexp': {
-        color: googleCodeColors.AccentGreen,
+      color: googleCodeColors.AccentGreen,
     },
     'hljs-literal': {
-        color: googleCodeColors.AccentCyan,
+      color: googleCodeColors.AccentCyan,
     },
     'hljs-symbol': {
-        color: googleCodeColors.AccentCyan,
+      color: googleCodeColors.AccentCyan,
     },
     'hljs-bullet': {
-        color: googleCodeColors.AccentCyan,
+      color: googleCodeColors.AccentCyan,
     },
     'hljs-meta': {
-        color: googleCodeColors.AccentCyan,
+      color: googleCodeColors.AccentCyan,
     },
     'hljs-number': {
-        color: googleCodeColors.AccentCyan,
+      color: googleCodeColors.AccentCyan,
     },
     'hljs-link': {
-        color: googleCodeColors.AccentCyan,
+      color: googleCodeColors.AccentCyan,
     },
     'hljs-doctag': {
-        color: googleCodeColors.AccentPurple,
-        fontWeight: 'bold',
+      color: googleCodeColors.AccentPurple,
+      fontWeight: 'bold',
     },
     'hljs-type': {
-        color: googleCodeColors.AccentPurple,
+      color: googleCodeColors.AccentPurple,
     },
     'hljs-attr': {
-        color: googleCodeColors.AccentPurple,
+      color: googleCodeColors.AccentPurple,
     },
     'hljs-built_in': {
-        color: googleCodeColors.AccentPurple,
+      color: googleCodeColors.AccentPurple,
     },
     'hljs-builtin-name': {
-        color: googleCodeColors.AccentPurple,
+      color: googleCodeColors.AccentPurple,
     },
     'hljs-params': {
-        color: googleCodeColors.AccentPurple,
+      color: googleCodeColors.AccentPurple,
     },
     'hljs-attribute': {
-        color: googleCodeColors.Foreground,
+      color: googleCodeColors.Foreground,
     },
     'hljs-subst': {
-        color: googleCodeColors.Foreground,
+      color: googleCodeColors.Foreground,
     },
     'hljs-formula': {
-        backgroundColor: '#eee',
-        fontStyle: 'italic',
+      backgroundColor: '#eee',
+      fontStyle: 'italic',
     },
     'hljs-selector-id': {
-        color: googleCodeColors.AccentYellow,
+      color: googleCodeColors.AccentYellow,
     },
     'hljs-selector-class': {
-        color: googleCodeColors.AccentYellow,
+      color: googleCodeColors.AccentYellow,
     },
     'hljs-addition': {
-        backgroundColor: '#baeeba',
+      backgroundColor: '#baeeba',
     },
     'hljs-deletion': {
-        backgroundColor: '#ffc8bd',
+      backgroundColor: '#ffc8bd',
     },
     'hljs-strong': {
-        fontWeight: 'bold',
+      fontWeight: 'bold',
     },
     'hljs-emphasis': {
-        fontStyle: 'italic',
+      fontStyle: 'italic',
     },
-}, googleCodeColors);
+  },
+  googleCodeColors,
+);
 //# sourceMappingURL=googlecode.js.map

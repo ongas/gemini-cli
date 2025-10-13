@@ -43,4 +43,7 @@ export declare function needsClaudeCodeConversion(content: string): boolean;
  * @param filePath The path to the file (for context)
  * @returns Converted or original content
  */
-export declare function maybeConvertClaudeCodeInstructions(content: string, filePath: string): string;
+export declare function maybeConvertClaudeCodeInstructions(
+  content: string,
+  filePath: string,
+): string;

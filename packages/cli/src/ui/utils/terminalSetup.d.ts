@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 export interface TerminalSetupResult {
-    success: boolean;
-    message: string;
-    requiresRestart?: boolean;
+  success: boolean;
+  message: string;
+  requiresRestart?: boolean;
 }
 /**
  * Main terminal setup function that detects and configures the current terminal.

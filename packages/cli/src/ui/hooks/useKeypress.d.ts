@@ -12,6 +12,11 @@ export type { Key };
  * @param options - Options to control the hook's behavior.
  * @param options.isActive - Whether the hook should be actively listening for input.
  */
-export declare function useKeypress(onKeypress: KeypressHandler, { isActive }: {
+export declare function useKeypress(
+  onKeypress: KeypressHandler,
+  {
+    isActive,
+  }: {
     isActive: boolean;
-}): void;
+  },
+): void;

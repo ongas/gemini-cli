@@ -9,10 +9,14 @@ export declare const USER_AGREEMENT_RATE_HIGH = 75;
 export declare const USER_AGREEMENT_RATE_MEDIUM = 45;
 export declare const CACHE_EFFICIENCY_HIGH = 40;
 export declare const CACHE_EFFICIENCY_MEDIUM = 15;
-export declare const getStatusColor: (value: number, thresholds: {
+export declare const getStatusColor: (
+  value: number,
+  thresholds: {
     green: number;
     yellow: number;
     red?: number;
-}, options?: {
+  },
+  options?: {
     defaultColor?: string;
-}) => string;
+  },
+) => string;

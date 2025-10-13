@@ -17,23 +17,28 @@ const END_DELIMITER = '**';
  * string is treated as the description.
  */
 export function parseThought(rawText) {
-    const startIndex = rawText.indexOf(START_DELIMITER);
-    if (startIndex === -1) {
-        // No start delimiter found, the whole text is the description.
-        return { subject: '', description: rawText.trim() };
-    }
-    const endIndex = rawText.indexOf(END_DELIMITER, startIndex + START_DELIMITER.length);
-    if (endIndex === -1) {
-        // Start delimiter found but no end delimiter, so it's not a valid subject.
-        // Treat the entire string as the description.
-        return { subject: '', description: rawText.trim() };
-    }
-    const subject = rawText
-        .substring(startIndex + START_DELIMITER.length, endIndex)
-        .trim();
-    // The description is everything before the start delimiter and after the end delimiter.
-    const description = (rawText.substring(0, startIndex) +
-        rawText.substring(endIndex + END_DELIMITER.length)).trim();
-    return { subject, description };
+  const startIndex = rawText.indexOf(START_DELIMITER);
+  if (startIndex === -1) {
+    // No start delimiter found, the whole text is the description.
+    return { subject: '', description: rawText.trim() };
+  }
+  const endIndex = rawText.indexOf(
+    END_DELIMITER,
+    startIndex + START_DELIMITER.length,
+  );
+  if (endIndex === -1) {
+    // Start delimiter found but no end delimiter, so it's not a valid subject.
+    // Treat the entire string as the description.
+    return { subject: '', description: rawText.trim() };
+  }
+  const subject = rawText
+    .substring(startIndex + START_DELIMITER.length, endIndex)
+    .trim();
+  // The description is everything before the start delimiter and after the end delimiter.
+  const description = (
+    rawText.substring(0, startIndex) +
+    rawText.substring(endIndex + END_DELIMITER.length)
+  ).trim();
+  return { subject, description };
 }
 //# sourceMappingURL=thoughtUtils.js.map

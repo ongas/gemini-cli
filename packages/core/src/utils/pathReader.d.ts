@@ -14,4 +14,7 @@ import type { Config } from '../config/config.js';
  * @returns A promise that resolves to an array of PartUnion (string | Part).
  * @throws An error if the path is not found or is outside the workspace.
  */
-export declare function readPathFromWorkspace(pathStr: string, config: Config): Promise<PartUnion[]>;
+export declare function readPathFromWorkspace(
+  pathStr: string,
+  config: Config,
+): Promise<PartUnion[]>;

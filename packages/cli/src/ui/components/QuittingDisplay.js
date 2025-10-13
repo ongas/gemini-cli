@@ -1,4 +1,4 @@
-import { jsx as _jsx } from "react/jsx-runtime";
+import { jsx as _jsx } from 'react/jsx-runtime';
 /**
  * @license
  * Copyright 2025 Google LLC
@@ -9,12 +9,29 @@ import { useUIState } from '../contexts/UIStateContext.js';
 import { HistoryItemDisplay } from './HistoryItemDisplay.js';
 import { useTerminalSize } from '../hooks/useTerminalSize.js';
 export const QuittingDisplay = () => {
-    const uiState = useUIState();
-    const { rows: terminalHeight, columns: terminalWidth } = useTerminalSize();
-    const availableTerminalHeight = terminalHeight;
-    if (!uiState.quittingMessages) {
-        return null;
-    }
-    return (_jsx(Box, { flexDirection: "column", marginBottom: 1, children: uiState.quittingMessages.map((item) => (_jsx(HistoryItemDisplay, { availableTerminalHeight: uiState.constrainHeight ? availableTerminalHeight : undefined, terminalWidth: terminalWidth, item: item, isPending: false }, item.id))) }));
+  const uiState = useUIState();
+  const { rows: terminalHeight, columns: terminalWidth } = useTerminalSize();
+  const availableTerminalHeight = terminalHeight;
+  if (!uiState.quittingMessages) {
+    return null;
+  }
+  return _jsx(Box, {
+    flexDirection: 'column',
+    marginBottom: 1,
+    children: uiState.quittingMessages.map((item) =>
+      _jsx(
+        HistoryItemDisplay,
+        {
+          availableTerminalHeight: uiState.constrainHeight
+            ? availableTerminalHeight
+            : undefined,
+          terminalWidth: terminalWidth,
+          item: item,
+          isPending: false,
+        },
+        item.id,
+      ),
+    ),
+  });
 };
 //# sourceMappingURL=QuittingDisplay.js.map

@@ -6,7 +6,7 @@
 import type React from 'react';
 import { type SlashCommand } from '../commands/types.js';
 interface Help {
-    commands: readonly SlashCommand[];
+  commands: readonly SlashCommand[];
 }
 export declare const Help: React.FC<Help>;
 export {};

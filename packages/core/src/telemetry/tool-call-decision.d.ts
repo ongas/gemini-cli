@@ -5,9 +5,11 @@
  */
 import { ToolConfirmationOutcome } from '../tools/tools.js';
 export declare enum ToolCallDecision {
-    ACCEPT = "accept",
-    REJECT = "reject",
-    MODIFY = "modify",
-    AUTO_ACCEPT = "auto_accept"
+  ACCEPT = 'accept',
+  REJECT = 'reject',
+  MODIFY = 'modify',
+  AUTO_ACCEPT = 'auto_accept',
 }
-export declare function getDecisionFromOutcome(outcome: ToolConfirmationOutcome): ToolCallDecision;
+export declare function getDecisionFromOutcome(
+  outcome: ToolConfirmationOutcome,
+): ToolCallDecision;

@@ -5,28 +5,28 @@
  */
 import type { MCPServerConfig } from '@google/gemini-cli-core';
 import { type TelemetrySettings } from '@google/gemini-cli-core';
-export declare const SETTINGS_DIRECTORY_NAME = ".gemini";
+export declare const SETTINGS_DIRECTORY_NAME = '.gemini';
 export declare const USER_SETTINGS_DIR: string;
 export declare const USER_SETTINGS_PATH: string;
 export interface Settings {
-    mcpServers?: Record<string, MCPServerConfig>;
-    coreTools?: string[];
-    excludeTools?: string[];
-    telemetry?: TelemetrySettings;
-    showMemoryUsage?: boolean;
-    checkpointing?: CheckpointingSettings;
-    folderTrust?: boolean;
-    fileFiltering?: {
-        respectGitIgnore?: boolean;
-        enableRecursiveFileSearch?: boolean;
-    };
+  mcpServers?: Record<string, MCPServerConfig>;
+  coreTools?: string[];
+  excludeTools?: string[];
+  telemetry?: TelemetrySettings;
+  showMemoryUsage?: boolean;
+  checkpointing?: CheckpointingSettings;
+  folderTrust?: boolean;
+  fileFiltering?: {
+    respectGitIgnore?: boolean;
+    enableRecursiveFileSearch?: boolean;
+  };
 }
 export interface SettingsError {
-    message: string;
-    path: string;
+  message: string;
+  path: string;
 }
 export interface CheckpointingSettings {
-    enabled?: boolean;
+  enabled?: boolean;
 }
 /**
  * Loads settings from user and workspace directories.

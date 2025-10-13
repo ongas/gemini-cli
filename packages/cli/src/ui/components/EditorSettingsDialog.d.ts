@@ -8,9 +8,13 @@ import type { LoadedSettings } from '../../config/settings.js';
 import { SettingScope } from '../../config/settings.js';
 import type { EditorType } from '@google/gemini-cli-core';
 interface EditorDialogProps {
-    onSelect: (editorType: EditorType | undefined, scope: SettingScope) => void;
-    settings: LoadedSettings;
-    onExit: () => void;
+  onSelect: (editorType: EditorType | undefined, scope: SettingScope) => void;
+  settings: LoadedSettings;
+  onExit: () => void;
 }
-export declare function EditorSettingsDialog({ onSelect, settings, onExit, }: EditorDialogProps): React.JSX.Element;
+export declare function EditorSettingsDialog({
+  onSelect,
+  settings,
+  onExit,
+}: EditorDialogProps): React.JSX.Element;
 export {};

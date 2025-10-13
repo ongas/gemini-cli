@@ -18,41 +18,42 @@ const SHELL_TOOL_NAMES = ['run_shell_command', 'ShellTool'];
  * @returns True if the invocation matches any pattern, false otherwise.
  */
 export function doesToolInvocationMatch(toolOrToolName, invocation, patterns) {
-    let toolNames;
-    if (isTool(toolOrToolName)) {
-        toolNames = [toolOrToolName.name, toolOrToolName.constructor.name];
+  let toolNames;
+  if (isTool(toolOrToolName)) {
+    toolNames = [toolOrToolName.name, toolOrToolName.constructor.name];
+  } else {
+    toolNames = [toolOrToolName];
+  }
+  if (toolNames.some((name) => SHELL_TOOL_NAMES.includes(name))) {
+    toolNames = [...new Set([...toolNames, ...SHELL_TOOL_NAMES])];
+  }
+  for (const pattern of patterns) {
+    const openParen = pattern.indexOf('(');
+    if (openParen === -1) {
+      // No arguments, just a tool name
+      if (toolNames.includes(pattern)) {
+        return true;
+      }
+      continue;
     }
-    else {
-        toolNames = [toolOrToolName];
+    const patternToolName = pattern.substring(0, openParen);
+    if (!toolNames.includes(patternToolName)) {
+      continue;
     }
-    if (toolNames.some((name) => SHELL_TOOL_NAMES.includes(name))) {
-        toolNames = [...new Set([...toolNames, ...SHELL_TOOL_NAMES])];
+    if (!pattern.endsWith(')')) {
+      continue;
     }
-    for (const pattern of patterns) {
-        const openParen = pattern.indexOf('(');
-        if (openParen === -1) {
-            // No arguments, just a tool name
-            if (toolNames.includes(pattern)) {
-                return true;
-            }
-            continue;
-        }
-        const patternToolName = pattern.substring(0, openParen);
-        if (!toolNames.includes(patternToolName)) {
-            continue;
-        }
-        if (!pattern.endsWith(')')) {
-            continue;
-        }
-        const argPattern = pattern.substring(openParen + 1, pattern.length - 1);
-        if ('command' in invocation.params &&
-            toolNames.includes('run_shell_command')) {
-            const argValue = String(invocation.params.command);
-            if (argValue === argPattern || argValue.startsWith(argPattern + ' ')) {
-                return true;
-            }
-        }
+    const argPattern = pattern.substring(openParen + 1, pattern.length - 1);
+    if (
+      'command' in invocation.params &&
+      toolNames.includes('run_shell_command')
+    ) {
+      const argValue = String(invocation.params.command);
+      if (argValue === argPattern || argValue.startsWith(argPattern + ' ')) {
+        return true;
+      }
     }
-    return false;
+  }
+  return false;
 }
 //# sourceMappingURL=tool-utils.js.map

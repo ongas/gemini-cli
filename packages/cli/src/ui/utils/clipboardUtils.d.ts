@@ -13,10 +13,14 @@ export declare function clipboardHasImage(): Promise<boolean>;
  * @param targetDir The target directory to create temp files within
  * @returns The path to the saved image file, or null if no image or error
  */
-export declare function saveClipboardImage(targetDir?: string): Promise<string | null>;
+export declare function saveClipboardImage(
+  targetDir?: string,
+): Promise<string | null>;
 /**
  * Cleans up old temporary clipboard image files
  * Removes files older than 1 hour
  * @param targetDir The target directory where temp files are stored
  */
-export declare function cleanupOldClipboardImages(targetDir?: string): Promise<void>;
+export declare function cleanupOldClipboardImages(
+  targetDir?: string,
+): Promise<void>;

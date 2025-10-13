@@ -6,10 +6,10 @@
 import type { ThoughtSummary } from '@google/gemini-cli-core';
 import type React from 'react';
 interface LoadingIndicatorProps {
-    currentLoadingPhrase?: string;
-    elapsedTime: number;
-    rightContent?: React.ReactNode;
-    thought?: ThoughtSummary | null;
+  currentLoadingPhrase?: string;
+  elapsedTime: number;
+  rightContent?: React.ReactNode;
+  thought?: ThoughtSummary | null;
 }
 export declare const LoadingIndicator: React.FC<LoadingIndicatorProps>;
 export {};

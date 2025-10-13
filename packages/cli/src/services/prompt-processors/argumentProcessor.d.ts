@@ -12,5 +12,8 @@ import type { CommandContext } from '../../ui/commands/types.js';
  * This processor is only used if the prompt does NOT contain {{args}}.
  */
 export declare class DefaultArgumentProcessor implements IPromptProcessor {
-    process(prompt: PromptPipelineContent, context: CommandContext): Promise<PromptPipelineContent>;
+  process(
+    prompt: PromptPipelineContent,
+    context: CommandContext,
+  ): Promise<PromptPipelineContent>;
 }

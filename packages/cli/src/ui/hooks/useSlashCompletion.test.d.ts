@@ -5,5 +5,12 @@
  */
 declare const resetConstructorCallCount: () => void;
 declare const getConstructorCallCount: () => number;
-declare const createDefaultAsyncFzfMock: () => (items: readonly string[], _options: unknown) => any;
-export { resetConstructorCallCount, getConstructorCallCount, createDefaultAsyncFzfMock, };
+declare const createDefaultAsyncFzfMock: () => (
+  items: readonly string[],
+  _options: unknown,
+) => any;
+export {
+  resetConstructorCallCount,
+  getConstructorCallCount,
+  createDefaultAsyncFzfMock,
+};

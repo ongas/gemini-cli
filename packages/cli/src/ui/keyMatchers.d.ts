@@ -14,12 +14,14 @@ type KeyMatcher = (key: Key) => boolean;
  * Type for key matchers mapped to Command enum
  */
 export type KeyMatchers = {
-    readonly [C in Command]: KeyMatcher;
+  readonly [C in Command]: KeyMatcher;
 };
 /**
  * Creates key matchers from a key binding configuration
  */
-export declare function createKeyMatchers(config?: KeyBindingConfig): KeyMatchers;
+export declare function createKeyMatchers(
+  config?: KeyBindingConfig,
+): KeyMatchers;
 /**
  * Default key binding matchers using the default configuration
  */

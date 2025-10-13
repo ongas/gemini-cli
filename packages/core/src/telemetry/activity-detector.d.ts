@@ -7,25 +7,25 @@
  * Tracks user activity state to determine when memory monitoring should be active
  */
 export declare class ActivityDetector {
-    private lastActivityTime;
-    private readonly idleThresholdMs;
-    constructor(idleThresholdMs?: number);
-    /**
-     * Record user activity (called by CLI when user types, adds messages, etc.)
-     */
-    recordActivity(): void;
-    /**
-     * Check if user is currently active (activity within idle threshold)
-     */
-    isUserActive(): boolean;
-    /**
-     * Get time since last activity in milliseconds
-     */
-    getTimeSinceLastActivity(): number;
-    /**
-     * Get last activity timestamp
-     */
-    getLastActivityTime(): number;
+  private lastActivityTime;
+  private readonly idleThresholdMs;
+  constructor(idleThresholdMs?: number);
+  /**
+   * Record user activity (called by CLI when user types, adds messages, etc.)
+   */
+  recordActivity(): void;
+  /**
+   * Check if user is currently active (activity within idle threshold)
+   */
+  isUserActive(): boolean;
+  /**
+   * Get time since last activity in milliseconds
+   */
+  getTimeSinceLastActivity(): number;
+  /**
+   * Get last activity timestamp
+   */
+  getLastActivityTime(): number;
 }
 /**
  * Get global activity detector instance

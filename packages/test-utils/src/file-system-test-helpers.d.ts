@@ -39,14 +39,19 @@
  * };
  */
 export type FileSystemStructure = {
-    [name: string]: string | FileSystemStructure | Array<string | FileSystemStructure>;
+  [name: string]:
+    | string
+    | FileSystemStructure
+    | Array<string | FileSystemStructure>;
 };
 /**
  * Creates a temporary directory and populates it with a given file system structure.
  * @param structure The `FileSystemStructure` to create within the temporary directory.
  * @returns A promise that resolves to the absolute path of the created temporary directory.
  */
-export declare function createTmpDir(structure: FileSystemStructure): Promise<string>;
+export declare function createTmpDir(
+  structure: FileSystemStructure,
+): Promise<string>;
 /**
  * Cleans up (deletes) a temporary directory and its contents.
  * @param dir The absolute path to the temporary directory to clean up.

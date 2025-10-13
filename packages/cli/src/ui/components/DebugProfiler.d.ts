@@ -3,4 +3,6 @@
  * Copyright 2025 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
-export declare const DebugProfiler: () => import("react/jsx-runtime").JSX.Element | null;
+export declare const DebugProfiler: () =>
+  | import('react/jsx-runtime').JSX.Element
+  | null;

@@ -5,10 +5,10 @@
  */
 import type React from 'react';
 interface GeminiMessageProps {
-    text: string;
-    isPending: boolean;
-    availableTerminalHeight?: number;
-    terminalWidth: number;
+  text: string;
+  isPending: boolean;
+  availableTerminalHeight?: number;
+  terminalWidth: number;
 }
 export declare const GeminiMessage: React.FC<GeminiMessageProps>;
 export {};

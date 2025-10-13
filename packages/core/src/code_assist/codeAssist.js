@@ -8,24 +8,37 @@ import { getOauthClient } from './oauth2.js';
 import { setupUser } from './setup.js';
 import { CodeAssistServer } from './server.js';
 import { LoggingContentGenerator } from '../core/loggingContentGenerator.js';
-export async function createCodeAssistContentGenerator(httpOptions, authType, config, sessionId) {
-    if (authType === AuthType.LOGIN_WITH_GOOGLE ||
-        authType === AuthType.CLOUD_SHELL) {
-        const authClient = await getOauthClient(authType, config);
-        const userData = await setupUser(authClient);
-        return new CodeAssistServer(authClient, userData.projectId, httpOptions, sessionId, userData.userTier);
-    }
-    throw new Error(`Unsupported authType: ${authType}`);
+export async function createCodeAssistContentGenerator(
+  httpOptions,
+  authType,
+  config,
+  sessionId,
+) {
+  if (
+    authType === AuthType.LOGIN_WITH_GOOGLE ||
+    authType === AuthType.CLOUD_SHELL
+  ) {
+    const authClient = await getOauthClient(authType, config);
+    const userData = await setupUser(authClient);
+    return new CodeAssistServer(
+      authClient,
+      userData.projectId,
+      httpOptions,
+      sessionId,
+      userData.userTier,
+    );
+  }
+  throw new Error(`Unsupported authType: ${authType}`);
 }
 export function getCodeAssistServer(config) {
-    let server = config.getContentGenerator();
-    // Unwrap LoggingContentGenerator if present
-    if (server instanceof LoggingContentGenerator) {
-        server = server.getWrapped();
-    }
-    if (!(server instanceof CodeAssistServer)) {
-        return undefined;
-    }
-    return server;
+  let server = config.getContentGenerator();
+  // Unwrap LoggingContentGenerator if present
+  if (server instanceof LoggingContentGenerator) {
+    server = server.getWrapped();
+  }
+  if (!(server instanceof CodeAssistServer)) {
+    return undefined;
+  }
+  return server;
 }
 //# sourceMappingURL=codeAssist.js.map

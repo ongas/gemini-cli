@@ -16,51 +16,52 @@ const MAX_TRAVERSAL_DEPTH = 32;
  * @returns A promise that resolves to the parent's PID, name, and command.
  */
 async function getProcessInfo(pid) {
-    try {
-        const platform = os.platform();
-        if (platform === 'win32') {
-            const powershellCommand = [
-                '$p = Get-CimInstance Win32_Process',
-                `-Filter 'ProcessId=${pid}'`,
-                '-ErrorAction SilentlyContinue;',
-                'if ($p) {',
-                '@{Name=$p.Name;ParentProcessId=$p.ParentProcessId;CommandLine=$p.CommandLine}',
-                '| ConvertTo-Json',
-                '}',
-            ].join(' ');
-            const { stdout } = await execAsync(`powershell "${powershellCommand}"`);
-            const output = stdout.trim();
-            if (!output)
-                return { parentPid: 0, name: '', command: '' };
-            const { Name = '', ParentProcessId = 0, CommandLine = '', } = JSON.parse(output);
-            return {
-                parentPid: ParentProcessId,
-                name: Name,
-                command: CommandLine ?? '',
-            };
-        }
-        else {
-            const command = `ps -o ppid=,command= -p ${pid}`;
-            const { stdout } = await execAsync(command);
-            const trimmedStdout = stdout.trim();
-            if (!trimmedStdout) {
-                return { parentPid: 0, name: '', command: '' };
-            }
-            const ppidString = trimmedStdout.split(/\s+/)[0];
-            const parentPid = parseInt(ppidString, 10);
-            const fullCommand = trimmedStdout.substring(ppidString.length).trim();
-            const processName = path.basename(fullCommand.split(' ')[0]);
-            return {
-                parentPid: isNaN(parentPid) ? 1 : parentPid,
-                name: processName,
-                command: fullCommand,
-            };
-        }
-    }
-    catch (_e) {
-        console.debug(`Failed to get process info for pid ${pid}:`, _e);
+  try {
+    const platform = os.platform();
+    if (platform === 'win32') {
+      const powershellCommand = [
+        '$p = Get-CimInstance Win32_Process',
+        `-Filter 'ProcessId=${pid}'`,
+        '-ErrorAction SilentlyContinue;',
+        'if ($p) {',
+        '@{Name=$p.Name;ParentProcessId=$p.ParentProcessId;CommandLine=$p.CommandLine}',
+        '| ConvertTo-Json',
+        '}',
+      ].join(' ');
+      const { stdout } = await execAsync(`powershell "${powershellCommand}"`);
+      const output = stdout.trim();
+      if (!output) return { parentPid: 0, name: '', command: '' };
+      const {
+        Name = '',
+        ParentProcessId = 0,
+        CommandLine = '',
+      } = JSON.parse(output);
+      return {
+        parentPid: ParentProcessId,
+        name: Name,
+        command: CommandLine ?? '',
+      };
+    } else {
+      const command = `ps -o ppid=,command= -p ${pid}`;
+      const { stdout } = await execAsync(command);
+      const trimmedStdout = stdout.trim();
+      if (!trimmedStdout) {
         return { parentPid: 0, name: '', command: '' };
+      }
+      const ppidString = trimmedStdout.split(/\s+/)[0];
+      const parentPid = parseInt(ppidString, 10);
+      const fullCommand = trimmedStdout.substring(ppidString.length).trim();
+      const processName = path.basename(fullCommand.split(' ')[0]);
+      return {
+        parentPid: isNaN(parentPid) ? 1 : parentPid,
+        name: processName,
+        command: fullCommand,
+      };
     }
+  } catch (_e) {
+    console.debug(`Failed to get process info for pid ${pid}:`, _e);
+    return { parentPid: 0, name: '', command: '' };
+  }
 }
 /**
  * Finds the IDE process info on Unix-like systems.
@@ -72,41 +73,39 @@ async function getProcessInfo(pid) {
  * @returns A promise that resolves to the PID and command of the IDE process.
  */
 async function getIdeProcessInfoForUnix() {
-    const shells = ['zsh', 'bash', 'sh', 'tcsh', 'csh', 'ksh', 'fish', 'dash'];
-    let currentPid = process.pid;
-    for (let i = 0; i < MAX_TRAVERSAL_DEPTH; i++) {
+  const shells = ['zsh', 'bash', 'sh', 'tcsh', 'csh', 'ksh', 'fish', 'dash'];
+  let currentPid = process.pid;
+  for (let i = 0; i < MAX_TRAVERSAL_DEPTH; i++) {
+    try {
+      const { parentPid, name } = await getProcessInfo(currentPid);
+      const isShell = shells.some((shell) => name === shell);
+      if (isShell) {
+        // The direct parent of the shell is often a utility process (e.g. VS
+        // Code's `ptyhost` process). To get the true IDE process, we need to
+        // traverse one level higher to get the grandparent.
+        let idePid = parentPid;
         try {
-            const { parentPid, name } = await getProcessInfo(currentPid);
-            const isShell = shells.some((shell) => name === shell);
-            if (isShell) {
-                // The direct parent of the shell is often a utility process (e.g. VS
-                // Code's `ptyhost` process). To get the true IDE process, we need to
-                // traverse one level higher to get the grandparent.
-                let idePid = parentPid;
-                try {
-                    const { parentPid: grandParentPid } = await getProcessInfo(parentPid);
-                    if (grandParentPid > 1) {
-                        idePid = grandParentPid;
-                    }
-                }
-                catch {
-                    // Ignore if getting grandparent fails, we'll just use the parent pid.
-                }
-                const { command } = await getProcessInfo(idePid);
-                return { pid: idePid, command };
-            }
-            if (parentPid <= 1) {
-                break; // Reached the root
-            }
-            currentPid = parentPid;
+          const { parentPid: grandParentPid } = await getProcessInfo(parentPid);
+          if (grandParentPid > 1) {
+            idePid = grandParentPid;
+          }
+        } catch {
+          // Ignore if getting grandparent fails, we'll just use the parent pid.
         }
-        catch {
-            // Process in chain died
-            break;
-        }
+        const { command } = await getProcessInfo(idePid);
+        return { pid: idePid, command };
+      }
+      if (parentPid <= 1) {
+        break; // Reached the root
+      }
+      currentPid = parentPid;
+    } catch {
+      // Process in chain died
+      break;
     }
-    const { command } = await getProcessInfo(currentPid);
-    return { pid: currentPid, command };
+  }
+  const { command } = await getProcessInfo(currentPid);
+  return { pid: currentPid, command };
 }
 /**
  * Finds the IDE process info on Windows.
@@ -116,38 +115,36 @@ async function getIdeProcessInfoForUnix() {
  * @returns A promise that resolves to the PID and command of the IDE process.
  */
 async function getIdeProcessInfoForWindows() {
-    let currentPid = process.pid;
-    let previousPid = process.pid;
-    for (let i = 0; i < MAX_TRAVERSAL_DEPTH; i++) {
+  let currentPid = process.pid;
+  let previousPid = process.pid;
+  for (let i = 0; i < MAX_TRAVERSAL_DEPTH; i++) {
+    try {
+      const { parentPid } = await getProcessInfo(currentPid);
+      if (parentPid > 0) {
         try {
-            const { parentPid } = await getProcessInfo(currentPid);
-            if (parentPid > 0) {
-                try {
-                    const { parentPid: grandParentPid } = await getProcessInfo(parentPid);
-                    if (grandParentPid === 0) {
-                        // We've found the grandchild of the root (`currentPid`). The IDE
-                        // process is its child, which we've stored in `previousPid`.
-                        const { command } = await getProcessInfo(previousPid);
-                        return { pid: previousPid, command };
-                    }
-                }
-                catch {
-                    // getting grandparent failed, proceed
-                }
-            }
-            if (parentPid <= 0) {
-                break; // Reached the root
-            }
-            previousPid = currentPid;
-            currentPid = parentPid;
+          const { parentPid: grandParentPid } = await getProcessInfo(parentPid);
+          if (grandParentPid === 0) {
+            // We've found the grandchild of the root (`currentPid`). The IDE
+            // process is its child, which we've stored in `previousPid`.
+            const { command } = await getProcessInfo(previousPid);
+            return { pid: previousPid, command };
+          }
+        } catch {
+          // getting grandparent failed, proceed
         }
-        catch {
-            // Process in chain died
-            break;
-        }
+      }
+      if (parentPid <= 0) {
+        break; // Reached the root
+      }
+      previousPid = currentPid;
+      currentPid = parentPid;
+    } catch {
+      // Process in chain died
+      break;
     }
-    const { command } = await getProcessInfo(currentPid);
-    return { pid: currentPid, command };
+  }
+  const { command } = await getProcessInfo(currentPid);
+  return { pid: currentPid, command };
 }
 /**
  * Traverses up the process tree to find the process ID and command of the IDE.
@@ -162,10 +159,10 @@ async function getIdeProcessInfoForWindows() {
  * @returns A promise that resolves to the PID and command of the IDE process.
  */
 export async function getIdeProcessInfo() {
-    const platform = os.platform();
-    if (platform === 'win32') {
-        return getIdeProcessInfoForWindows();
-    }
-    return getIdeProcessInfoForUnix();
+  const platform = os.platform();
+  if (platform === 'win32') {
+    return getIdeProcessInfoForWindows();
+  }
+  return getIdeProcessInfoForUnix();
 }
 //# sourceMappingURL=process-utils.js.map

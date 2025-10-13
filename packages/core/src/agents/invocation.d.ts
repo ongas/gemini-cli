@@ -19,28 +19,38 @@ import { type z } from 'zod';
  * live output stream.
  * 4. Formatting the final result into a {@link ToolResult}.
  */
-export declare class SubagentInvocation<TOutput extends z.ZodTypeAny> extends BaseToolInvocation<AgentInputs, ToolResult> {
-    private readonly definition;
-    private readonly config;
-    /**
-     * @param params The validated input parameters for the agent.
-     * @param definition The definition object that configures the agent.
-     * @param config The global runtime configuration.
-     * @param messageBus Optional message bus for policy enforcement.
-     */
-    constructor(params: AgentInputs, definition: AgentDefinition<TOutput>, config: Config, messageBus?: MessageBus);
-    /**
-     * Returns a concise, human-readable description of the invocation.
-     * Used for logging and display purposes.
-     */
-    getDescription(): string;
-    /**
-     * Executes the subagent.
-     *
-     * @param signal An `AbortSignal` to cancel the agent's execution.
-     * @param updateOutput A callback to stream intermediate output, such as the
-     * agent's thoughts, to the user interface.
-     * @returns A `Promise` that resolves with the final `ToolResult`.
-     */
-    execute(signal: AbortSignal, updateOutput?: (output: string | AnsiOutput) => void): Promise<ToolResult>;
+export declare class SubagentInvocation<
+  TOutput extends z.ZodTypeAny,
+> extends BaseToolInvocation<AgentInputs, ToolResult> {
+  private readonly definition;
+  private readonly config;
+  /**
+   * @param params The validated input parameters for the agent.
+   * @param definition The definition object that configures the agent.
+   * @param config The global runtime configuration.
+   * @param messageBus Optional message bus for policy enforcement.
+   */
+  constructor(
+    params: AgentInputs,
+    definition: AgentDefinition<TOutput>,
+    config: Config,
+    messageBus?: MessageBus,
+  );
+  /**
+   * Returns a concise, human-readable description of the invocation.
+   * Used for logging and display purposes.
+   */
+  getDescription(): string;
+  /**
+   * Executes the subagent.
+   *
+   * @param signal An `AbortSignal` to cancel the agent's execution.
+   * @param updateOutput A callback to stream intermediate output, such as the
+   * agent's thoughts, to the user interface.
+   * @returns A `Promise` that resolves with the final `ToolResult`.
+   */
+  execute(
+    signal: AbortSignal,
+    updateOutput?: (output: string | AnsiOutput) => void,
+  ): Promise<ToolResult>;
 }

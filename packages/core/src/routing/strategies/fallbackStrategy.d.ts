@@ -5,8 +5,16 @@
  */
 import type { Config } from '../../config/config.js';
 import type { BaseLlmClient } from '../../core/baseLlmClient.js';
-import type { RoutingContext, RoutingDecision, RoutingStrategy } from '../routingStrategy.js';
+import type {
+  RoutingContext,
+  RoutingDecision,
+  RoutingStrategy,
+} from '../routingStrategy.js';
 export declare class FallbackStrategy implements RoutingStrategy {
-    readonly name = "fallback";
-    route(_context: RoutingContext, config: Config, _baseLlmClient: BaseLlmClient): Promise<RoutingDecision | null>;
+  readonly name = 'fallback';
+  route(
+    _context: RoutingContext,
+    config: Config,
+    _baseLlmClient: BaseLlmClient,
+  ): Promise<RoutingDecision | null>;
 }

@@ -5,12 +5,12 @@
  */
 import { type Config } from '@google/gemini-cli-core';
 export interface PrivacyState {
-    isLoading: boolean;
-    error?: string;
-    isFreeTier?: boolean;
-    dataCollectionOptIn?: boolean;
+  isLoading: boolean;
+  error?: string;
+  isFreeTier?: boolean;
+  dataCollectionOptIn?: boolean;
 }
 export declare const usePrivacySettings: (config: Config) => {
-    privacyState: PrivacyState;
-    updateDataCollectionOptIn: (optIn: boolean) => Promise<void>;
+  privacyState: PrivacyState;
+  updateDataCollectionOptIn: (optIn: boolean) => Promise<void>;
 };

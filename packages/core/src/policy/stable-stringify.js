@@ -56,67 +56,65 @@
  * // Returns: '{"safe":"data"}'
  */
 export function stableStringify(obj) {
-    const stringify = (currentObj, ancestors) => {
-        // Handle primitives and null
-        if (currentObj === undefined) {
-            return 'null'; // undefined in arrays becomes null in JSON
-        }
-        if (currentObj === null) {
-            return 'null';
-        }
-        if (typeof currentObj === 'function') {
-            return 'null'; // functions in arrays become null in JSON
-        }
-        if (typeof currentObj !== 'object') {
-            return JSON.stringify(currentObj);
-        }
-        // Check for circular reference (object is in ancestor chain)
-        if (ancestors.has(currentObj)) {
-            return '"[Circular]"';
-        }
-        ancestors.add(currentObj);
+  const stringify = (currentObj, ancestors) => {
+    // Handle primitives and null
+    if (currentObj === undefined) {
+      return 'null'; // undefined in arrays becomes null in JSON
+    }
+    if (currentObj === null) {
+      return 'null';
+    }
+    if (typeof currentObj === 'function') {
+      return 'null'; // functions in arrays become null in JSON
+    }
+    if (typeof currentObj !== 'object') {
+      return JSON.stringify(currentObj);
+    }
+    // Check for circular reference (object is in ancestor chain)
+    if (ancestors.has(currentObj)) {
+      return '"[Circular]"';
+    }
+    ancestors.add(currentObj);
+    try {
+      // Check for toJSON method and use it if present
+      const objWithToJSON = currentObj;
+      if (typeof objWithToJSON.toJSON === 'function') {
         try {
-            // Check for toJSON method and use it if present
-            const objWithToJSON = currentObj;
-            if (typeof objWithToJSON.toJSON === 'function') {
-                try {
-                    const jsonValue = objWithToJSON.toJSON();
-                    // The result of toJSON needs to be stringified recursively
-                    if (jsonValue === null) {
-                        return 'null';
-                    }
-                    return stringify(jsonValue, ancestors);
-                }
-                catch {
-                    // If toJSON throws, treat as a regular object
-                }
-            }
-            if (Array.isArray(currentObj)) {
-                const items = currentObj.map((item) => {
-                    // undefined and functions in arrays become null
-                    if (item === undefined || typeof item === 'function') {
-                        return 'null';
-                    }
-                    return stringify(item, ancestors);
-                });
-                return '[' + items.join(',') + ']';
-            }
-            // Handle objects - sort keys and filter out undefined/function values
-            const sortedKeys = Object.keys(currentObj).sort();
-            const pairs = [];
-            for (const key of sortedKeys) {
-                const value = currentObj[key];
-                // Skip undefined and function values in objects (per JSON spec)
-                if (value !== undefined && typeof value !== 'function') {
-                    pairs.push(JSON.stringify(key) + ':' + stringify(value, ancestors));
-                }
-            }
-            return '{' + pairs.join(',') + '}';
+          const jsonValue = objWithToJSON.toJSON();
+          // The result of toJSON needs to be stringified recursively
+          if (jsonValue === null) {
+            return 'null';
+          }
+          return stringify(jsonValue, ancestors);
+        } catch {
+          // If toJSON throws, treat as a regular object
         }
-        finally {
-            ancestors.delete(currentObj);
+      }
+      if (Array.isArray(currentObj)) {
+        const items = currentObj.map((item) => {
+          // undefined and functions in arrays become null
+          if (item === undefined || typeof item === 'function') {
+            return 'null';
+          }
+          return stringify(item, ancestors);
+        });
+        return '[' + items.join(',') + ']';
+      }
+      // Handle objects - sort keys and filter out undefined/function values
+      const sortedKeys = Object.keys(currentObj).sort();
+      const pairs = [];
+      for (const key of sortedKeys) {
+        const value = currentObj[key];
+        // Skip undefined and function values in objects (per JSON spec)
+        if (value !== undefined && typeof value !== 'function') {
+          pairs.push(JSON.stringify(key) + ':' + stringify(value, ancestors));
         }
-    };
-    return stringify(obj, new Set());
+      }
+      return '{' + pairs.join(',') + '}';
+    } finally {
+      ancestors.delete(currentObj);
+    }
+  };
+  return stringify(obj, new Set());
 }
 //# sourceMappingURL=stable-stringify.js.map

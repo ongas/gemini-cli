@@ -6,4 +6,8 @@
 import type { Message } from '../types.js';
 import type { Config } from '@google/gemini-cli-core';
 import type { LoadedSettings } from '../../config/settings.js';
-export declare function createShowMemoryAction(config: Config | null, settings: LoadedSettings, addMessage: (message: Message) => void): () => Promise<void>;
+export declare function createShowMemoryAction(
+  config: Config | null,
+  settings: LoadedSettings,
+  addMessage: (message: Message) => void,
+): () => Promise<void>;

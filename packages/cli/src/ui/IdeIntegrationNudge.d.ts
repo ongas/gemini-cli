@@ -5,12 +5,15 @@
  */
 import type { IdeInfo } from '@google/gemini-cli-core';
 export type IdeIntegrationNudgeResult = {
-    userSelection: 'yes' | 'no' | 'dismiss';
-    isExtensionPreInstalled: boolean;
+  userSelection: 'yes' | 'no' | 'dismiss';
+  isExtensionPreInstalled: boolean;
 };
 interface IdeIntegrationNudgeProps {
-    ide: IdeInfo;
-    onComplete: (result: IdeIntegrationNudgeResult) => void;
+  ide: IdeInfo;
+  onComplete: (result: IdeIntegrationNudgeResult) => void;
 }
-export declare function IdeIntegrationNudge({ ide, onComplete, }: IdeIntegrationNudgeProps): import("react/jsx-runtime").JSX.Element;
+export declare function IdeIntegrationNudge({
+  ide,
+  onComplete,
+}: IdeIntegrationNudgeProps): import('react/jsx-runtime').JSX.Element;
 export {};

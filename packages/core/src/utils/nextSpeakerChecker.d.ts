@@ -6,7 +6,12 @@
 import type { BaseLlmClient } from '../core/baseLlmClient.js';
 import type { GeminiChat } from '../core/geminiChat.js';
 export interface NextSpeakerResponse {
-    reasoning: string;
-    next_speaker: 'user' | 'model';
+  reasoning: string;
+  next_speaker: 'user' | 'model';
 }
-export declare function checkNextSpeaker(chat: GeminiChat, baseLlmClient: BaseLlmClient, abortSignal: AbortSignal, promptId: string): Promise<NextSpeakerResponse | null>;
+export declare function checkNextSpeaker(
+  chat: GeminiChat,
+  baseLlmClient: BaseLlmClient,
+  abortSignal: AbortSignal,
+  promptId: string,
+): Promise<NextSpeakerResponse | null>;

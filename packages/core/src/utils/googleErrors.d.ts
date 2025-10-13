@@ -11,83 +11,93 @@
  * Based on google/rpc/error_details.proto
  */
 export interface ErrorInfo {
-    '@type': 'type.googleapis.com/google.rpc.ErrorInfo';
-    reason: string;
-    domain: string;
-    metadata: {
-        [key: string]: string;
-    };
+  '@type': 'type.googleapis.com/google.rpc.ErrorInfo';
+  reason: string;
+  domain: string;
+  metadata: {
+    [key: string]: string;
+  };
 }
 export interface RetryInfo {
-    '@type': 'type.googleapis.com/google.rpc.RetryInfo';
-    retryDelay: string;
+  '@type': 'type.googleapis.com/google.rpc.RetryInfo';
+  retryDelay: string;
 }
 export interface DebugInfo {
-    '@type': 'type.googleapis.com/google.rpc.DebugInfo';
-    stackEntries: string[];
-    detail: string;
+  '@type': 'type.googleapis.com/google.rpc.DebugInfo';
+  stackEntries: string[];
+  detail: string;
 }
 export interface QuotaFailure {
-    '@type': 'type.googleapis.com/google.rpc.QuotaFailure';
-    violations: Array<{
-        subject: string;
-        description: string;
-        apiService?: string;
-        quotaMetric?: string;
-        quotaId?: string;
-        quotaDimensions?: {
-            [key: string]: string;
-        };
-        quotaValue?: number;
-        futureQuotaValue?: number;
-    }>;
+  '@type': 'type.googleapis.com/google.rpc.QuotaFailure';
+  violations: Array<{
+    subject: string;
+    description: string;
+    apiService?: string;
+    quotaMetric?: string;
+    quotaId?: string;
+    quotaDimensions?: {
+      [key: string]: string;
+    };
+    quotaValue?: number;
+    futureQuotaValue?: number;
+  }>;
 }
 export interface PreconditionFailure {
-    '@type': 'type.googleapis.com/google.rpc.PreconditionFailure';
-    violations: Array<{
-        type: string;
-        subject: string;
-        description: string;
-    }>;
+  '@type': 'type.googleapis.com/google.rpc.PreconditionFailure';
+  violations: Array<{
+    type: string;
+    subject: string;
+    description: string;
+  }>;
 }
 export interface LocalizedMessage {
-    '@type': 'type.googleapis.com/google.rpc.LocalizedMessage';
-    locale: string;
-    message: string;
+  '@type': 'type.googleapis.com/google.rpc.LocalizedMessage';
+  locale: string;
+  message: string;
 }
 export interface BadRequest {
-    '@type': 'type.googleapis.com/google.rpc.BadRequest';
-    fieldViolations: Array<{
-        field: string;
-        description: string;
-        reason?: string;
-        localizedMessage?: LocalizedMessage;
-    }>;
+  '@type': 'type.googleapis.com/google.rpc.BadRequest';
+  fieldViolations: Array<{
+    field: string;
+    description: string;
+    reason?: string;
+    localizedMessage?: LocalizedMessage;
+  }>;
 }
 export interface RequestInfo {
-    '@type': 'type.googleapis.com/google.rpc.RequestInfo';
-    requestId: string;
-    servingData: string;
+  '@type': 'type.googleapis.com/google.rpc.RequestInfo';
+  requestId: string;
+  servingData: string;
 }
 export interface ResourceInfo {
-    '@type': 'type.googleapis.com/google.rpc.ResourceInfo';
-    resourceType: string;
-    resourceName: string;
-    owner: string;
-    description: string;
+  '@type': 'type.googleapis.com/google.rpc.ResourceInfo';
+  resourceType: string;
+  resourceName: string;
+  owner: string;
+  description: string;
 }
 export interface Help {
-    '@type': 'type.googleapis.com/google.rpc.Help';
-    links: Array<{
-        description: string;
-        url: string;
-    }>;
+  '@type': 'type.googleapis.com/google.rpc.Help';
+  links: Array<{
+    description: string;
+    url: string;
+  }>;
 }
-export type GoogleApiErrorDetail = ErrorInfo | RetryInfo | DebugInfo | QuotaFailure | PreconditionFailure | BadRequest | RequestInfo | ResourceInfo | Help | LocalizedMessage;
+export type GoogleApiErrorDetail =
+  | ErrorInfo
+  | RetryInfo
+  | DebugInfo
+  | QuotaFailure
+  | PreconditionFailure
+  | BadRequest
+  | RequestInfo
+  | ResourceInfo
+  | Help
+  | LocalizedMessage;
 export interface GoogleApiError {
-    code: number;
-    message: string;
-    details: GoogleApiErrorDetail[];
+  code: number;
+  message: string;
+  details: GoogleApiErrorDetail[];
 }
 /**
  * Parses an error object to check if it's a structured Google API error
@@ -101,4 +111,6 @@ export interface GoogleApiError {
  * @param error The error object to inspect.
  * @returns A GoogleApiError object if the error matches, otherwise null.
  */
-export declare function parseGoogleApiError(error: unknown): GoogleApiError | null;
+export declare function parseGoogleApiError(
+  error: unknown,
+): GoogleApiError | null;

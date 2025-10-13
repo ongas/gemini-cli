@@ -5,4 +5,7 @@
  */
 import { type PolicyEngineConfig, ApprovalMode } from '@google/gemini-cli-core';
 import type { Settings } from './settings.js';
-export declare function createPolicyEngineConfig(settings: Settings, approvalMode: ApprovalMode): PolicyEngineConfig;
+export declare function createPolicyEngineConfig(
+  settings: Settings,
+  approvalMode: ApprovalMode,
+): PolicyEngineConfig;

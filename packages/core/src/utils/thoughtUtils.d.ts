@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 export type ThoughtSummary = {
-    subject: string;
-    description: string;
+  subject: string;
+  description: string;
 };
 /**
  * Parses a raw thought string into a structured ThoughtSummary object.

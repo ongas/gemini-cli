@@ -38,51 +38,51 @@ import { terminalSetupCommand } from '../ui/commands/terminalSetupCommand.js';
  * of the Gemini CLI application.
  */
 export class BuiltinCommandLoader {
-    config;
-    constructor(config) {
-        this.config = config;
-    }
-    /**
-     * Gathers all raw built-in command definitions, injects dependencies where
-     * needed (e.g., config) and filters out any that are not available.
-     *
-     * @param _signal An AbortSignal (unused for this synchronous loader).
-     * @returns A promise that resolves to an array of `SlashCommand` objects.
-     */
-    async loadCommands(_signal) {
-        const allDefinitions = [
-            aboutCommand,
-            authCommand,
-            bugCommand,
-            chatCommand,
-            clearCommand,
-            cleanupContextCommand,
-            compressCommand,
-            copyCommand,
-            corgiCommand,
-            docsCommand,
-            directoryCommand,
-            editorCommand,
-            extensionsCommand,
-            helpCommand,
-            await ideCommand(),
-            initCommand,
-            mcpCommand,
-            memoryCommand,
-            ...(this.config?.getUseModelRouter() ? [modelCommand] : []),
-            ...(this.config?.getFolderTrust() ? [permissionsCommand] : []),
-            privacyCommand,
-            quitCommand,
-            restoreCommand(this.config),
-            statsCommand,
-            themeCommand,
-            toolsCommand,
-            settingsCommand,
-            vimCommand,
-            setupGithubCommand,
-            terminalSetupCommand,
-        ];
-        return allDefinitions.filter((cmd) => cmd !== null);
-    }
+  config;
+  constructor(config) {
+    this.config = config;
+  }
+  /**
+   * Gathers all raw built-in command definitions, injects dependencies where
+   * needed (e.g., config) and filters out any that are not available.
+   *
+   * @param _signal An AbortSignal (unused for this synchronous loader).
+   * @returns A promise that resolves to an array of `SlashCommand` objects.
+   */
+  async loadCommands(_signal) {
+    const allDefinitions = [
+      aboutCommand,
+      authCommand,
+      bugCommand,
+      chatCommand,
+      clearCommand,
+      cleanupContextCommand,
+      compressCommand,
+      copyCommand,
+      corgiCommand,
+      docsCommand,
+      directoryCommand,
+      editorCommand,
+      extensionsCommand,
+      helpCommand,
+      await ideCommand(),
+      initCommand,
+      mcpCommand,
+      memoryCommand,
+      ...(this.config?.getUseModelRouter() ? [modelCommand] : []),
+      ...(this.config?.getFolderTrust() ? [permissionsCommand] : []),
+      privacyCommand,
+      quitCommand,
+      restoreCommand(this.config),
+      statsCommand,
+      themeCommand,
+      toolsCommand,
+      settingsCommand,
+      vimCommand,
+      setupGithubCommand,
+      terminalSetupCommand,
+    ];
+    return allDefinitions.filter((cmd) => cmd !== null);
+  }
 }
 //# sourceMappingURL=BuiltinCommandLoader.js.map

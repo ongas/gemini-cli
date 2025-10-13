@@ -5,15 +5,15 @@
  */
 import type { MCPServerConfig } from '@google/gemini-cli-core';
 export declare const EXTENSIONS_DIRECTORY_NAME: string;
-export declare const EXTENSIONS_CONFIG_FILENAME = "gemini-extension.json";
+export declare const EXTENSIONS_CONFIG_FILENAME = 'gemini-extension.json';
 export interface Extension {
-    config: ExtensionConfig;
-    contextFiles: string[];
+  config: ExtensionConfig;
+  contextFiles: string[];
 }
 export interface ExtensionConfig {
-    name: string;
-    version: string;
-    mcpServers?: Record<string, MCPServerConfig>;
-    contextFileName?: string | string[];
+  name: string;
+  version: string;
+  mcpServers?: Record<string, MCPServerConfig>;
+  contextFileName?: string | string[];
 }
 export declare function loadExtensions(workspaceDir: string): Extension[];

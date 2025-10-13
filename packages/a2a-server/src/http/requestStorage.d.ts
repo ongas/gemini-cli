@@ -6,5 +6,5 @@
 import type express from 'express';
 import { AsyncLocalStorage } from 'node:async_hooks';
 export declare const requestStorage: AsyncLocalStorage<{
-    req: express.Request;
+  req: express.Request;
 }>;

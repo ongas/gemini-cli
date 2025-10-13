@@ -9,20 +9,20 @@
  * are not applicable.
  */
 export function createNonInteractiveUI() {
-    return {
-        addItem: (_item, _timestamp) => 0,
-        clear: () => { },
-        setDebugMessage: (_message) => { },
-        loadHistory: (_newHistory) => { },
-        pendingItem: null,
-        setPendingItem: (_item) => { },
-        toggleCorgiMode: () => { },
-        toggleVimEnabled: async () => false,
-        setGeminiMdFileCount: (_count) => { },
-        reloadCommands: () => { },
-        extensionsUpdateState: new Map(),
-        dispatchExtensionStateUpdate: (_action) => { },
-        addConfirmUpdateExtensionRequest: (_request) => { },
-    };
+  return {
+    addItem: (_item, _timestamp) => 0,
+    clear: () => {},
+    setDebugMessage: (_message) => {},
+    loadHistory: (_newHistory) => {},
+    pendingItem: null,
+    setPendingItem: (_item) => {},
+    toggleCorgiMode: () => {},
+    toggleVimEnabled: async () => false,
+    setGeminiMdFileCount: (_count) => {},
+    reloadCommands: () => {},
+    extensionsUpdateState: new Map(),
+    dispatchExtensionStateUpdate: (_action) => {},
+    addConfirmUpdateExtensionRequest: (_request) => {},
+  };
 }
 //# sourceMappingURL=nonInteractiveUi.js.map

@@ -14,4 +14,9 @@ import type { LoadedSettings } from './config/settings.js';
  * @param agentFilePath Path to the agent markdown file
  * @param userTask The task to give to the agent
  */
-export declare function runAgentNonInteractive(config: Config, _settings: LoadedSettings, agentFilePath: string, userTask: string): Promise<void>;
+export declare function runAgentNonInteractive(
+  config: Config,
+  _settings: LoadedSettings,
+  agentFilePath: string,
+  userTask: string,
+): Promise<void>;

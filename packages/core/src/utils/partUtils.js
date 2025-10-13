@@ -8,59 +8,61 @@
  * If verbose is true, includes summary representations of non-text parts.
  */
 export function partToString(value, options) {
-    if (!value) {
-        return '';
+  if (!value) {
+    return '';
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map((part) => partToString(part, options)).join('');
+  }
+  // Cast to Part, assuming it might contain project-specific fields
+  const part = value;
+  if (options?.verbose) {
+    if (part.videoMetadata !== undefined) {
+      return `[Video Metadata]`;
     }
-    if (typeof value === 'string') {
-        return value;
+    if (part.thought !== undefined) {
+      return `[Thought: ${part.thought}]`;
     }
-    if (Array.isArray(value)) {
-        return value.map((part) => partToString(part, options)).join('');
+    if (part.codeExecutionResult !== undefined) {
+      return `[Code Execution Result]`;
     }
-    // Cast to Part, assuming it might contain project-specific fields
-    const part = value;
-    if (options?.verbose) {
-        if (part.videoMetadata !== undefined) {
-            return `[Video Metadata]`;
-        }
-        if (part.thought !== undefined) {
-            return `[Thought: ${part.thought}]`;
-        }
-        if (part.codeExecutionResult !== undefined) {
-            return `[Code Execution Result]`;
-        }
-        if (part.executableCode !== undefined) {
-            return `[Executable Code]`;
-        }
-        // Standard Part fields
-        if (part.fileData !== undefined) {
-            return `[File Data]`;
-        }
-        if (part.functionCall !== undefined) {
-            return `[Function Call: ${part.functionCall.name}]`;
-        }
-        if (part.functionResponse !== undefined) {
-            return `[Function Response: ${part.functionResponse.name}]`;
-        }
-        if (part.inlineData !== undefined) {
-            return `<${part.inlineData.mimeType}>`;
-        }
+    if (part.executableCode !== undefined) {
+      return `[Executable Code]`;
     }
-    return part.text ?? '';
+    // Standard Part fields
+    if (part.fileData !== undefined) {
+      return `[File Data]`;
+    }
+    if (part.functionCall !== undefined) {
+      return `[Function Call: ${part.functionCall.name}]`;
+    }
+    if (part.functionResponse !== undefined) {
+      return `[Function Response: ${part.functionResponse.name}]`;
+    }
+    if (part.inlineData !== undefined) {
+      return `<${part.inlineData.mimeType}>`;
+    }
+  }
+  return part.text ?? '';
 }
 export function getResponseText(response) {
-    if (response.candidates && response.candidates.length > 0) {
-        const candidate = response.candidates[0];
-        if (candidate.content &&
-            candidate.content.parts &&
-            candidate.content.parts.length > 0) {
-            return candidate.content.parts
-                .filter((part) => part.text)
-                .map((part) => part.text)
-                .join('');
-        }
+  if (response.candidates && response.candidates.length > 0) {
+    const candidate = response.candidates[0];
+    if (
+      candidate.content &&
+      candidate.content.parts &&
+      candidate.content.parts.length > 0
+    ) {
+      return candidate.content.parts
+        .filter((part) => part.text)
+        .map((part) => part.text)
+        .join('');
     }
-    return null;
+  }
+  return null;
 }
 /**
  * Asynchronously maps over a PartListUnion, applying a transformation function
@@ -73,30 +75,28 @@ export function getResponseText(response) {
  *   transformations applied.
  */
 export async function flatMapTextParts(parts, transform) {
-    const result = [];
-    const partArray = Array.isArray(parts)
-        ? parts
-        : typeof parts === 'string'
-            ? [{ text: parts }]
-            : [parts];
-    for (const part of partArray) {
-        let textToProcess;
-        if (typeof part === 'string') {
-            textToProcess = part;
-        }
-        else if ('text' in part) {
-            textToProcess = part.text;
-        }
-        if (textToProcess !== undefined) {
-            const transformedParts = await transform(textToProcess);
-            result.push(...transformedParts);
-        }
-        else {
-            // Pass through non-text parts unmodified.
-            result.push(part);
-        }
+  const result = [];
+  const partArray = Array.isArray(parts)
+    ? parts
+    : typeof parts === 'string'
+      ? [{ text: parts }]
+      : [parts];
+  for (const part of partArray) {
+    let textToProcess;
+    if (typeof part === 'string') {
+      textToProcess = part;
+    } else if ('text' in part) {
+      textToProcess = part.text;
     }
-    return result;
+    if (textToProcess !== undefined) {
+      const transformedParts = await transform(textToProcess);
+      result.push(...transformedParts);
+    } else {
+      // Pass through non-text parts unmodified.
+      result.push(part);
+    }
+  }
+  return result;
 }
 /**
  * Appends a string of text to the last text part of a prompt, or adds a new
@@ -108,26 +108,24 @@ export async function flatMapTextParts(parts, transform) {
  * @returns The modified prompt.
  */
 export function appendToLastTextPart(prompt, textToAppend, separator = '\n\n') {
-    if (!textToAppend) {
-        return prompt;
-    }
-    if (prompt.length === 0) {
-        return [{ text: textToAppend }];
-    }
-    const newPrompt = [...prompt];
-    const lastPart = newPrompt.at(-1);
-    if (typeof lastPart === 'string') {
-        newPrompt[newPrompt.length - 1] = `${lastPart}${separator}${textToAppend}`;
-    }
-    else if (lastPart && 'text' in lastPart) {
-        newPrompt[newPrompt.length - 1] = {
-            ...lastPart,
-            text: `${lastPart.text}${separator}${textToAppend}`,
-        };
-    }
-    else {
-        newPrompt.push({ text: `${separator}${textToAppend}` });
-    }
-    return newPrompt;
+  if (!textToAppend) {
+    return prompt;
+  }
+  if (prompt.length === 0) {
+    return [{ text: textToAppend }];
+  }
+  const newPrompt = [...prompt];
+  const lastPart = newPrompt.at(-1);
+  if (typeof lastPart === 'string') {
+    newPrompt[newPrompt.length - 1] = `${lastPart}${separator}${textToAppend}`;
+  } else if (lastPart && 'text' in lastPart) {
+    newPrompt[newPrompt.length - 1] = {
+      ...lastPart,
+      text: `${lastPart.text}${separator}${textToAppend}`,
+    };
+  } else {
+    newPrompt.push({ text: `${separator}${textToAppend}` });
+  }
+  return newPrompt;
 }
 //# sourceMappingURL=partUtils.js.map

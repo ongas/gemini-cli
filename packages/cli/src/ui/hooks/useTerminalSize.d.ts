@@ -4,6 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 export declare function useTerminalSize(): {
-    columns: number;
-    rows: number;
+  columns: number;
+  rows: number;
 };

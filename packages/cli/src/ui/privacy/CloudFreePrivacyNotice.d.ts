@@ -5,8 +5,11 @@
  */
 import type { Config } from '@google/gemini-cli-core';
 interface CloudFreePrivacyNoticeProps {
-    config: Config;
-    onExit: () => void;
+  config: Config;
+  onExit: () => void;
 }
-export declare const CloudFreePrivacyNotice: ({ config, onExit, }: CloudFreePrivacyNoticeProps) => import("react/jsx-runtime").JSX.Element;
+export declare const CloudFreePrivacyNotice: ({
+  config,
+  onExit,
+}: CloudFreePrivacyNoticeProps) => import('react/jsx-runtime').JSX.Element;
 export {};

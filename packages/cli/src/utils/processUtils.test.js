@@ -7,14 +7,12 @@ import { vi } from 'vitest';
 import { RELAUNCH_EXIT_CODE, relaunchApp } from './processUtils.js';
 import * as cleanup from './cleanup.js';
 describe('processUtils', () => {
-    const processExit = vi
-        .spyOn(process, 'exit')
-        .mockReturnValue(undefined);
-    const runExitCleanup = vi.spyOn(cleanup, 'runExitCleanup');
-    it('should run cleanup and exit with the relaunch code', async () => {
-        await relaunchApp();
-        expect(runExitCleanup).toHaveBeenCalledTimes(1);
-        expect(processExit).toHaveBeenCalledWith(RELAUNCH_EXIT_CODE);
-    });
+  const processExit = vi.spyOn(process, 'exit').mockReturnValue(undefined);
+  const runExitCleanup = vi.spyOn(cleanup, 'runExitCleanup');
+  it('should run cleanup and exit with the relaunch code', async () => {
+    await relaunchApp();
+    expect(runExitCleanup).toHaveBeenCalledTimes(1);
+    expect(processExit).toHaveBeenCalledWith(RELAUNCH_EXIT_CODE);
+  });
 });
 //# sourceMappingURL=processUtils.test.js.map

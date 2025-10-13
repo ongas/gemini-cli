@@ -6,10 +6,12 @@
 import React, { createContext } from 'react';
 export const StreamingContext = createContext(undefined);
 export const useStreamingContext = () => {
-    const context = React.useContext(StreamingContext);
-    if (context === undefined) {
-        throw new Error('useStreamingContext must be used within a StreamingContextProvider');
-    }
-    return context;
+  const context = React.useContext(StreamingContext);
+  if (context === undefined) {
+    throw new Error(
+      'useStreamingContext must be used within a StreamingContextProvider',
+    );
+  }
+  return context;
 };
 //# sourceMappingURL=StreamingContext.js.map

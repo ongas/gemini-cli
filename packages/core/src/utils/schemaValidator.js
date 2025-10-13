@@ -9,8 +9,8 @@ import * as addFormats from 'ajv-formats';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const AjvClass = AjvPkg.default || AjvPkg;
 const ajValidator = new AjvClass(
-// See: https://ajv.js.org/options.html#strict-mode-options
-{
+  // See: https://ajv.js.org/options.html#strict-mode-options
+  {
     // strictSchema defaults to true and prevents use of JSON schemas that
     // include unrecognized keywords. The JSON schema spec specifically allows
     // for the use of non-standard keywords and the spec-compliant behavior
@@ -18,7 +18,8 @@ const ajValidator = new AjvClass(
     // allows use of non-standard or custom formats (the unknown format value
     // will be logged but the schema will still be considered valid).
     strictSchema: false,
-});
+  },
+);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const addFormatsFunc = addFormats.default || addFormats;
 addFormatsFunc(ajValidator);
@@ -26,23 +27,23 @@ addFormatsFunc(ajValidator);
  * Simple utility to validate objects against JSON Schemas
  */
 export class SchemaValidator {
-    /**
-     * Returns null if the data confroms to the schema described by schema (or if schema
-     *  is null). Otherwise, returns a string describing the error.
-     */
-    static validate(schema, data) {
-        if (!schema) {
-            return null;
-        }
-        if (typeof data !== 'object' || data === null) {
-            return 'Value of params must be an object';
-        }
-        const validate = ajValidator.compile(schema);
-        const valid = validate(data);
-        if (!valid && validate.errors) {
-            return ajValidator.errorsText(validate.errors, { dataVar: 'params' });
-        }
-        return null;
+  /**
+   * Returns null if the data confroms to the schema described by schema (or if schema
+   *  is null). Otherwise, returns a string describing the error.
+   */
+  static validate(schema, data) {
+    if (!schema) {
+      return null;
     }
+    if (typeof data !== 'object' || data === null) {
+      return 'Value of params must be an object';
+    }
+    const validate = ajValidator.compile(schema);
+    const valid = validate(data);
+    if (!valid && validate.errors) {
+      return ajValidator.errorsText(validate.errors, { dataVar: 'params' });
+    }
+    return null;
+  }
 }
 //# sourceMappingURL=schemaValidator.js.map

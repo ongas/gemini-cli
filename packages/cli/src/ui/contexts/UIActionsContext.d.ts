@@ -10,29 +10,38 @@ import { type AuthType, type EditorType } from '@google/gemini-cli-core';
 import { type SettingScope } from '../../config/settings.js';
 import type { AuthState } from '../types.js';
 export interface UIActions {
-    handleThemeSelect: (themeName: string | undefined, scope: SettingScope) => void;
-    handleThemeHighlight: (themeName: string | undefined) => void;
-    handleAuthSelect: (authType: AuthType | undefined, scope: SettingScope) => void;
-    setAuthState: (state: AuthState) => void;
-    onAuthError: (error: string) => void;
-    handleEditorSelect: (editorType: EditorType | undefined, scope: SettingScope) => void;
-    exitEditorDialog: () => void;
-    exitPrivacyNotice: () => void;
-    closeSettingsDialog: () => void;
-    closeModelDialog: () => void;
-    closePermissionsDialog: () => void;
-    setShellModeActive: (value: boolean) => void;
-    vimHandleInput: (key: Key) => boolean;
-    handleIdePromptComplete: (result: IdeIntegrationNudgeResult) => void;
-    handleFolderTrustSelect: (choice: FolderTrustChoice) => void;
-    setConstrainHeight: (value: boolean) => void;
-    onEscapePromptChange: (show: boolean) => void;
-    refreshStatic: () => void;
-    handleFinalSubmit: (value: string) => void;
-    handleClearScreen: () => void;
-    onWorkspaceMigrationDialogOpen: () => void;
-    onWorkspaceMigrationDialogClose: () => void;
-    handleProQuotaChoice: (choice: 'auth' | 'continue') => void;
+  handleThemeSelect: (
+    themeName: string | undefined,
+    scope: SettingScope,
+  ) => void;
+  handleThemeHighlight: (themeName: string | undefined) => void;
+  handleAuthSelect: (
+    authType: AuthType | undefined,
+    scope: SettingScope,
+  ) => void;
+  setAuthState: (state: AuthState) => void;
+  onAuthError: (error: string) => void;
+  handleEditorSelect: (
+    editorType: EditorType | undefined,
+    scope: SettingScope,
+  ) => void;
+  exitEditorDialog: () => void;
+  exitPrivacyNotice: () => void;
+  closeSettingsDialog: () => void;
+  closeModelDialog: () => void;
+  closePermissionsDialog: () => void;
+  setShellModeActive: (value: boolean) => void;
+  vimHandleInput: (key: Key) => boolean;
+  handleIdePromptComplete: (result: IdeIntegrationNudgeResult) => void;
+  handleFolderTrustSelect: (choice: FolderTrustChoice) => void;
+  setConstrainHeight: (value: boolean) => void;
+  onEscapePromptChange: (show: boolean) => void;
+  refreshStatic: () => void;
+  handleFinalSubmit: (value: string) => void;
+  handleClearScreen: () => void;
+  onWorkspaceMigrationDialogOpen: () => void;
+  onWorkspaceMigrationDialogClose: () => void;
+  handleProQuotaChoice: (choice: 'auth' | 'continue') => void;
 }
-export declare const UIActionsContext: import("react").Context<UIActions | null>;
+export declare const UIActionsContext: import('react').Context<UIActions | null>;
 export declare const useUIActions: () => UIActions;

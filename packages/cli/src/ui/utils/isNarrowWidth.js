@@ -4,6 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 export function isNarrowWidth(width) {
-    return width < 80;
+  return width < 80;
 }
 //# sourceMappingURL=isNarrowWidth.js.map

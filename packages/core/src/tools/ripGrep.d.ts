@@ -18,38 +18,43 @@ export declare function ensureRgPath(): Promise<string>;
  * Parameters for the GrepTool
  */
 export interface RipGrepToolParams {
-    /**
-     * The regular expression pattern to search for in file contents
-     */
-    pattern: string;
-    /**
-     * The directory to search in (optional, defaults to current directory relative to root)
-     */
-    path?: string;
-    /**
-     * File pattern to include in the search (e.g. "*.js", "*.{ts,tsx}")
-     */
-    include?: string;
+  /**
+   * The regular expression pattern to search for in file contents
+   */
+  pattern: string;
+  /**
+   * The directory to search in (optional, defaults to current directory relative to root)
+   */
+  path?: string;
+  /**
+   * File pattern to include in the search (e.g. "*.js", "*.{ts,tsx}")
+   */
+  include?: string;
 }
 /**
  * Implementation of the Grep tool logic (moved from CLI)
  */
-export declare class RipGrepTool extends BaseDeclarativeTool<RipGrepToolParams, ToolResult> {
-    private readonly config;
-    static readonly Name = "search_file_content";
-    constructor(config: Config);
-    /**
-     * Checks if a path is within the root directory and resolves it.
-     * @param relativePath Path relative to the root directory (or undefined for root).
-     * @returns The absolute path if valid and exists, or null if no path specified (to search all directories).
-     * @throws {Error} If path is outside root, doesn't exist, or isn't a directory.
-     */
-    private resolveAndValidatePath;
-    /**
-     * Validates the parameters for the tool
-     * @param params Parameters to validate
-     * @returns An error message string if invalid, null otherwise
-     */
-    validateToolParams(params: RipGrepToolParams): string | null;
-    protected createInvocation(params: RipGrepToolParams): ToolInvocation<RipGrepToolParams, ToolResult>;
+export declare class RipGrepTool extends BaseDeclarativeTool<
+  RipGrepToolParams,
+  ToolResult
+> {
+  private readonly config;
+  static readonly Name = 'search_file_content';
+  constructor(config: Config);
+  /**
+   * Checks if a path is within the root directory and resolves it.
+   * @param relativePath Path relative to the root directory (or undefined for root).
+   * @returns The absolute path if valid and exists, or null if no path specified (to search all directories).
+   * @throws {Error} If path is outside root, doesn't exist, or isn't a directory.
+   */
+  private resolveAndValidatePath;
+  /**
+   * Validates the parameters for the tool
+   * @param params Parameters to validate
+   * @returns An error message string if invalid, null otherwise
+   */
+  validateToolParams(params: RipGrepToolParams): string | null;
+  protected createInvocation(
+    params: RipGrepToolParams,
+  ): ToolInvocation<RipGrepToolParams, ToolResult>;
 }

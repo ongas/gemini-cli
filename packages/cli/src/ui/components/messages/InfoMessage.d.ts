@@ -5,7 +5,7 @@
  */
 import type React from 'react';
 interface InfoMessageProps {
-    text: string;
+  text: string;
 }
 export declare const InfoMessage: React.FC<InfoMessageProps>;
 export {};

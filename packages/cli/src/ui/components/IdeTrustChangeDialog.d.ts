@@ -5,7 +5,9 @@
  */
 import { type RestartReason } from '../hooks/useIdeTrustListener.js';
 interface IdeTrustChangeDialogProps {
-    reason: RestartReason;
+  reason: RestartReason;
 }
-export declare const IdeTrustChangeDialog: ({ reason }: IdeTrustChangeDialogProps) => import("react/jsx-runtime").JSX.Element;
+export declare const IdeTrustChangeDialog: ({
+  reason,
+}: IdeTrustChangeDialogProps) => import('react/jsx-runtime').JSX.Element;
 export {};

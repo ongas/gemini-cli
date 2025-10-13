@@ -5,30 +5,35 @@
  */
 import type { Config } from '@google/gemini-cli-core';
 import type React from 'react';
-export declare const PASTE_MODE_PREFIX = "\u001B[200~";
-export declare const PASTE_MODE_SUFFIX = "\u001B[201~";
+export declare const PASTE_MODE_PREFIX = '\u001B[200~';
+export declare const PASTE_MODE_SUFFIX = '\u001B[201~';
 export declare const DRAG_COMPLETION_TIMEOUT_MS = 100;
 export declare const SINGLE_QUOTE = "'";
-export declare const DOUBLE_QUOTE = "\"";
+export declare const DOUBLE_QUOTE = '"';
 export interface Key {
-    name: string;
-    ctrl: boolean;
-    meta: boolean;
-    shift: boolean;
-    paste: boolean;
-    sequence: string;
-    kittyProtocol?: boolean;
+  name: string;
+  ctrl: boolean;
+  meta: boolean;
+  shift: boolean;
+  paste: boolean;
+  sequence: string;
+  kittyProtocol?: boolean;
 }
 export type KeypressHandler = (key: Key) => void;
 interface KeypressContextValue {
-    subscribe: (handler: KeypressHandler) => void;
-    unsubscribe: (handler: KeypressHandler) => void;
+  subscribe: (handler: KeypressHandler) => void;
+  unsubscribe: (handler: KeypressHandler) => void;
 }
 export declare function useKeypressContext(): KeypressContextValue;
-export declare function KeypressProvider({ children, kittyProtocolEnabled, config, debugKeystrokeLogging, }: {
-    children: React.ReactNode;
-    kittyProtocolEnabled: boolean;
-    config?: Config;
-    debugKeystrokeLogging?: boolean;
-}): import("react/jsx-runtime").JSX.Element;
+export declare function KeypressProvider({
+  children,
+  kittyProtocolEnabled,
+  config,
+  debugKeystrokeLogging,
+}: {
+  children: React.ReactNode;
+  kittyProtocolEnabled: boolean;
+  config?: Config;
+  debugKeystrokeLogging?: boolean;
+}): import('react/jsx-runtime').JSX.Element;
 export {};

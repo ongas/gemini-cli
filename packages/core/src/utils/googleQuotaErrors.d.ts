@@ -8,16 +8,20 @@ import type { GoogleApiError } from './googleErrors.js';
  * A non-retryable error indicating a hard quota limit has been reached (e.g., daily limit).
  */
 export declare class TerminalQuotaError extends Error {
-    readonly cause: GoogleApiError;
-    constructor(message: string, cause: GoogleApiError);
+  readonly cause: GoogleApiError;
+  constructor(message: string, cause: GoogleApiError);
 }
 /**
  * A retryable error indicating a temporary quota issue (e.g., per-minute limit).
  */
 export declare class RetryableQuotaError extends Error {
-    readonly cause: GoogleApiError;
-    retryDelayMs: number;
-    constructor(message: string, cause: GoogleApiError, retryDelaySeconds: number);
+  readonly cause: GoogleApiError;
+  retryDelayMs: number;
+  constructor(
+    message: string,
+    cause: GoogleApiError,
+    retryDelaySeconds: number,
+  );
 }
 /**
  * Analyzes a caught error and classifies it as a specific quota-related error if applicable.

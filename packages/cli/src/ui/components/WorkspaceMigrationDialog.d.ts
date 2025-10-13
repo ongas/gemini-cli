@@ -5,7 +5,7 @@
  */
 import { type Extension } from '../../config/extension.js';
 export declare function WorkspaceMigrationDialog(props: {
-    workspaceExtensions: Extension[];
-    onOpen: () => void;
-    onClose: () => void;
-}): import("react/jsx-runtime").JSX.Element;
+  workspaceExtensions: Extension[];
+  onOpen: () => void;
+  onClose: () => void;
+}): import('react/jsx-runtime').JSX.Element;

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 /* Fail to compile on unexpected values. */
-export function assumeExhaustive(_value) { }
+export function assumeExhaustive(_value) {}
 /**
  * Throws an exception on unexpected values.
  *
@@ -18,7 +18,7 @@ export function assumeExhaustive(_value) { }
  * }
  */
 export function checkExhaustive(value, msg = `unexpected value ${value}!`) {
-    assumeExhaustive(value);
-    throw new Error(msg);
+  assumeExhaustive(value);
+  throw new Error(msg);
 }
 //# sourceMappingURL=checks.js.map

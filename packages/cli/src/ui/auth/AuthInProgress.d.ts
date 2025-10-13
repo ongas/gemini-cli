@@ -5,7 +5,9 @@
  */
 import type React from 'react';
 interface AuthInProgressProps {
-    onTimeout: () => void;
+  onTimeout: () => void;
 }
-export declare function AuthInProgress({ onTimeout, }: AuthInProgressProps): React.JSX.Element;
+export declare function AuthInProgress({
+  onTimeout,
+}: AuthInProgressProps): React.JSX.Element;
 export {};

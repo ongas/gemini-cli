@@ -11,10 +11,10 @@ import {} from '../config/settings.js';
  * @returns An error message if the theme is not found, otherwise null.
  */
 export function validateTheme(settings) {
-    const effectiveTheme = settings.merged.ui?.theme;
-    if (effectiveTheme && !themeManager.findThemeByName(effectiveTheme)) {
-        return `Theme "${effectiveTheme}" not found.`;
-    }
-    return null;
+  const effectiveTheme = settings.merged.ui?.theme;
+  if (effectiveTheme && !themeManager.findThemeByName(effectiveTheme)) {
+    return `Theme "${effectiveTheme}" not found.`;
+  }
+  return null;
 }
 //# sourceMappingURL=theme.js.map

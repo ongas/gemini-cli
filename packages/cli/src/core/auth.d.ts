@@ -10,4 +10,7 @@ import { type AuthType, type Config } from '@google/gemini-cli-core';
  * @param authType The selected auth type.
  * @returns An error message if authentication fails, otherwise null.
  */
-export declare function performInitialAuth(config: Config, authType: AuthType | undefined): Promise<string | null>;
+export declare function performInitialAuth(
+  config: Config,
+  authType: AuthType | undefined,
+): Promise<string | null>;

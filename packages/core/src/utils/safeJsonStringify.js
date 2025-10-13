@@ -11,15 +11,19 @@
  * @returns JSON string with circular references replaced by [Circular]
  */
 export function safeJsonStringify(obj, space) {
-    const seen = new WeakSet();
-    return JSON.stringify(obj, (key, value) => {
-        if (typeof value === 'object' && value !== null) {
-            if (seen.has(value)) {
-                return '[Circular]';
-            }
-            seen.add(value);
+  const seen = new WeakSet();
+  return JSON.stringify(
+    obj,
+    (key, value) => {
+      if (typeof value === 'object' && value !== null) {
+        if (seen.has(value)) {
+          return '[Circular]';
         }
-        return value;
-    }, space);
+        seen.add(value);
+      }
+      return value;
+    },
+    space,
+  );
 }
 //# sourceMappingURL=safeJsonStringify.js.map

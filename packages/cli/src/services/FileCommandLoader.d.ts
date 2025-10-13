@@ -17,35 +17,35 @@ import type { SlashCommand } from '../ui/commands/types.js';
  * - Handling file system errors and malformed files gracefully.
  */
 export declare class FileCommandLoader implements ICommandLoader {
-    private readonly config;
-    private readonly projectRoot;
-    private readonly folderTrustEnabled;
-    private readonly folderTrust;
-    constructor(config: Config | null);
-    /**
-     * Loads all commands from user, project, and extension directories.
-     * Returns commands in order: user → project → extensions (alphabetically).
-     *
-     * Order is important for conflict resolution in CommandService:
-     * - User/project commands (without extensionName) use "last wins" strategy
-     * - Extension commands (with extensionName) get renamed if conflicts exist
-     *
-     * @param signal An AbortSignal to cancel the loading process.
-     * @returns A promise that resolves to an array of all loaded SlashCommands.
-     */
-    loadCommands(signal: AbortSignal): Promise<SlashCommand[]>;
-    /**
-     * Get all command directories in order for loading.
-     * User commands → Project commands → Extension commands
-     * This order ensures extension commands can detect all conflicts.
-     */
-    private getCommandDirectories;
-    /**
-     * Parses a single .toml or .md file and transforms it into a SlashCommand object.
-     * @param filePath The absolute path to the file.
-     * @param baseDir The root command directory for name calculation.
-     * @param extensionName Optional extension name to prefix commands with.
-     * @returns A promise resolving to a SlashCommand, or null if the file is invalid.
-     */
-    private parseAndAdaptFile;
+  private readonly config;
+  private readonly projectRoot;
+  private readonly folderTrustEnabled;
+  private readonly folderTrust;
+  constructor(config: Config | null);
+  /**
+   * Loads all commands from user, project, and extension directories.
+   * Returns commands in order: user → project → extensions (alphabetically).
+   *
+   * Order is important for conflict resolution in CommandService:
+   * - User/project commands (without extensionName) use "last wins" strategy
+   * - Extension commands (with extensionName) get renamed if conflicts exist
+   *
+   * @param signal An AbortSignal to cancel the loading process.
+   * @returns A promise that resolves to an array of all loaded SlashCommands.
+   */
+  loadCommands(signal: AbortSignal): Promise<SlashCommand[]>;
+  /**
+   * Get all command directories in order for loading.
+   * User commands → Project commands → Extension commands
+   * This order ensures extension commands can detect all conflicts.
+   */
+  private getCommandDirectories;
+  /**
+   * Parses a single .toml or .md file and transforms it into a SlashCommand object.
+   * @param filePath The absolute path to the file.
+   * @param baseDir The root command directory for name calculation.
+   * @param extensionName Optional extension name to prefix commands with.
+   * @returns A promise resolving to a SlashCommand, or null if the file is invalid.
+   */
+  private parseAndAdaptFile;
 }

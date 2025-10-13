@@ -9,21 +9,20 @@ import { main } from './src/gemini.js';
 import { FatalError } from '@google/gemini-cli-core';
 // --- Global Entry Point ---
 main().catch((error) => {
-    if (error instanceof FatalError) {
-        let errorMessage = error.message;
-        if (!process.env['NO_COLOR']) {
-            errorMessage = `\x1b[31m${errorMessage}\x1b[0m`;
-        }
-        console.error(errorMessage);
-        process.exit(error.exitCode);
+  if (error instanceof FatalError) {
+    let errorMessage = error.message;
+    if (!process.env['NO_COLOR']) {
+      errorMessage = `\x1b[31m${errorMessage}\x1b[0m`;
     }
-    console.error('An unexpected critical error occurred:');
-    if (error instanceof Error) {
-        console.error(error.stack);
-    }
-    else {
-        console.error(String(error));
-    }
-    process.exit(1);
+    console.error(errorMessage);
+    process.exit(error.exitCode);
+  }
+  console.error('An unexpected critical error occurred:');
+  if (error instanceof Error) {
+    console.error(error.stack);
+  } else {
+    console.error(String(error));
+  }
+  process.exit(1);
 });
 //# sourceMappingURL=index.js.map

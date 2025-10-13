@@ -14,4 +14,9 @@ import type { LoadedSettings } from './config/settings.js';
  * @throws {FatalInputError} if the command result is not supported in
  *   non-interactive mode.
  */
-export declare const handleSlashCommand: (rawQuery: string, abortController: AbortController, config: Config, settings: LoadedSettings) => Promise<PartListUnion | undefined>;
+export declare const handleSlashCommand: (
+  rawQuery: string,
+  abortController: AbortController,
+  config: Config,
+  settings: LoadedSettings,
+) => Promise<PartListUnion | undefined>;

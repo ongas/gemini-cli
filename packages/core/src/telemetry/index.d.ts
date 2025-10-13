@@ -4,18 +4,59 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 export declare enum TelemetryTarget {
-    GCP = "gcp",
-    LOCAL = "local"
+  GCP = 'gcp',
+  LOCAL = 'local',
 }
 declare const DEFAULT_TELEMETRY_TARGET = TelemetryTarget.LOCAL;
-declare const DEFAULT_OTLP_ENDPOINT = "http://localhost:4317";
+declare const DEFAULT_OTLP_ENDPOINT = 'http://localhost:4317';
 export { DEFAULT_TELEMETRY_TARGET, DEFAULT_OTLP_ENDPOINT };
-export { initializeTelemetry, shutdownTelemetry, isTelemetrySdkInitialized, } from './sdk.js';
-export { resolveTelemetrySettings, parseBooleanEnvFlag, parseTelemetryTargetValue, } from './config.js';
-export { GcpTraceExporter, GcpMetricExporter, GcpLogExporter, } from './gcp-exporters.js';
-export { logCliConfiguration, logUserPrompt, logToolCall, logApiRequest, logApiError, logApiResponse, logFlashFallback, logSlashCommand, logConversationFinishedEvent, logKittySequenceOverflow, logChatCompression, logToolOutputTruncated, logExtensionEnable, logExtensionInstallEvent, logExtensionUninstall, } from './loggers.js';
+export {
+  initializeTelemetry,
+  shutdownTelemetry,
+  isTelemetrySdkInitialized,
+} from './sdk.js';
+export {
+  resolveTelemetrySettings,
+  parseBooleanEnvFlag,
+  parseTelemetryTargetValue,
+} from './config.js';
+export {
+  GcpTraceExporter,
+  GcpMetricExporter,
+  GcpLogExporter,
+} from './gcp-exporters.js';
+export {
+  logCliConfiguration,
+  logUserPrompt,
+  logToolCall,
+  logApiRequest,
+  logApiError,
+  logApiResponse,
+  logFlashFallback,
+  logSlashCommand,
+  logConversationFinishedEvent,
+  logKittySequenceOverflow,
+  logChatCompression,
+  logToolOutputTruncated,
+  logExtensionEnable,
+  logExtensionInstallEvent,
+  logExtensionUninstall,
+} from './loggers.js';
 export type { SlashCommandEvent, ChatCompressionEvent } from './types.js';
-export { SlashCommandStatus, EndSessionEvent, UserPromptEvent, ApiRequestEvent, ApiErrorEvent, ApiResponseEvent, FlashFallbackEvent, StartSessionEvent, ToolCallEvent, ConversationFinishedEvent, KittySequenceOverflowEvent, ToolOutputTruncatedEvent, } from './types.js';
+export {
+  SlashCommandStatus,
+  EndSessionEvent,
+  UserPromptEvent,
+  ApiRequestEvent,
+  ApiErrorEvent,
+  ApiResponseEvent,
+  FlashFallbackEvent,
+  StartSessionEvent,
+  ToolCallEvent,
+  ConversationFinishedEvent,
+  KittySequenceOverflowEvent,
+  ToolOutputTruncatedEvent,
+} from './types.js';
 export { makeSlashCommandEvent, makeChatCompressionEvent } from './types.js';
 export type { TelemetryEvent } from './types.js';
 export { SpanStatusCode, ValueType } from '@opentelemetry/api';
@@ -24,5 +65,44 @@ export * from './uiTelemetry.js';
 export { HighWaterMarkTracker } from './high-water-mark-tracker.js';
 export { RateLimiter } from './rate-limiter.js';
 export { ActivityType } from './activity-types.js';
-export { ActivityDetector, getActivityDetector, recordUserActivity, isUserActive, } from './activity-detector.js';
-export { recordToolCallMetrics, recordTokenUsageMetrics, recordApiResponseMetrics, recordApiErrorMetrics, recordFileOperationMetric, recordInvalidChunk, recordContentRetry, recordContentRetryFailure, recordModelRoutingMetrics, recordCustomTokenUsageMetrics, recordCustomApiResponseMetrics, recordGenAiClientTokenUsage, recordGenAiClientOperationDuration, getConventionAttributes, recordStartupPerformance, recordMemoryUsage, recordCpuUsage, recordToolQueueDepth, recordToolExecutionBreakdown, recordTokenEfficiency, recordApiRequestBreakdown, recordPerformanceScore, recordPerformanceRegression, recordBaselineComparison, isPerformanceMonitoringActive, PerformanceMetricType, MemoryMetricType, ToolExecutionPhase, ApiRequestPhase, FileOperation, GenAiOperationName, GenAiProviderName, GenAiTokenType, } from './metrics.js';
+export {
+  ActivityDetector,
+  getActivityDetector,
+  recordUserActivity,
+  isUserActive,
+} from './activity-detector.js';
+export {
+  recordToolCallMetrics,
+  recordTokenUsageMetrics,
+  recordApiResponseMetrics,
+  recordApiErrorMetrics,
+  recordFileOperationMetric,
+  recordInvalidChunk,
+  recordContentRetry,
+  recordContentRetryFailure,
+  recordModelRoutingMetrics,
+  recordCustomTokenUsageMetrics,
+  recordCustomApiResponseMetrics,
+  recordGenAiClientTokenUsage,
+  recordGenAiClientOperationDuration,
+  getConventionAttributes,
+  recordStartupPerformance,
+  recordMemoryUsage,
+  recordCpuUsage,
+  recordToolQueueDepth,
+  recordToolExecutionBreakdown,
+  recordTokenEfficiency,
+  recordApiRequestBreakdown,
+  recordPerformanceScore,
+  recordPerformanceRegression,
+  recordBaselineComparison,
+  isPerformanceMonitoringActive,
+  PerformanceMetricType,
+  MemoryMetricType,
+  ToolExecutionPhase,
+  ApiRequestPhase,
+  FileOperation,
+  GenAiOperationName,
+  GenAiProviderName,
+  GenAiTokenType,
+} from './metrics.js';

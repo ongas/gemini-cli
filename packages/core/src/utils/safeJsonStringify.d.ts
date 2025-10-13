@@ -10,4 +10,7 @@
  * @param space - Optional space parameter for formatting (defaults to no formatting)
  * @returns JSON string with circular references replaced by [Circular]
  */
-export declare function safeJsonStringify(obj: unknown, space?: string | number): string;
+export declare function safeJsonStringify(
+  obj: unknown,
+  space?: string | number,
+): string;

@@ -6,10 +6,10 @@
 import { type Config } from '@google/gemini-cli-core';
 import { type LoadedSettings } from '../config/settings.js';
 export interface InitializationResult {
-    authError: string | null;
-    themeError: string | null;
-    shouldOpenAuthDialog: boolean;
-    geminiMdFileCount: number;
+  authError: string | null;
+  themeError: string | null;
+  shouldOpenAuthDialog: boolean;
+  geminiMdFileCount: number;
 }
 /**
  * Orchestrates the application's startup initialization.
@@ -18,4 +18,7 @@ export interface InitializationResult {
  * @param settings The loaded application settings.
  * @returns The results of the initialization.
  */
-export declare function initializeApp(config: Config, settings: LoadedSettings): Promise<InitializationResult>;
+export declare function initializeApp(
+  config: Config,
+  settings: LoadedSettings,
+): Promise<InitializationResult>;

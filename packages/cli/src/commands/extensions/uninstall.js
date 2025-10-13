@@ -6,33 +6,35 @@
 import { uninstallExtension } from '../../config/extension.js';
 import { getErrorMessage } from '../../utils/errors.js';
 export async function handleUninstall(args) {
-    try {
-        await uninstallExtension(args.name);
-        console.log(`Extension "${args.name}" successfully uninstalled.`);
-    }
-    catch (error) {
-        console.error(getErrorMessage(error));
-        process.exit(1);
-    }
+  try {
+    await uninstallExtension(args.name);
+    console.log(`Extension "${args.name}" successfully uninstalled.`);
+  } catch (error) {
+    console.error(getErrorMessage(error));
+    process.exit(1);
+  }
 }
 export const uninstallCommand = {
-    command: 'uninstall <name>',
-    describe: 'Uninstalls an extension.',
-    builder: (yargs) => yargs
-        .positional('name', {
+  command: 'uninstall <name>',
+  describe: 'Uninstalls an extension.',
+  builder: (yargs) =>
+    yargs
+      .positional('name', {
         describe: 'The name or source path of the extension to uninstall.',
         type: 'string',
-    })
-        .check((argv) => {
+      })
+      .check((argv) => {
         if (!argv.name) {
-            throw new Error('Please include the name of the extension to uninstall as a positional argument.');
+          throw new Error(
+            'Please include the name of the extension to uninstall as a positional argument.',
+          );
         }
         return true;
-    }),
-    handler: async (argv) => {
-        await handleUninstall({
-            name: argv['name'],
-        });
-    },
+      }),
+  handler: async (argv) => {
+    await handleUninstall({
+      name: argv['name'],
+    });
+  },
 };
 //# sourceMappingURL=uninstall.js.map

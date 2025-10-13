@@ -5,62 +5,65 @@
  */
 import { Theme } from './theme.js';
 const noColorColorsTheme = {
-    type: 'ansi',
-    Background: '',
-    Foreground: '',
-    LightBlue: '',
-    AccentBlue: '',
-    AccentPurple: '',
-    AccentCyan: '',
-    AccentGreen: '',
-    AccentYellow: '',
-    AccentRed: '',
-    DiffAdded: '',
-    DiffRemoved: '',
-    Comment: '',
-    Gray: '',
+  type: 'ansi',
+  Background: '',
+  Foreground: '',
+  LightBlue: '',
+  AccentBlue: '',
+  AccentPurple: '',
+  AccentCyan: '',
+  AccentGreen: '',
+  AccentYellow: '',
+  AccentRed: '',
+  DiffAdded: '',
+  DiffRemoved: '',
+  Comment: '',
+  Gray: '',
 };
 const noColorSemanticColors = {
-    text: {
-        primary: '',
-        secondary: '',
-        link: '',
-        accent: '',
+  text: {
+    primary: '',
+    secondary: '',
+    link: '',
+    accent: '',
+  },
+  background: {
+    primary: '',
+    diff: {
+      added: '',
+      removed: '',
     },
-    background: {
-        primary: '',
-        diff: {
-            added: '',
-            removed: '',
-        },
-    },
-    border: {
-        default: '',
-        focused: '',
-    },
-    ui: {
-        comment: '',
-        symbol: '',
-        gradient: [],
-    },
-    status: {
-        error: '',
-        success: '',
-        warning: '',
-    },
+  },
+  border: {
+    default: '',
+    focused: '',
+  },
+  ui: {
+    comment: '',
+    symbol: '',
+    gradient: [],
+  },
+  status: {
+    error: '',
+    success: '',
+    warning: '',
+  },
 };
-export const NoColorTheme = new Theme('NoColor', 'dark', {
+export const NoColorTheme = new Theme(
+  'NoColor',
+  'dark',
+  {
     hljs: {
-        display: 'block',
-        overflowX: 'auto',
-        padding: '0.5em',
+      display: 'block',
+      overflowX: 'auto',
+      padding: '0.5em',
     },
     'hljs-keyword': {},
     'hljs-literal': {},
     'hljs-symbol': {},
     'hljs-name': {},
     'hljs-link': {
-        textDecoration: 'underline',
+      textDecoration: 'underline',
     },
     'hljs-built_in': {},
     'hljs-type': {},
@@ -76,10 +79,10 @@ export const NoColorTheme = new Theme('NoColor', 'dark', {
     'hljs-params': {},
     'hljs-formula': {},
     'hljs-comment': {
-        fontStyle: 'italic',
+      fontStyle: 'italic',
     },
     'hljs-quote': {
-        fontStyle: 'italic',
+      fontStyle: 'italic',
     },
     'hljs-doctag': {},
     'hljs-meta': {},
@@ -92,10 +95,10 @@ export const NoColorTheme = new Theme('NoColor', 'dark', {
     'hljs-builtin-name': {},
     'hljs-section': {},
     'hljs-emphasis': {
-        fontStyle: 'italic',
+      fontStyle: 'italic',
     },
     'hljs-strong': {
-        fontWeight: 'bold',
+      fontWeight: 'bold',
     },
     'hljs-bullet': {},
     'hljs-selector-tag': {},
@@ -104,12 +107,15 @@ export const NoColorTheme = new Theme('NoColor', 'dark', {
     'hljs-selector-attr': {},
     'hljs-selector-pseudo': {},
     'hljs-addition': {
-        display: 'inline-block',
-        width: '100%',
+      display: 'inline-block',
+      width: '100%',
     },
     'hljs-deletion': {
-        display: 'inline-block',
-        width: '100%',
+      display: 'inline-block',
+      width: '100%',
     },
-}, noColorColorsTheme, noColorSemanticColors);
+  },
+  noColorColorsTheme,
+  noColorSemanticColors,
+);
 //# sourceMappingURL=no-color.js.map

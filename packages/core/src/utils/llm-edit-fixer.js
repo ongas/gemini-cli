@@ -61,14 +61,14 @@ const EDIT_USER_PROMPT = `
 Based on the error and the file content, provide a corrected \`search\` string that will succeed. Remember to keep your correction minimal and explain the precise reason for the failure in your \`explanation\`.
 `;
 const SearchReplaceEditSchema = {
-    type: Type.OBJECT,
-    properties: {
-        explanation: { type: Type.STRING },
-        search: { type: Type.STRING },
-        replace: { type: Type.STRING },
-        noChangesRequired: { type: Type.BOOLEAN },
-    },
-    required: ['search', 'replace', 'explanation'],
+  type: Type.OBJECT,
+  properties: {
+    explanation: { type: Type.STRING },
+    search: { type: Type.STRING },
+    replace: { type: Type.STRING },
+    noChangesRequired: { type: Type.BOOLEAN },
+  },
+  required: ['search', 'replace', 'explanation'],
 };
 const editCorrectionWithInstructionCache = new LruCache(MAX_CACHE_SIZE);
 /**
@@ -83,49 +83,61 @@ const editCorrectionWithInstructionCache = new LruCache(MAX_CACHE_SIZE);
  * @param promptId A unique ID for the prompt.
  * @returns A new search and replace pair.
  */
-export async function FixLLMEditWithInstruction(instruction, old_string, new_string, error, current_content, baseLlmClient, abortSignal) {
-    let promptId = promptIdContext.getStore();
-    if (!promptId) {
-        promptId = `llm-fixer-fallback-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-        console.warn(`Could not find promptId in context. This is unexpected. Using a fallback ID: ${promptId}`);
-    }
-    const cacheKey = createHash('sha256')
-        .update(JSON.stringify([
+export async function FixLLMEditWithInstruction(
+  instruction,
+  old_string,
+  new_string,
+  error,
+  current_content,
+  baseLlmClient,
+  abortSignal,
+) {
+  let promptId = promptIdContext.getStore();
+  if (!promptId) {
+    promptId = `llm-fixer-fallback-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    console.warn(
+      `Could not find promptId in context. This is unexpected. Using a fallback ID: ${promptId}`,
+    );
+  }
+  const cacheKey = createHash('sha256')
+    .update(
+      JSON.stringify([
         current_content,
         old_string,
         new_string,
         instruction,
         error,
-    ]))
-        .digest('hex');
-    const cachedResult = editCorrectionWithInstructionCache.get(cacheKey);
-    if (cachedResult) {
-        return cachedResult;
-    }
-    const userPrompt = EDIT_USER_PROMPT.replace('{instruction}', instruction)
-        .replace('{old_string}', old_string)
-        .replace('{new_string}', new_string)
-        .replace('{error}', error)
-        .replace('{current_content}', current_content);
-    const contents = [
-        {
-            role: 'user',
-            parts: [{ text: userPrompt }],
-        },
-    ];
-    const result = (await baseLlmClient.generateJson({
-        contents,
-        schema: SearchReplaceEditSchema,
-        abortSignal,
-        model: DEFAULT_GEMINI_FLASH_MODEL,
-        systemInstruction: EDIT_SYS_PROMPT,
-        promptId,
-        maxAttempts: 1,
-    }));
-    editCorrectionWithInstructionCache.set(cacheKey, result);
-    return result;
+      ]),
+    )
+    .digest('hex');
+  const cachedResult = editCorrectionWithInstructionCache.get(cacheKey);
+  if (cachedResult) {
+    return cachedResult;
+  }
+  const userPrompt = EDIT_USER_PROMPT.replace('{instruction}', instruction)
+    .replace('{old_string}', old_string)
+    .replace('{new_string}', new_string)
+    .replace('{error}', error)
+    .replace('{current_content}', current_content);
+  const contents = [
+    {
+      role: 'user',
+      parts: [{ text: userPrompt }],
+    },
+  ];
+  const result = await baseLlmClient.generateJson({
+    contents,
+    schema: SearchReplaceEditSchema,
+    abortSignal,
+    model: DEFAULT_GEMINI_FLASH_MODEL,
+    systemInstruction: EDIT_SYS_PROMPT,
+    promptId,
+    maxAttempts: 1,
+  });
+  editCorrectionWithInstructionCache.set(cacheKey, result);
+  return result;
 }
 export function resetLlmEditFixerCaches_TEST_ONLY() {
-    editCorrectionWithInstructionCache.clear();
+  editCorrectionWithInstructionCache.clear();
 }
 //# sourceMappingURL=llm-edit-fixer.js.map

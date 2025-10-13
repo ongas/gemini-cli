@@ -1,4 +1,4 @@
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { jsx as _jsx, jsxs as _jsxs } from 'react/jsx-runtime';
 /**
  * @license
  * Copyright 2025 Google LLC
@@ -11,44 +11,100 @@ import { RenderInline } from '../utils/InlineMarkdownRenderer.js';
 import { RadioButtonSelect } from './shared/RadioButtonSelect.js';
 import { useKeypress } from '../hooks/useKeypress.js';
 export const ShellConfirmationDialog = ({ request }) => {
-    const { commands, onConfirm } = request;
-    useKeypress((key) => {
-        if (key.name === 'escape') {
-            onConfirm(ToolConfirmationOutcome.Cancel);
-        }
-    }, { isActive: true });
-    const handleSelect = (item) => {
-        if (item === ToolConfirmationOutcome.Cancel) {
-            onConfirm(item);
-        }
-        else {
-            // For both ProceedOnce and ProceedAlways, we approve all the
-            // commands that were requested.
-            onConfirm(item, commands);
-        }
-    };
-    const options = [
-        {
-            label: 'Yes, allow once',
-            value: ToolConfirmationOutcome.ProceedOnce,
-            key: 'Yes, allow once',
-        },
-        {
-            label: 'Yes, allow always (this session)',
-            value: ToolConfirmationOutcome.ProceedAlways,
-            key: 'Yes, allow always (this session)',
-        },
-        {
-            label: 'Yes, allow always (all sessions)',
-            value: ToolConfirmationOutcome.ProceedAlwaysAllSessions,
-            key: 'Yes, allow always (all sessions)',
-        },
-        {
-            label: 'No (esc)',
-            value: ToolConfirmationOutcome.Cancel,
-            key: 'No (esc)',
-        },
-    ];
-    return (_jsxs(Box, { flexDirection: "column", borderStyle: "round", borderColor: theme.status.warning, padding: 1, width: "100%", marginLeft: 1, children: [_jsxs(Box, { flexDirection: "column", marginBottom: 1, children: [_jsx(Text, { bold: true, color: theme.text.primary, children: "Shell Command Execution" }), _jsx(Text, { color: theme.text.primary, children: "A custom command wants to run the following shell commands:" }), _jsx(Box, { flexDirection: "column", borderStyle: "round", borderColor: theme.border.default, paddingX: 1, marginTop: 1, children: commands.map((cmd) => (_jsx(Text, { color: theme.text.link, children: _jsx(RenderInline, { text: cmd }) }, cmd))) })] }), _jsx(Box, { marginBottom: 1, children: _jsx(Text, { color: theme.text.primary, children: "Do you want to proceed?" }) }), _jsx(RadioButtonSelect, { items: options, onSelect: handleSelect, isFocused: true })] }));
+  const { commands, onConfirm } = request;
+  useKeypress(
+    (key) => {
+      if (key.name === 'escape') {
+        onConfirm(ToolConfirmationOutcome.Cancel);
+      }
+    },
+    { isActive: true },
+  );
+  const handleSelect = (item) => {
+    if (item === ToolConfirmationOutcome.Cancel) {
+      onConfirm(item);
+    } else {
+      // For both ProceedOnce and ProceedAlways, we approve all the
+      // commands that were requested.
+      onConfirm(item, commands);
+    }
+  };
+  const options = [
+    {
+      label: 'Yes, allow once',
+      value: ToolConfirmationOutcome.ProceedOnce,
+      key: 'Yes, allow once',
+    },
+    {
+      label: 'Yes, allow always (this session)',
+      value: ToolConfirmationOutcome.ProceedAlways,
+      key: 'Yes, allow always (this session)',
+    },
+    {
+      label: 'Yes, allow always (all sessions)',
+      value: ToolConfirmationOutcome.ProceedAlwaysAllSessions,
+      key: 'Yes, allow always (all sessions)',
+    },
+    {
+      label: 'No (esc)',
+      value: ToolConfirmationOutcome.Cancel,
+      key: 'No (esc)',
+    },
+  ];
+  return _jsxs(Box, {
+    flexDirection: 'column',
+    borderStyle: 'round',
+    borderColor: theme.status.warning,
+    padding: 1,
+    width: '100%',
+    marginLeft: 1,
+    children: [
+      _jsxs(Box, {
+        flexDirection: 'column',
+        marginBottom: 1,
+        children: [
+          _jsx(Text, {
+            bold: true,
+            color: theme.text.primary,
+            children: 'Shell Command Execution',
+          }),
+          _jsx(Text, {
+            color: theme.text.primary,
+            children:
+              'A custom command wants to run the following shell commands:',
+          }),
+          _jsx(Box, {
+            flexDirection: 'column',
+            borderStyle: 'round',
+            borderColor: theme.border.default,
+            paddingX: 1,
+            marginTop: 1,
+            children: commands.map((cmd) =>
+              _jsx(
+                Text,
+                {
+                  color: theme.text.link,
+                  children: _jsx(RenderInline, { text: cmd }),
+                },
+                cmd,
+              ),
+            ),
+          }),
+        ],
+      }),
+      _jsx(Box, {
+        marginBottom: 1,
+        children: _jsx(Text, {
+          color: theme.text.primary,
+          children: 'Do you want to proceed?',
+        }),
+      }),
+      _jsx(RadioButtonSelect, {
+        items: options,
+        onSelect: handleSelect,
+        isFocused: true,
+      }),
+    ],
+  });
 };
 //# sourceMappingURL=ShellConfirmationDialog.js.map

@@ -9,25 +9,25 @@ const FIVE_MINUTES_IN_SECONDS = 5 * 60;
  * A non-retryable error indicating a hard quota limit has been reached (e.g., daily limit).
  */
 export class TerminalQuotaError extends Error {
-    cause;
-    constructor(message, cause) {
-        super(message);
-        this.cause = cause;
-        this.name = 'TerminalQuotaError';
-    }
+  cause;
+  constructor(message, cause) {
+    super(message);
+    this.cause = cause;
+    this.name = 'TerminalQuotaError';
+  }
 }
 /**
  * A retryable error indicating a temporary quota issue (e.g., per-minute limit).
  */
 export class RetryableQuotaError extends Error {
-    cause;
-    retryDelayMs;
-    constructor(message, cause, retryDelaySeconds) {
-        super(message);
-        this.cause = cause;
-        this.name = 'RetryableQuotaError';
-        this.retryDelayMs = retryDelaySeconds * 1000;
-    }
+  cause;
+  retryDelayMs;
+  constructor(message, cause, retryDelaySeconds) {
+    super(message);
+    this.cause = cause;
+    this.name = 'RetryableQuotaError';
+    this.retryDelayMs = retryDelaySeconds * 1000;
+  }
 }
 /**
  * Parses a duration string (e.g., "34.074824224s", "60s") and returns the time in seconds.
@@ -35,11 +35,11 @@ export class RetryableQuotaError extends Error {
  * @returns The duration in seconds, or null if parsing fails.
  */
 function parseDurationInSeconds(duration) {
-    if (!duration.endsWith('s')) {
-        return null;
-    }
-    const seconds = parseFloat(duration.slice(0, -1));
-    return isNaN(seconds) ? null : seconds;
+  if (!duration.endsWith('s')) {
+    return null;
+  }
+  const seconds = parseFloat(duration.slice(0, -1));
+  return isNaN(seconds) ? null : seconds;
 }
 /**
  * Analyzes a caught error and classifies it as a specific quota-related error if applicable.
@@ -55,74 +55,95 @@ function parseDurationInSeconds(duration) {
  * @returns A `TerminalQuotaError`, `RetryableQuotaError`, or the original `unknown` error.
  */
 export function classifyGoogleError(error) {
-    const googleApiError = parseGoogleApiError(error);
-    if (!googleApiError || googleApiError.code !== 429) {
-        return error; // Not a 429 error we can handle.
-    }
-    const quotaFailure = googleApiError.details.find((d) => d['@type'] === 'type.googleapis.com/google.rpc.QuotaFailure');
-    const errorInfo = googleApiError.details.find((d) => d['@type'] === 'type.googleapis.com/google.rpc.ErrorInfo');
-    const retryInfo = googleApiError.details.find((d) => d['@type'] === 'type.googleapis.com/google.rpc.RetryInfo');
-    // 1. Check for long-term limits in QuotaFailure or ErrorInfo
-    if (quotaFailure) {
-        for (const violation of quotaFailure.violations) {
-            const quotaId = violation.quotaId ?? '';
-            if (quotaId.includes('PerDay') || quotaId.includes('Daily')) {
-                let message = `Reached a daily quota limit: ${violation.description}`;
-                // Add reset time information if available in quotaDimensions
-                if (violation.quotaDimensions) {
-                    const resetTime = violation.quotaDimensions['reset_time'];
-                    if (resetTime) {
-                        message += `\nQuota resets at: ${resetTime}`;
-                    }
-                }
-                return new TerminalQuotaError(message, googleApiError);
-            }
+  const googleApiError = parseGoogleApiError(error);
+  if (!googleApiError || googleApiError.code !== 429) {
+    return error; // Not a 429 error we can handle.
+  }
+  const quotaFailure = googleApiError.details.find(
+    (d) => d['@type'] === 'type.googleapis.com/google.rpc.QuotaFailure',
+  );
+  const errorInfo = googleApiError.details.find(
+    (d) => d['@type'] === 'type.googleapis.com/google.rpc.ErrorInfo',
+  );
+  const retryInfo = googleApiError.details.find(
+    (d) => d['@type'] === 'type.googleapis.com/google.rpc.RetryInfo',
+  );
+  // 1. Check for long-term limits in QuotaFailure or ErrorInfo
+  if (quotaFailure) {
+    for (const violation of quotaFailure.violations) {
+      const quotaId = violation.quotaId ?? '';
+      if (quotaId.includes('PerDay') || quotaId.includes('Daily')) {
+        let message = `Reached a daily quota limit: ${violation.description}`;
+        // Add reset time information if available in quotaDimensions
+        if (violation.quotaDimensions) {
+          const resetTime = violation.quotaDimensions['reset_time'];
+          if (resetTime) {
+            message += `\nQuota resets at: ${resetTime}`;
+          }
         }
+        return new TerminalQuotaError(message, googleApiError);
+      }
     }
-    if (errorInfo) {
-        const quotaLimit = errorInfo.metadata?.['quota_limit'] ?? '';
-        if (quotaLimit.includes('PerDay') || quotaLimit.includes('Daily')) {
-            let message = `Reached a daily quota limit: ${errorInfo.reason}`;
-            // Check for reset time in metadata
-            const resetTime = errorInfo.metadata?.['reset_time'] ||
-                errorInfo.metadata?.['quota_reset_time'];
-            if (resetTime) {
-                message += `\nQuota resets at: ${resetTime}`;
-            }
-            else {
-                // Provide general guidance if no specific reset time is available
-                message +=
-                    '\nQuota typically resets at midnight Pacific Time (UTC-8/-7)';
-            }
-            return new TerminalQuotaError(message, googleApiError);
-        }
+  }
+  if (errorInfo) {
+    const quotaLimit = errorInfo.metadata?.['quota_limit'] ?? '';
+    if (quotaLimit.includes('PerDay') || quotaLimit.includes('Daily')) {
+      let message = `Reached a daily quota limit: ${errorInfo.reason}`;
+      // Check for reset time in metadata
+      const resetTime =
+        errorInfo.metadata?.['reset_time'] ||
+        errorInfo.metadata?.['quota_reset_time'];
+      if (resetTime) {
+        message += `\nQuota resets at: ${resetTime}`;
+      } else {
+        // Provide general guidance if no specific reset time is available
+        message +=
+          '\nQuota typically resets at midnight Pacific Time (UTC-8/-7)';
+      }
+      return new TerminalQuotaError(message, googleApiError);
     }
-    // 2. Check for long delays in RetryInfo
-    if (retryInfo?.retryDelay) {
-        const delaySeconds = parseDurationInSeconds(retryInfo.retryDelay);
-        if (delaySeconds !== null) {
-            if (delaySeconds > FIVE_MINUTES_IN_SECONDS) {
-                return new TerminalQuotaError(`Quota limit requires a long delay of ${retryInfo.retryDelay}.`, googleApiError);
-            }
-            // This is a retryable error with a specific delay.
-            return new RetryableQuotaError(`Quota limit hit. Retrying after ${retryInfo.retryDelay}.`, googleApiError, delaySeconds);
-        }
+  }
+  // 2. Check for long delays in RetryInfo
+  if (retryInfo?.retryDelay) {
+    const delaySeconds = parseDurationInSeconds(retryInfo.retryDelay);
+    if (delaySeconds !== null) {
+      if (delaySeconds > FIVE_MINUTES_IN_SECONDS) {
+        return new TerminalQuotaError(
+          `Quota limit requires a long delay of ${retryInfo.retryDelay}.`,
+          googleApiError,
+        );
+      }
+      // This is a retryable error with a specific delay.
+      return new RetryableQuotaError(
+        `Quota limit hit. Retrying after ${retryInfo.retryDelay}.`,
+        googleApiError,
+        delaySeconds,
+      );
     }
-    // 3. Check for short-term limits in QuotaFailure or ErrorInfo
-    if (quotaFailure) {
-        for (const violation of quotaFailure.violations) {
-            const quotaId = violation.quotaId ?? '';
-            if (quotaId.includes('PerMinute')) {
-                return new RetryableQuotaError(`Quota limit hit: ${violation.description}. Retrying after 60s.`, googleApiError, 60);
-            }
-        }
+  }
+  // 3. Check for short-term limits in QuotaFailure or ErrorInfo
+  if (quotaFailure) {
+    for (const violation of quotaFailure.violations) {
+      const quotaId = violation.quotaId ?? '';
+      if (quotaId.includes('PerMinute')) {
+        return new RetryableQuotaError(
+          `Quota limit hit: ${violation.description}. Retrying after 60s.`,
+          googleApiError,
+          60,
+        );
+      }
     }
-    if (errorInfo) {
-        const quotaLimit = errorInfo.metadata?.['quota_limit'] ?? '';
-        if (quotaLimit.includes('PerMinute')) {
-            return new RetryableQuotaError(`Quota limit hit: ${errorInfo.reason}. Retrying after 60s.`, googleApiError, 60);
-        }
+  }
+  if (errorInfo) {
+    const quotaLimit = errorInfo.metadata?.['quota_limit'] ?? '';
+    if (quotaLimit.includes('PerMinute')) {
+      return new RetryableQuotaError(
+        `Quota limit hit: ${errorInfo.reason}. Retrying after 60s.`,
+        googleApiError,
+        60,
+      );
     }
-    return error; // Fallback to original error if no specific classification fits.
+  }
+  return error; // Fallback to original error if no specific classification fits.
 }
 //# sourceMappingURL=googleQuotaErrors.js.map

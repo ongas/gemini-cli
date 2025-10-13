@@ -7,17 +7,18 @@ const EstimatedArtWidth = 59;
 const BoxBorderWidth = 1;
 export const BOX_PADDING_X = 1;
 // Calculate width based on art, padding, and border
-export const UI_WIDTH = EstimatedArtWidth + BOX_PADDING_X * 2 + BoxBorderWidth * 2; // ~63
+export const UI_WIDTH =
+  EstimatedArtWidth + BOX_PADDING_X * 2 + BoxBorderWidth * 2; // ~63
 export const STREAM_DEBOUNCE_MS = 100;
 export const SHELL_COMMAND_NAME = 'Shell Command';
 export const SHELL_NAME = 'Shell';
 // Tool status symbols used in ToolMessage component
 export const TOOL_STATUS = {
-    SUCCESS: '✓',
-    PENDING: 'o',
-    EXECUTING: '⊷',
-    CONFIRMING: '?',
-    CANCELED: '-',
-    ERROR: 'x',
+  SUCCESS: '✓',
+  PENDING: 'o',
+  EXECUTING: '⊷',
+  CONFIRMING: '?',
+  CANCELED: '-',
+  ERROR: 'x',
 };
 //# sourceMappingURL=constants.js.map

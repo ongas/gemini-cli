@@ -5,7 +5,7 @@
  */
 export var OutputFormat;
 (function (OutputFormat) {
-    OutputFormat["TEXT"] = "text";
-    OutputFormat["JSON"] = "json";
+  OutputFormat['TEXT'] = 'text';
+  OutputFormat['JSON'] = 'json';
 })(OutputFormat || (OutputFormat = {}));
 //# sourceMappingURL=types.js.map

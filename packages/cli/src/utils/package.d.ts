@@ -5,8 +5,8 @@
  */
 import { type PackageJson as BasePackageJson } from 'read-package-up';
 export type PackageJson = BasePackageJson & {
-    config?: {
-        sandboxImageUri?: string;
-    };
+  config?: {
+    sandboxImageUri?: string;
+  };
 };
 export declare function getPackageJson(): Promise<PackageJson | undefined>;

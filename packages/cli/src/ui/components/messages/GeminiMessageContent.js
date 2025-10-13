@@ -1,4 +1,4 @@
-import { jsx as _jsx } from "react/jsx-runtime";
+import { jsx as _jsx } from 'react/jsx-runtime';
 import { Box } from 'ink';
 import { MarkdownDisplay } from '../../utils/MarkdownDisplay.js';
 /*
@@ -7,9 +7,23 @@ import { MarkdownDisplay } from '../../utils/MarkdownDisplay.js';
  * are split into multiple GeminiMessageContent's to enable the root <Static> component in
  * App.tsx to be as performant as humanly possible.
  */
-export const GeminiMessageContent = ({ text, isPending, availableTerminalHeight, terminalWidth, }) => {
-    const originalPrefix = '✦ ';
-    const prefixWidth = originalPrefix.length;
-    return (_jsx(Box, { flexDirection: "column", paddingLeft: prefixWidth, children: _jsx(MarkdownDisplay, { text: text, isPending: isPending, availableTerminalHeight: availableTerminalHeight, terminalWidth: terminalWidth }) }));
+export const GeminiMessageContent = ({
+  text,
+  isPending,
+  availableTerminalHeight,
+  terminalWidth,
+}) => {
+  const originalPrefix = '✦ ';
+  const prefixWidth = originalPrefix.length;
+  return _jsx(Box, {
+    flexDirection: 'column',
+    paddingLeft: prefixWidth,
+    children: _jsx(MarkdownDisplay, {
+      text: text,
+      isPending: isPending,
+      availableTerminalHeight: availableTerminalHeight,
+      terminalWidth: terminalWidth,
+    }),
+  });
 };
 //# sourceMappingURL=GeminiMessageContent.js.map

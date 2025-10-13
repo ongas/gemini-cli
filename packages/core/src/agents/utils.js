@@ -12,18 +12,26 @@
  * @throws {Error} if any placeholder key is not found in the inputs.
  */
 export function templateString(template, inputs) {
-    const placeholderRegex = /\$\{(\w+)\}/g;
-    // First, find all unique keys required by the template.
-    const requiredKeys = new Set(Array.from(template.matchAll(placeholderRegex), (match) => match[1]));
-    // Check if all required keys exist in the inputs.
-    const inputKeys = new Set(Object.keys(inputs));
-    const missingKeys = Array.from(requiredKeys).filter((key) => !inputKeys.has(key));
-    if (missingKeys.length > 0) {
-        // Enhanced error message showing both missing and available keys
-        throw new Error(`Template validation failed: Missing required input parameters: ${missingKeys.join(', ')}. ` +
-            `Available inputs: ${Object.keys(inputs).join(', ')}`);
-    }
-    // Perform the replacement using a replacer function.
-    return template.replace(placeholderRegex, (_match, key) => String(inputs[key]));
+  const placeholderRegex = /\$\{(\w+)\}/g;
+  // First, find all unique keys required by the template.
+  const requiredKeys = new Set(
+    Array.from(template.matchAll(placeholderRegex), (match) => match[1]),
+  );
+  // Check if all required keys exist in the inputs.
+  const inputKeys = new Set(Object.keys(inputs));
+  const missingKeys = Array.from(requiredKeys).filter(
+    (key) => !inputKeys.has(key),
+  );
+  if (missingKeys.length > 0) {
+    // Enhanced error message showing both missing and available keys
+    throw new Error(
+      `Template validation failed: Missing required input parameters: ${missingKeys.join(', ')}. ` +
+        `Available inputs: ${Object.keys(inputs).join(', ')}`,
+    );
+  }
+  // Perform the replacement using a replacer function.
+  return template.replace(placeholderRegex, (_match, key) =>
+    String(inputs[key]),
+  );
 }
 //# sourceMappingURL=utils.js.map

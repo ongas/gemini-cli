@@ -6,9 +6,9 @@
 import type React from 'react';
 import { type ToolDefinition } from '../../types.js';
 interface ToolsListProps {
-    tools: readonly ToolDefinition[];
-    showDescriptions: boolean;
-    terminalWidth: number;
+  tools: readonly ToolDefinition[];
+  showDescriptions: boolean;
+  terminalWidth: number;
 }
 export declare const ToolsList: React.FC<ToolsListProps>;
 export {};

@@ -13,5 +13,13 @@ import type { CliArgs } from '../config/config.js';
  * If the model is set to "auto", it will use the flash model if in fallback
  * mode, otherwise it will use the default model.
  */
-export declare function resolveModel(model: string, isInFallbackMode: boolean): string;
-export declare function runZedIntegration(config: Config, settings: LoadedSettings, extensions: Extension[], argv: CliArgs): Promise<void>;
+export declare function resolveModel(
+  model: string,
+  isInFallbackMode: boolean,
+): string;
+export declare function runZedIntegration(
+  config: Config,
+  settings: LoadedSettings,
+  extensions: Extension[],
+  argv: CliArgs,
+): Promise<void>;

@@ -11,10 +11,10 @@ import {} from '@google/gemini-cli-core';
 import {} from '../../config/settings.js';
 export const UIActionsContext = createContext(null);
 export const useUIActions = () => {
-    const context = useContext(UIActionsContext);
-    if (!context) {
-        throw new Error('useUIActions must be used within a UIActionsProvider');
-    }
-    return context;
+  const context = useContext(UIActionsContext);
+  if (!context) {
+    throw new Error('useUIActions must be used within a UIActionsProvider');
+  }
+  return context;
 };
 //# sourceMappingURL=UIActionsContext.js.map

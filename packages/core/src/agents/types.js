@@ -9,10 +9,10 @@ import {} from 'zod';
  */
 export var AgentTerminateMode;
 (function (AgentTerminateMode) {
-    AgentTerminateMode["ERROR"] = "ERROR";
-    AgentTerminateMode["TIMEOUT"] = "TIMEOUT";
-    AgentTerminateMode["GOAL"] = "GOAL";
-    AgentTerminateMode["MAX_TURNS"] = "MAX_TURNS";
-    AgentTerminateMode["ABORTED"] = "ABORTED";
+  AgentTerminateMode['ERROR'] = 'ERROR';
+  AgentTerminateMode['TIMEOUT'] = 'TIMEOUT';
+  AgentTerminateMode['GOAL'] = 'GOAL';
+  AgentTerminateMode['MAX_TURNS'] = 'MAX_TURNS';
+  AgentTerminateMode['ABORTED'] = 'ABORTED';
 })(AgentTerminateMode || (AgentTerminateMode = {}));
 //# sourceMappingURL=types.js.map

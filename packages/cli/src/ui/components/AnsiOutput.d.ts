@@ -6,8 +6,8 @@
 import type React from 'react';
 import type { AnsiOutput } from '@google/gemini-cli-core';
 interface AnsiOutputProps {
-    data: AnsiOutput;
-    availableTerminalHeight?: number;
+  data: AnsiOutput;
+  availableTerminalHeight?: number;
 }
 export declare const AnsiOutputText: React.FC<AnsiOutputProps>;
 export {};

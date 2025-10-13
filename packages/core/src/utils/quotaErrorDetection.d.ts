@@ -5,12 +5,14 @@
  */
 import type { StructuredError } from '../core/turn.js';
 export interface ApiError {
-    error: {
-        code: number;
-        message: string;
-        status: string;
-        details: unknown[];
-    };
+  error: {
+    code: number;
+    message: string;
+    status: string;
+    details: unknown[];
+  };
 }
 export declare function isApiError(error: unknown): error is ApiError;
-export declare function isStructuredError(error: unknown): error is StructuredError;
+export declare function isStructuredError(
+  error: unknown,
+): error is StructuredError;

@@ -11,68 +11,74 @@ import { DEFAULT_GEMINI_MODEL } from '../config/models.js';
 import { z } from 'zod';
 // Define a type that matches the outputConfig schema for type safety.
 const CodebaseInvestigationReportSchema = z.object({
-    SummaryOfFindings: z
-        .string()
-        .describe("A summary of the investigation's conclusions and insights for the main agent."),
-    ExplorationTrace: z
-        .array(z.string())
-        .describe('A step-by-step list of actions and tools used during the investigation.'),
-    RelevantLocations: z
-        .array(z.object({
+  SummaryOfFindings: z
+    .string()
+    .describe(
+      "A summary of the investigation's conclusions and insights for the main agent.",
+    ),
+  ExplorationTrace: z
+    .array(z.string())
+    .describe(
+      'A step-by-step list of actions and tools used during the investigation.',
+    ),
+  RelevantLocations: z
+    .array(
+      z.object({
         FilePath: z.string(),
         Reasoning: z.string(),
         KeySymbols: z.array(z.string()),
-    }))
-        .describe('A list of relevant files and the key symbols within them.'),
+      }),
+    )
+    .describe('A list of relevant files and the key symbols within them.'),
 });
 /**
  * A Proof-of-Concept subagent specialized in analyzing codebase structure,
  * dependencies, and technologies.
  */
 export const CodebaseInvestigatorAgent = {
-    name: 'codebase_investigator',
-    displayName: 'Codebase Investigator Agent',
-    description: `Your primary tool for multifile search tasks and codebase exploration. 
+  name: 'codebase_investigator',
+  displayName: 'Codebase Investigator Agent',
+  description: `Your primary tool for multifile search tasks and codebase exploration. 
     Invoke this tool to delegate search tasks to an autonomous subagent. 
     Use this to find features, understand context, or locate specific files, functions, or symbols. 
     Returns a structured Json report with key file paths, symbols, architectural map and insights to solve a task or answer questions`,
-    inputConfig: {
-        inputs: {
-            objective: {
-                description: `A comprehensive and detailed description of the user's ultimate goal. 
+  inputConfig: {
+    inputs: {
+      objective: {
+        description: `A comprehensive and detailed description of the user's ultimate goal. 
           You must include original user's objective as well as questions and any extra context and questions you may have.`,
-                type: 'string',
-                required: true,
-            },
-        },
+        type: 'string',
+        required: true,
+      },
     },
-    outputConfig: {
-        outputName: 'report',
-        description: 'The final investigation report as a JSON object.',
-        schema: CodebaseInvestigationReportSchema,
-    },
-    // The 'output' parameter is now strongly typed as CodebaseInvestigationReportSchema
-    processOutput: (output) => JSON.stringify(output, null, 2),
-    modelConfig: {
-        model: DEFAULT_GEMINI_MODEL,
-        temp: 0.1,
-        top_p: 0.95,
-        thinkingBudget: -1,
-    },
-    runConfig: {
-        max_time_minutes: 5,
-        max_turns: 15,
-    },
-    toolConfig: {
-        // Grant access only to read-only tools.
-        tools: [LSTool.Name, ReadFileTool.Name, GLOB_TOOL_NAME, GrepTool.Name],
-    },
-    promptConfig: {
-        query: `Your task is to do a deep investigation of the codebase to find all relevant files, code locations, architectural mental map and insights to solve  for the following user objective:
+  },
+  outputConfig: {
+    outputName: 'report',
+    description: 'The final investigation report as a JSON object.',
+    schema: CodebaseInvestigationReportSchema,
+  },
+  // The 'output' parameter is now strongly typed as CodebaseInvestigationReportSchema
+  processOutput: (output) => JSON.stringify(output, null, 2),
+  modelConfig: {
+    model: DEFAULT_GEMINI_MODEL,
+    temp: 0.1,
+    top_p: 0.95,
+    thinkingBudget: -1,
+  },
+  runConfig: {
+    max_time_minutes: 5,
+    max_turns: 15,
+  },
+  toolConfig: {
+    // Grant access only to read-only tools.
+    tools: [LSTool.Name, ReadFileTool.Name, GLOB_TOOL_NAME, GrepTool.Name],
+  },
+  promptConfig: {
+    query: `Your task is to do a deep investigation of the codebase to find all relevant files, code locations, architectural mental map and insights to solve  for the following user objective:
 <objective>
 \${objective}
 </objective>`,
-        systemPrompt: `You are **Codebase Investigator**, a hyper-specialized AI agent and an expert in reverse-engineering complex software projects. You are a sub-agent within a larger development system.
+    systemPrompt: `You are **Codebase Investigator**, a hyper-specialized AI agent and an expert in reverse-engineering complex software projects. You are a sub-agent within a larger development system.
 Your **SOLE PURPOSE** is to build a complete mental model of the code relevant to a given investigation. You must identify all relevant files, understand their roles, and foresee the direct architectural consequences of potential changes.
 You are a sub-agent in a larger system. Your only responsibility is to provide deep, actionable context.
 - **DO:** Find the key modules, classes, and functions that are part of the problem and its solution.
@@ -131,6 +137,6 @@ When you are finished, you **MUST** call the \`complete_task\` tool. The \`repor
 }
 \`\`\`
 `,
-    },
+  },
 };
 //# sourceMappingURL=codebase-investigator.js.map

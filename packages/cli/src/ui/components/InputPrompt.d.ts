@@ -14,30 +14,32 @@ import { ApprovalMode } from '@google/gemini-cli-core';
  * rather than potentially sending multiple paste events separated by line
  * breaks which could trigger unintended command execution.
  */
-export declare function isTerminalPasteTrusted(kittyProtocolSupported: boolean): boolean;
+export declare function isTerminalPasteTrusted(
+  kittyProtocolSupported: boolean,
+): boolean;
 export interface InputPromptProps {
-    buffer: TextBuffer;
-    onSubmit: (value: string) => void;
-    userMessages: readonly string[];
-    onClearScreen: () => void;
-    config: Config;
-    slashCommands: readonly SlashCommand[];
-    commandContext: CommandContext;
-    placeholder?: string;
-    focus?: boolean;
-    inputWidth: number;
-    suggestionsWidth: number;
-    shellModeActive: boolean;
-    setShellModeActive: (value: boolean) => void;
-    approvalMode: ApprovalMode;
-    onEscapePromptChange?: (showPrompt: boolean) => void;
-    vimHandleInput?: (key: Key) => boolean;
-    isEmbeddedShellFocused?: boolean;
+  buffer: TextBuffer;
+  onSubmit: (value: string) => void;
+  userMessages: readonly string[];
+  onClearScreen: () => void;
+  config: Config;
+  slashCommands: readonly SlashCommand[];
+  commandContext: CommandContext;
+  placeholder?: string;
+  focus?: boolean;
+  inputWidth: number;
+  suggestionsWidth: number;
+  shellModeActive: boolean;
+  setShellModeActive: (value: boolean) => void;
+  approvalMode: ApprovalMode;
+  onEscapePromptChange?: (showPrompt: boolean) => void;
+  vimHandleInput?: (key: Key) => boolean;
+  isEmbeddedShellFocused?: boolean;
 }
 export declare const calculatePromptWidths: (terminalWidth: number) => {
-    readonly inputWidth: number;
-    readonly containerWidth: number;
-    readonly suggestionsWidth: number;
-    readonly frameOverhead: number;
+  readonly inputWidth: number;
+  readonly containerWidth: number;
+  readonly suggestionsWidth: number;
+  readonly frameOverhead: number;
 };
 export declare const InputPrompt: React.FC<InputPromptProps>;

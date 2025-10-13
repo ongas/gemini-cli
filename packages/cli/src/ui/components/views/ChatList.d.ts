@@ -6,7 +6,7 @@
 import type React from 'react';
 import type { ChatDetail } from '../../types.js';
 interface ChatListProps {
-    chats: readonly ChatDetail[];
+  chats: readonly ChatDetail[];
 }
 export declare const ChatList: React.FC<ChatListProps>;
 export {};

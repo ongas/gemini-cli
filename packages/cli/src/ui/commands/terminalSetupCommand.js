@@ -12,30 +12,30 @@ import { terminalSetup } from '../utils/terminalSetup.js';
  * to support Shift+Enter and Ctrl+Enter for multiline input.
  */
 export const terminalSetupCommand = {
-    name: 'terminal-setup',
-    description: 'Configure terminal keybindings for multiline input (VS Code, Cursor, Windsurf)',
-    kind: CommandKind.BUILT_IN,
-    action: async () => {
-        try {
-            const result = await terminalSetup();
-            let content = result.message;
-            if (result.requiresRestart) {
-                content +=
-                    '\n\nPlease restart your terminal for the changes to take effect.';
-            }
-            return {
-                type: 'message',
-                content,
-                messageType: result.success ? 'info' : 'error',
-            };
-        }
-        catch (error) {
-            return {
-                type: 'message',
-                content: `Failed to configure terminal: ${error}`,
-                messageType: 'error',
-            };
-        }
-    },
+  name: 'terminal-setup',
+  description:
+    'Configure terminal keybindings for multiline input (VS Code, Cursor, Windsurf)',
+  kind: CommandKind.BUILT_IN,
+  action: async () => {
+    try {
+      const result = await terminalSetup();
+      let content = result.message;
+      if (result.requiresRestart) {
+        content +=
+          '\n\nPlease restart your terminal for the changes to take effect.';
+      }
+      return {
+        type: 'message',
+        content,
+        messageType: result.success ? 'info' : 'error',
+      };
+    } catch (error) {
+      return {
+        type: 'message',
+        content: `Failed to configure terminal: ${error}`,
+        messageType: 'error',
+      };
+    }
+  },
 };
 //# sourceMappingURL=terminalSetupCommand.js.map

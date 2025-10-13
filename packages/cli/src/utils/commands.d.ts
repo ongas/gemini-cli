@@ -5,9 +5,9 @@
  */
 import { type SlashCommand } from '../ui/commands/types.js';
 export type ParsedSlashCommand = {
-    commandToExecute: SlashCommand | undefined;
-    args: string;
-    canonicalPath: string[];
+  commandToExecute: SlashCommand | undefined;
+  args: string;
+  canonicalPath: string[];
 };
 /**
  * Parses a raw slash command string into its command, arguments, and canonical path.
@@ -17,4 +17,7 @@ export type ParsedSlashCommand = {
  * @param commands The list of available top-level slash commands.
  * @returns An object containing the resolved command, its arguments, and its canonical path.
  */
-export declare const parseSlashCommand: (query: string, commands: readonly SlashCommand[]) => ParsedSlashCommand;
+export declare const parseSlashCommand: (
+  query: string,
+  commands: readonly SlashCommand[],
+) => ParsedSlashCommand;

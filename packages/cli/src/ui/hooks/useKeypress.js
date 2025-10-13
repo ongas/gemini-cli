@@ -13,15 +13,15 @@ import { useKeypressContext } from '../contexts/KeypressContext.js';
  * @param options.isActive - Whether the hook should be actively listening for input.
  */
 export function useKeypress(onKeypress, { isActive }) {
-    const { subscribe, unsubscribe } = useKeypressContext();
-    useEffect(() => {
-        if (!isActive) {
-            return;
-        }
-        subscribe(onKeypress);
-        return () => {
-            unsubscribe(onKeypress);
-        };
-    }, [isActive, onKeypress, subscribe, unsubscribe]);
+  const { subscribe, unsubscribe } = useKeypressContext();
+  useEffect(() => {
+    if (!isActive) {
+      return;
+    }
+    subscribe(onKeypress);
+    return () => {
+      unsubscribe(onKeypress);
+    };
+  }, [isActive, onKeypress, subscribe, unsubscribe]);
 }
 //# sourceMappingURL=useKeypress.js.map

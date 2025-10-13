@@ -5,12 +5,12 @@
  */
 import { CommandKind } from './types.js';
 export const permissionsCommand = {
-    name: 'permissions',
-    description: 'Manage folder trust settings',
-    kind: CommandKind.BUILT_IN,
-    action: () => ({
-        type: 'dialog',
-        dialog: 'permissions',
-    }),
+  name: 'permissions',
+  description: 'Manage folder trust settings',
+  kind: CommandKind.BUILT_IN,
+  action: () => ({
+    type: 'dialog',
+    dialog: 'permissions',
+  }),
 };
 //# sourceMappingURL=permissionsCommand.js.map

@@ -3,32 +3,58 @@
  * Copyright 2025 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
-import type { Config, ToolCallRequestInfo, ExecutingToolCall, ScheduledToolCall, ValidatingToolCall, WaitingToolCall, CompletedToolCall, CancelledToolCall, EditorType } from '@google/gemini-cli-core';
+import type {
+  Config,
+  ToolCallRequestInfo,
+  ExecutingToolCall,
+  ScheduledToolCall,
+  ValidatingToolCall,
+  WaitingToolCall,
+  CompletedToolCall,
+  CancelledToolCall,
+  EditorType,
+} from '@google/gemini-cli-core';
 import type { HistoryItemToolGroup } from '../types.js';
-export type ScheduleFn = (request: ToolCallRequestInfo | ToolCallRequestInfo[], signal: AbortSignal) => void;
+export type ScheduleFn = (
+  request: ToolCallRequestInfo | ToolCallRequestInfo[],
+  signal: AbortSignal,
+) => void;
 export type MarkToolsAsSubmittedFn = (callIds: string[]) => void;
 export type TrackedScheduledToolCall = ScheduledToolCall & {
-    responseSubmittedToGemini?: boolean;
+  responseSubmittedToGemini?: boolean;
 };
 export type TrackedValidatingToolCall = ValidatingToolCall & {
-    responseSubmittedToGemini?: boolean;
+  responseSubmittedToGemini?: boolean;
 };
 export type TrackedWaitingToolCall = WaitingToolCall & {
-    responseSubmittedToGemini?: boolean;
+  responseSubmittedToGemini?: boolean;
 };
 export type TrackedExecutingToolCall = ExecutingToolCall & {
-    responseSubmittedToGemini?: boolean;
-    pid?: number;
+  responseSubmittedToGemini?: boolean;
+  pid?: number;
 };
 export type TrackedCompletedToolCall = CompletedToolCall & {
-    responseSubmittedToGemini?: boolean;
+  responseSubmittedToGemini?: boolean;
 };
 export type TrackedCancelledToolCall = CancelledToolCall & {
-    responseSubmittedToGemini?: boolean;
+  responseSubmittedToGemini?: boolean;
 };
-export type TrackedToolCall = TrackedScheduledToolCall | TrackedValidatingToolCall | TrackedWaitingToolCall | TrackedExecutingToolCall | TrackedCompletedToolCall | TrackedCancelledToolCall;
-export declare function useReactToolScheduler(onComplete: (tools: CompletedToolCall[]) => Promise<void>, config: Config, getPreferredEditor: () => EditorType | undefined, onEditorClose: () => void): [TrackedToolCall[], ScheduleFn, MarkToolsAsSubmittedFn];
+export type TrackedToolCall =
+  | TrackedScheduledToolCall
+  | TrackedValidatingToolCall
+  | TrackedWaitingToolCall
+  | TrackedExecutingToolCall
+  | TrackedCompletedToolCall
+  | TrackedCancelledToolCall;
+export declare function useReactToolScheduler(
+  onComplete: (tools: CompletedToolCall[]) => Promise<void>,
+  config: Config,
+  getPreferredEditor: () => EditorType | undefined,
+  onEditorClose: () => void,
+): [TrackedToolCall[], ScheduleFn, MarkToolsAsSubmittedFn];
 /**
  * Transforms `TrackedToolCall` objects into `HistoryItemToolGroup` objects for UI display.
  */
-export declare function mapToDisplay(toolOrTools: TrackedToolCall[] | TrackedToolCall): HistoryItemToolGroup;
+export declare function mapToDisplay(
+  toolOrTools: TrackedToolCall[] | TrackedToolCall,
+): HistoryItemToolGroup;

@@ -5,9 +5,11 @@
  */
 import { type ReactNode } from 'react';
 type ConsentPromptProps = {
-    prompt: ReactNode;
-    onConfirm: (value: boolean) => void;
-    terminalWidth: number;
+  prompt: ReactNode;
+  onConfirm: (value: boolean) => void;
+  terminalWidth: number;
 };
-export declare const ConsentPrompt: (props: ConsentPromptProps) => import("react/jsx-runtime").JSX.Element;
+export declare const ConsentPrompt: (
+  props: ConsentPromptProps,
+) => import('react/jsx-runtime').JSX.Element;
 export {};

@@ -5,12 +5,12 @@
  */
 import { CommandKind } from './types.js';
 export const privacyCommand = {
-    name: 'privacy',
-    description: 'display the privacy notice',
-    kind: CommandKind.BUILT_IN,
-    action: () => ({
-        type: 'dialog',
-        dialog: 'privacy',
-    }),
+  name: 'privacy',
+  description: 'display the privacy notice',
+  kind: CommandKind.BUILT_IN,
+  action: () => ({
+    type: 'dialog',
+    dialog: 'privacy',
+  }),
 };
 //# sourceMappingURL=privacyCommand.js.map

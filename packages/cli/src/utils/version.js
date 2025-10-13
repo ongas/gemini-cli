@@ -5,7 +5,7 @@
  */
 import { getPackageJson } from './package.js';
 export async function getCliVersion() {
-    const pkgJson = await getPackageJson();
-    return process.env['CLI_VERSION'] || pkgJson?.version || 'unknown';
+  const pkgJson = await getPackageJson();
+  return process.env['CLI_VERSION'] || pkgJson?.version || 'unknown';
 }
 //# sourceMappingURL=version.js.map

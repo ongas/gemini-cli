@@ -15,31 +15,34 @@ export type PromptPipelineContent = PartUnion[];
  * together to create a processing pipeline.
  */
 export interface IPromptProcessor {
-    /**
-     * Processes a prompt input (which may contain text and multi-modal parts),
-     * applying a specific transformation as part of a pipeline.
-     *
-     * @param prompt The current state of the prompt string. This may have been
-     *   modified by previous processors in the pipeline.
-     * @param context The full command context, providing access to invocation
-     *   details (like `context.invocation.raw` and `context.invocation.args`),
-     *   application services, and UI handlers.
-     * @returns A promise that resolves to the transformed prompt string, which
-     *   will be passed to the next processor or, if it's the last one, sent to the model.
-     */
-    process(prompt: PromptPipelineContent, context: CommandContext): Promise<PromptPipelineContent>;
+  /**
+   * Processes a prompt input (which may contain text and multi-modal parts),
+   * applying a specific transformation as part of a pipeline.
+   *
+   * @param prompt The current state of the prompt string. This may have been
+   *   modified by previous processors in the pipeline.
+   * @param context The full command context, providing access to invocation
+   *   details (like `context.invocation.raw` and `context.invocation.args`),
+   *   application services, and UI handlers.
+   * @returns A promise that resolves to the transformed prompt string, which
+   *   will be passed to the next processor or, if it's the last one, sent to the model.
+   */
+  process(
+    prompt: PromptPipelineContent,
+    context: CommandContext,
+  ): Promise<PromptPipelineContent>;
 }
 /**
  * The placeholder string for shorthand argument injection in custom commands.
  * When used outside of !{...}, arguments are injected raw.
  * When used inside !{...}, arguments are shell-escaped.
  */
-export declare const SHORTHAND_ARGS_PLACEHOLDER = "{{args}}";
+export declare const SHORTHAND_ARGS_PLACEHOLDER = '{{args}}';
 /**
  * The trigger string for shell command injection in custom commands.
  */
-export declare const SHELL_INJECTION_TRIGGER = "!{";
+export declare const SHELL_INJECTION_TRIGGER = '!{';
 /**
  * The trigger string for at file injection in custom commands.
  */
-export declare const AT_FILE_INJECTION_TRIGGER = "@{";
+export declare const AT_FILE_INJECTION_TRIGGER = '@{';

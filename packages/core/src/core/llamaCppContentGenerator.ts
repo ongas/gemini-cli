@@ -19,12 +19,12 @@ import type {
 import type { ContentGenerator } from './contentGenerator.js';
 import type { Config } from '../config/config.js';
 
-interface OllamaMessage {
+interface LlamaCppMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
 }
 
-interface OllamaTool {
+interface LlamaCppTool {
   type: 'function';
   function: {
     name: string;
@@ -33,48 +33,74 @@ interface OllamaTool {
   };
 }
 
-interface OllamaRequest {
+interface LlamaCppRequest {
   model: string;
-  messages: OllamaMessage[];
+  messages: LlamaCppMessage[];
   stream: boolean;
-  options?: {
-    temperature?: number;
-    top_p?: number;
-  };
-  tools?: OllamaTool[];
+  temperature?: number;
+  top_p?: number;
+  tools?: LlamaCppTool[];
+  tool_choice?: 'auto' | 'none';
 }
 
-interface OllamaFunctionCall {
+interface LlamaCppFunctionCall {
   name: string;
-  arguments: Record<string, unknown>;
+  arguments: string; // JSON string
 }
 
-interface OllamaToolCall {
-  function: OllamaFunctionCall;
+interface LlamaCppToolCall {
+  id: string;
+  type: 'function';
+  function: LlamaCppFunctionCall;
 }
 
-interface OllamaResponse {
+interface LlamaCppResponseMessage {
+  role: string;
+  content: string | null;
+  tool_calls?: LlamaCppToolCall[];
+}
+
+interface LlamaCppChoice {
+  index: number;
+  message: LlamaCppResponseMessage;
+  finish_reason: string | null;
+}
+
+interface LlamaCppResponse {
+  id: string;
+  object: string;
+  created: number;
   model: string;
-  created_at: string;
-  message: {
-    role: string;
-    content: string;
-    tool_calls?: OllamaToolCall[];
-  };
-  done: boolean;
+  choices: LlamaCppChoice[];
+}
+
+interface LlamaCppStreamChunk {
+  id: string;
+  object: string;
+  created: number;
+  model: string;
+  choices: Array<{
+    index: number;
+    delta: {
+      role?: string;
+      content?: string;
+      tool_calls?: LlamaCppToolCall[];
+    };
+    finish_reason: string | null;
+  }>;
 }
 
 /**
- * ContentGenerator implementation for Ollama local models
+ * ContentGenerator implementation for llama.cpp (llama-server)
  *
- * Ollama supports function calling via its OpenAI-compatible API.
- * Tool support blog: https://ollama.com/blog/tool-support
- * API docs: https://github.com/ollama/ollama/blob/main/docs/api.md
+ * llama.cpp provides a local LLM inference server with native function calling support
+ * via its OpenAI-compatible API endpoint.
+ * API docs: https://github.com/ggerganov/llama.cpp/blob/master/examples/server/README.md
  */
-export class OllamaContentGenerator implements ContentGenerator {
+export class LlamaCppContentGenerator implements ContentGenerator {
   private baseUrl: string;
 
-  constructor(baseUrl: string = 'http://localhost:11434', _config?: Config) {
+  constructor(baseUrl: string = 'http://localhost:8000', _config?: Config) {
     this.baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash
   }
 
@@ -111,11 +137,11 @@ export class OllamaContentGenerator implements ContentGenerator {
   }
 
   /**
-   * Convert Gemini Tool format to Ollama format
+   * Convert Gemini Tool format to llama.cpp format
    */
-  private convertToOllamaTools(
+  private convertToLlamaCppTools(
     tools?: ToolListUnion,
-  ): OllamaTool[] | undefined {
+  ): LlamaCppTool[] | undefined {
     if (!tools || tools.length === 0) {
       return undefined;
     }
@@ -140,10 +166,10 @@ export class OllamaContentGenerator implements ContentGenerator {
   }
 
   /**
-   * Convert Gemini Content format to Ollama messages format
+   * Convert Gemini Content format to llama.cpp messages format
    */
-  private convertToOllamaMessages(contents: Content[]): OllamaMessage[] {
-    const messages: OllamaMessage[] = [];
+  private convertToLlamaCppMessages(contents: Content[]): LlamaCppMessage[] {
+    const messages: LlamaCppMessage[] = [];
 
     for (const content of contents) {
       const role =
@@ -172,29 +198,39 @@ export class OllamaContentGenerator implements ContentGenerator {
   }
 
   /**
-   * Convert Ollama response to Gemini format
+   * Convert llama.cpp response to Gemini format
    */
   private convertToGeminiResponse(
-    ollamaResponse: OllamaResponse,
+    llamaCppResponse: LlamaCppResponse,
   ): GenerateContentResponse {
+    const choice = llamaCppResponse.choices[0];
     const parts: Part[] = [];
 
     // Add text content if present
-    if (ollamaResponse.message.content) {
+    if (choice.message.content) {
       parts.push({
-        text: ollamaResponse.message.content,
+        text: choice.message.content,
       });
     }
 
     // Add function calls if present
-    if (ollamaResponse.message.tool_calls) {
-      for (const toolCall of ollamaResponse.message.tool_calls) {
-        parts.push({
-          functionCall: {
-            name: toolCall.function.name,
-            args: toolCall.function.arguments,
-          },
-        });
+    if (choice.message.tool_calls) {
+      for (const toolCall of choice.message.tool_calls) {
+        try {
+          const args = JSON.parse(toolCall.function.arguments);
+          parts.push({
+            functionCall: {
+              name: toolCall.function.name,
+              args,
+            },
+          });
+        } catch (error) {
+          console.warn(
+            'Failed to parse tool call arguments:',
+            toolCall.function.arguments,
+            error,
+          );
+        }
       }
     }
 
@@ -205,8 +241,59 @@ export class OllamaContentGenerator implements ContentGenerator {
             role: 'model',
             parts,
           },
-          finishReason: ollamaResponse.done ? 'STOP' : undefined,
-          index: 0,
+          finishReason: choice.finish_reason === 'stop' ? 'STOP' : undefined,
+          index: choice.index,
+        },
+      ],
+    } as GenerateContentResponse;
+  }
+
+  /**
+   * Convert llama.cpp stream chunk to Gemini format
+   */
+  private convertStreamChunkToGeminiResponse(
+    chunk: LlamaCppStreamChunk,
+  ): GenerateContentResponse {
+    const choice = chunk.choices[0];
+    const parts: Part[] = [];
+
+    // Add text content if present
+    if (choice.delta.content) {
+      parts.push({
+        text: choice.delta.content,
+      });
+    }
+
+    // Add function calls if present
+    if (choice.delta.tool_calls) {
+      for (const toolCall of choice.delta.tool_calls) {
+        try {
+          const args = JSON.parse(toolCall.function.arguments);
+          parts.push({
+            functionCall: {
+              name: toolCall.function.name,
+              args,
+            },
+          });
+        } catch (error) {
+          console.warn(
+            'Failed to parse tool call arguments in stream:',
+            toolCall.function.arguments,
+            error,
+          );
+        }
+      }
+    }
+
+    return {
+      candidates: [
+        {
+          content: {
+            role: 'model',
+            parts,
+          },
+          finishReason: choice.finish_reason === 'stop' ? 'STOP' : undefined,
+          index: choice.index,
         },
       ],
     } as GenerateContentResponse;
@@ -217,7 +304,7 @@ export class OllamaContentGenerator implements ContentGenerator {
     _userPromptId: string,
   ): Promise<GenerateContentResponse> {
     const contentsArray = this.normalizeContents(request.contents);
-    const messages = this.convertToOllamaMessages(contentsArray);
+    const messages = this.convertToLlamaCppMessages(contentsArray);
 
     // Add system instruction if provided in config
     if (request.config?.systemInstruction) {
@@ -246,33 +333,32 @@ export class OllamaContentGenerator implements ContentGenerator {
       }
     }
 
-    const ollamaRequest: OllamaRequest = {
+    const llamaCppRequest: LlamaCppRequest = {
       model: request.model,
       messages,
       stream: false,
-      options: {
-        temperature: request.config?.temperature,
-        top_p: request.config?.topP,
-      },
-      tools: this.convertToOllamaTools(request.config?.tools),
+      temperature: request.config?.temperature,
+      top_p: request.config?.topP,
+      tools: this.convertToLlamaCppTools(request.config?.tools),
+      tool_choice: request.config?.tools ? 'auto' : undefined,
     };
 
-    const response = await fetch(`${this.baseUrl}/api/chat`, {
+    const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(ollamaRequest),
+      body: JSON.stringify(llamaCppRequest),
     });
 
     if (!response.ok) {
       throw new Error(
-        `Ollama API error: ${response.status} ${response.statusText}`,
+        `llama.cpp API error: ${response.status} ${response.statusText}`,
       );
     }
 
-    const ollamaResponse: OllamaResponse = await response.json();
-    return this.convertToGeminiResponse(ollamaResponse);
+    const llamaCppResponse: LlamaCppResponse = await response.json();
+    return this.convertToGeminiResponse(llamaCppResponse);
   }
 
   async generateContentStream(
@@ -280,10 +366,11 @@ export class OllamaContentGenerator implements ContentGenerator {
     _userPromptId: string,
   ): Promise<AsyncGenerator<GenerateContentResponse>> {
     const baseUrl = this.baseUrl;
-    const convertToGeminiResponse = this.convertToGeminiResponse.bind(this);
+    const convertStreamChunkToGeminiResponse =
+      this.convertStreamChunkToGeminiResponse.bind(this);
 
     const contentsArray = this.normalizeContents(request.contents);
-    const messages = this.convertToOllamaMessages(contentsArray);
+    const messages = this.convertToLlamaCppMessages(contentsArray);
 
     // Add system instruction if provided in config
     if (request.config?.systemInstruction) {
@@ -312,36 +399,35 @@ export class OllamaContentGenerator implements ContentGenerator {
       }
     }
 
-    const ollamaRequest: OllamaRequest = {
+    const llamaCppRequest: LlamaCppRequest = {
       model: request.model,
       messages,
       stream: true,
-      options: {
-        temperature: request.config?.temperature,
-        top_p: request.config?.topP,
-      },
-      tools: this.convertToOllamaTools(request.config?.tools),
+      temperature: request.config?.temperature,
+      top_p: request.config?.topP,
+      tools: this.convertToLlamaCppTools(request.config?.tools),
+      tool_choice: request.config?.tools ? 'auto' : undefined,
     };
 
     async function* streamGenerator(): AsyncGenerator<GenerateContentResponse> {
-      const response = await fetch(`${baseUrl}/api/chat`, {
+      const response = await fetch(`${baseUrl}/v1/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(ollamaRequest),
+        body: JSON.stringify(llamaCppRequest),
       });
 
       if (!response.ok) {
         throw new Error(
-          `Ollama API error: ${response.status} ${response.statusText}`,
+          `llama.cpp API error: ${response.status} ${response.statusText}`,
         );
       }
 
-      // Ollama streams newline-delimited JSON
+      // llama.cpp streams Server-Sent Events (SSE) format
       const reader = response.body?.getReader();
       if (!reader) {
-        throw new Error('No response body from Ollama');
+        throw new Error('No response body from llama.cpp');
       }
 
       const decoder = new TextDecoder();
@@ -356,14 +442,19 @@ export class OllamaContentGenerator implements ContentGenerator {
         buffer = lines.pop() || ''; // Keep incomplete line in buffer
 
         for (const line of lines) {
-          if (line.trim()) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('data: ')) {
+            const data = trimmed.slice(6); // Remove 'data: ' prefix
+            if (data === '[DONE]') {
+              return;
+            }
             try {
-              const ollamaResponse: OllamaResponse = JSON.parse(line);
-              yield convertToGeminiResponse(ollamaResponse);
+              const chunk: LlamaCppStreamChunk = JSON.parse(data);
+              yield convertStreamChunkToGeminiResponse(chunk);
             } catch (error) {
               console.warn(
-                'Failed to parse Ollama response line:',
-                line,
+                'Failed to parse llama.cpp stream chunk:',
+                data,
                 error,
               );
             }
@@ -378,7 +469,7 @@ export class OllamaContentGenerator implements ContentGenerator {
   async countTokens(
     request: CountTokensParameters,
   ): Promise<CountTokensResponse> {
-    // Ollama doesn't have a token counting API
+    // llama.cpp doesn't have a dedicated token counting endpoint
     // Approximate: ~4 characters per token for English text
     const contentsArray = this.normalizeContents(request.contents);
 
@@ -399,7 +490,7 @@ export class OllamaContentGenerator implements ContentGenerator {
   async embedContent(
     request: EmbedContentParameters,
   ): Promise<EmbedContentResponse> {
-    // Ollama has an /api/embeddings endpoint
+    // llama.cpp supports embeddings via /v1/embeddings endpoint
     const contentsArray = this.normalizeContents(request.contents);
     const text = contentsArray
       .map(
@@ -409,20 +500,20 @@ export class OllamaContentGenerator implements ContentGenerator {
       )
       .join('\n');
 
-    const response = await fetch(`${this.baseUrl}/api/embeddings`, {
+    const response = await fetch(`${this.baseUrl}/v1/embeddings`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: request.model || 'llama3',
-        prompt: text,
+        model: request.model,
+        input: text,
       }),
     });
 
     if (!response.ok) {
       throw new Error(
-        `Ollama embeddings API error: ${response.status} ${response.statusText}`,
+        `llama.cpp embeddings API error: ${response.status} ${response.statusText}`,
       );
     }
 
@@ -430,7 +521,7 @@ export class OllamaContentGenerator implements ContentGenerator {
 
     return {
       embedding: {
-        values: result.embedding,
+        values: result.data[0].embedding,
       },
     } as EmbedContentResponse;
   }

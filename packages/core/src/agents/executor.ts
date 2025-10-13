@@ -20,17 +20,17 @@ import { executeToolCall } from '../core/nonInteractiveToolExecutor.js';
 import { ToolRegistry } from '../tools/tool-registry.js';
 import type { ToolCallRequestInfo } from '../core/turn.js';
 import { getDirectoryContextString } from '../utils/environmentContext.js';
-import { GlobTool } from '../tools/glob.js';
-import { GrepTool } from '../tools/grep.js';
-import { RipGrepTool } from '../tools/ripGrep.js';
-import { LSTool } from '../tools/ls.js';
-import { MemoryTool } from '../tools/memoryTool.js';
-import { ReadFileTool } from '../tools/read-file.js';
-import { ReadManyFilesTool } from '../tools/read-many-files.js';
-import { WebSearchTool } from '../tools/web-search.js';
-import { WriteFileTool } from '../tools/write-file.js';
-import { EditTool } from '../tools/edit.js';
-import { ShellTool } from '../tools/shell.js';
+import { GlobTool as _GlobTool } from '../tools/glob.js';
+import { GrepTool as _GrepTool } from '../tools/grep.js';
+import { RipGrepTool as _RipGrepTool } from '../tools/ripGrep.js';
+import { LSTool as _LSTool } from '../tools/ls.js';
+import { MemoryTool as _MemoryTool } from '../tools/memoryTool.js';
+import { ReadFileTool as _ReadFileTool } from '../tools/read-file.js';
+import { ReadManyFilesTool as _ReadManyFilesTool } from '../tools/read-many-files.js';
+import { WebSearchTool as _WebSearchTool } from '../tools/web-search.js';
+import { WriteFileTool as _WriteFileTool } from '../tools/write-file.js';
+import { EditTool as _EditTool } from '../tools/edit.js';
+import { ShellTool as _ShellTool } from '../tools/shell.js';
 import type {
   AgentDefinition,
   AgentInputs,
@@ -44,6 +44,7 @@ import { type z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { AuthType } from '../core/contentGenerator.js';
 import { OllamaContentGenerator } from '../core/ollamaContentGenerator.js';
+import { LlamaCppContentGenerator } from '../core/llamaCppContentGenerator.js';
 import { LoggingContentGenerator } from '../core/loggingContentGenerator.js';
 
 /** A callback function to report on agent activity. */
@@ -324,9 +325,28 @@ export class AgentExecutor<TOutput extends z.ZodTypeAny> {
         authType: AuthType.OLLAMA,
         ollamaBaseUrl,
       });
+    } else if (provider === 'llamacpp') {
+      // Get llama.cpp base URL from environment or use default
+      const llamaCppBaseUrl =
+        process.env['LLAMACPP_BASE_URL'] || 'http://localhost:8000';
+
+      // Create llama.cpp content generator
+      const llamaCppGenerator = new LoggingContentGenerator(
+        new LlamaCppContentGenerator(llamaCppBaseUrl, this.runtimeContext),
+        this.runtimeContext,
+      );
+
+      // Override getContentGenerator to return llama.cpp generator
+      providerConfig.getContentGenerator = () => llamaCppGenerator;
+
+      // Override getContentGeneratorConfig to return llama.cpp config
+      providerConfig.getContentGeneratorConfig = () => ({
+        authType: AuthType.OLLAMA, // Use OLLAMA auth type for local server
+        ollamaBaseUrl: llamaCppBaseUrl, // Reuse ollamaBaseUrl field for llama.cpp URL
+      });
     } else {
       throw new Error(
-        `Unsupported provider: ${provider}. Only 'ollama' is currently supported.`,
+        `Unsupported provider: ${provider}. Supported providers: 'ollama', 'llamacpp'.`,
       );
     }
 
@@ -724,8 +744,8 @@ When you have completed your task, you MUST call the \`${TASK_COMPLETE_TOOL_NAME
    * @throws An error if a tool is not safe (currently never throws with message bus support)
    */
   private static async validateTools(
-    toolRegistry: ToolRegistry,
-    agentName: string,
+    _toolRegistry: ToolRegistry,
+    _agentName: string,
   ): Promise<void> {
     // With message bus integration, all tools are safe because they can request
     // user confirmation when needed. No validation required.

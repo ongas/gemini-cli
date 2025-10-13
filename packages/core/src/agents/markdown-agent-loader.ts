@@ -116,12 +116,22 @@ export class MarkdownAgentLoader {
       return null;
     }
 
-    // Extract agent name from first heading
-    const firstLine = lines[0].trim();
+    // Extract YAML frontmatter first if present (must be at the very start)
+    const yamlMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    const yamlContent = yamlMatch ? yamlMatch[1] : '';
+
+    // If YAML frontmatter exists, skip past it to find the heading
+    let contentAfterYaml = content;
+    if (yamlMatch) {
+      contentAfterYaml = content.substring(yamlMatch[0].length).trim();
+    }
+
+    // Extract agent name from first heading (after YAML if present)
+    const firstLine = contentAfterYaml.split('\n')[0].trim();
     if (!firstLine.startsWith('#')) {
       if (debugMode) {
         console.warn(
-          `[MarkdownAgentLoader] File ${filePath} doesn't start with a heading`,
+          `[MarkdownAgentLoader] File ${filePath} doesn't have a heading after YAML frontmatter`,
         );
       }
       return null;
@@ -138,8 +148,9 @@ export class MarkdownAgentLoader {
     const descriptionLines: string[] = [];
     let foundDescription = false;
 
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim();
+    const linesAfterYaml = contentAfterYaml.split('\n');
+    for (let i = 1; i < linesAfterYaml.length; i++) {
+      const line = linesAfterYaml[i].trim();
 
       // Stop at the first ## heading or when we have enough content
       if (line.startsWith('##')) {
@@ -157,7 +168,7 @@ export class MarkdownAgentLoader {
 
         // Stop after we have a reasonable description (first paragraph)
         if (descriptionLines.length > 0 && line.length > 0) {
-          const nextLine = lines[i + 1]?.trim();
+          const nextLine = linesAfterYaml[i + 1]?.trim();
           if (!nextLine || nextLine.length === 0 || nextLine.startsWith('##')) {
             break;
           }
@@ -201,8 +212,12 @@ export class MarkdownAgentLoader {
       }
     }
 
-    // Parse tools if specified (format: **Tools:** tool1, tool2, tool3)
-    const toolsMatch = content.match(/\*\*Tools:\*\*\s*([^\n]+)/i);
+    // Parse tools if specified
+    // Format: **Tools:** tool1, tool2, tool3 or YAML frontmatter Tools: tool1, tool2, tool3
+    let toolsMatch = content.match(/\*\*Tools:\*\*\s*([^\n]+)/i);
+    if (!toolsMatch && yamlContent) {
+      toolsMatch = yamlContent.match(/^Tools:\s*([^\n]+)/im);
+    }
     const tools = toolsMatch
       ? toolsMatch[1]
           .split(',')
@@ -218,18 +233,27 @@ export class MarkdownAgentLoader {
     }
 
     // Parse model configuration overrides
-    // Format: **Temperature:** 0.7 or **Temp:** 0.7
-    const tempMatch = content.match(
-      /\*\*(?:Temperature|Temp):\*\*\s*([0-9.]+)/i,
-    );
+    // Support both bold markdown and YAML frontmatter formats
+
+    // Format: **Temperature:** 0.7 or **Temp:** 0.7 or YAML Temperature: 0.7
+    let tempMatch = content.match(/\*\*(?:Temperature|Temp):\*\*\s*([0-9.]+)/i);
+    if (!tempMatch && yamlContent) {
+      tempMatch = yamlContent.match(/^(?:Temperature|Temp):\s*([0-9.]+)/im);
+    }
     const temperature = tempMatch ? parseFloat(tempMatch[1]) : 0.2;
 
-    // Format: **Model:** gemini-2.0-flash-exp
-    const modelMatch = content.match(/\*\*Model:\*\*\s*([^\n]+)/i);
+    // Format: **Model:** gemini-2.0-flash-exp or YAML Model: gemini-2.0-flash-exp
+    let modelMatch = content.match(/\*\*Model:\*\*\s*([^\n]+)/i);
+    if (!modelMatch && yamlContent) {
+      modelMatch = yamlContent.match(/^Model:\s*([^\n]+)/im);
+    }
     const model = modelMatch ? modelMatch[1].trim() : DEFAULT_GEMINI_MODEL;
 
-    // Format: **Provider:** ollama
-    const providerMatch = content.match(/\*\*Provider:\*\*\s*([^\n]+)/i);
+    // Format: **Provider:** ollama or YAML frontmatter Provider: ollama
+    let providerMatch = content.match(/\*\*Provider:\*\*\s*([^\n]+)/i);
+    if (!providerMatch && yamlContent) {
+      providerMatch = yamlContent.match(/^Provider:\s*([^\n]+)/im);
+    }
     const provider = providerMatch
       ? providerMatch[1].trim().toLowerCase()
       : undefined;

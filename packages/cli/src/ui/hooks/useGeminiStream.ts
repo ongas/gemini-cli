@@ -711,10 +711,17 @@ export const useGeminiStream = (
               addItem(pendingHistoryItemRef.current, userMessageTimestamp);
               setPendingHistoryItem(null);
             }
-            // Check if we're in fallback mode to give more context
-            const retryMessage = config.isInFallbackMode()
-              ? 'Quota limit reached. Switching to Flash model and retrying...'
-              : 'Request encountered an issue. Retrying...';
+            // Include the actual error message if available
+            let retryMessage: string;
+            if (config.isInFallbackMode()) {
+              retryMessage =
+                'Quota limit reached. Switching to Flash model and retrying...';
+            } else if (event.value) {
+              // Show the actual error message from the retry event
+              retryMessage = `${event.value}\n\nRetrying...`;
+            } else {
+              retryMessage = 'Request encountered an issue. Retrying...';
+            }
             addItem(
               {
                 type: MessageType.INFO,

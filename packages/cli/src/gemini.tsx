@@ -26,6 +26,7 @@ import { getStartupWarnings } from './utils/startupWarnings.js';
 import { getUserStartupWarnings } from './utils/userStartupWarnings.js';
 import { ConsolePatcher } from './ui/utils/ConsolePatcher.js';
 import { runNonInteractive } from './nonInteractiveCli.js';
+import { runAgentNonInteractive } from './runAgentNonInteractive.js';
 import { ExtensionStorage, loadExtensions } from './config/extension.js';
 import {
   cleanupCheckpoints,
@@ -428,13 +429,14 @@ export async function main() {
   }
 
   // Handle --agent flag
+  let agentFilePath: string | undefined;
   if (argv.agent) {
     const path = await import('node:path');
     const fs = await import('node:fs');
 
     const cwd = process.cwd();
     const agentFileName = argv.agent.replace(/_/g, '-') + '.md';
-    const agentFilePath = path.join(cwd, '.gemini', 'agents', agentFileName);
+    agentFilePath = path.join(cwd, '.gemini', 'agents', agentFileName);
 
     if (!fs.existsSync(agentFilePath)) {
       console.error(`Error: Agent file not found: ${agentFilePath}`);
@@ -446,7 +448,7 @@ export async function main() {
     try {
       const content = await fs.promises.readFile(agentFilePath, 'utf-8');
 
-      // Parse YAML front matter
+      // Parse YAML front matter for provider config
       const yamlMatch = content.match(/^---\n([\s\S]*?)\n---/);
       if (yamlMatch) {
         const yaml = yamlMatch[1];
@@ -461,6 +463,8 @@ export async function main() {
         // Override the model and auth based on provider
         if (provider === 'ollama' && model) {
           process.env['GEMINI_MODEL'] = model;
+          // Set environment variable to indicate Ollama provider
+          process.env['LOCAL_LLM_PROVIDER'] = 'ollama';
           // Set auth type for Ollama in merged settings
           if (!settings.merged.security) {
             settings.merged.security = {};
@@ -469,12 +473,10 @@ export async function main() {
             settings.merged.security.auth = {};
           }
           settings.merged.security.auth.selectedType = 'local';
-          console.log(`\n🤖 Using ${argv.agent} agent (Ollama: ${model})`);
-          console.log(
-            `[DEBUG] Set security.auth.selectedType to: ${settings.merged.security.auth.selectedType}\n`,
-          );
         } else if (provider === 'llamacpp' && model) {
           process.env['GEMINI_MODEL'] = model;
+          // Set environment variable to indicate llama.cpp provider
+          process.env['LOCAL_LLM_PROVIDER'] = 'llamacpp';
           // Set auth type for llama.cpp (use local auth type for local servers)
           if (!settings.merged.security) {
             settings.merged.security = {};
@@ -483,15 +485,8 @@ export async function main() {
             settings.merged.security.auth = {};
           }
           settings.merged.security.auth.selectedType = 'local';
-          console.log(`\n🤖 Using ${argv.agent} agent (llama.cpp: ${model})`);
-          console.log(
-            `[DEBUG] Set security.auth.selectedType to: ${settings.merged.security.auth.selectedType}\n`,
-          );
         } else if (model) {
           process.env['GEMINI_MODEL'] = model;
-          console.log(
-            `\n🤖 Using ${argv.agent} agent (${provider}: ${model})\n`,
-          );
         }
       }
     } catch (error) {
@@ -761,6 +756,19 @@ export async function main() {
 
     if (config.getDebugMode()) {
       console.log('Session ID: %s', sessionId);
+    }
+
+    // If --agent was specified, use proper agent execution with AgentExecutor
+    if (agentFilePath) {
+      await runAgentNonInteractive(
+        nonInteractiveConfig,
+        settings,
+        agentFilePath,
+        input,
+      );
+      await runExitCleanup();
+      // runAgentNonInteractive calls process.exit() itself
+      return;
     }
 
     await runNonInteractive(

@@ -155,6 +155,15 @@ export async function runNonInteractive(
             }
           } else if (event.type === GeminiEventType.ToolCallRequest) {
             toolCallRequests.push(event.value);
+          } else if (event.type === GeminiEventType.Retry) {
+            // Display the error message to the user during retry
+            if (event.value) {
+              process.stderr.write(`\n${event.value}\n\nRetrying...\n\n`);
+            } else {
+              process.stderr.write(
+                '\nRequest encountered an issue. Retrying...\n\n',
+              );
+            }
           }
         }
 

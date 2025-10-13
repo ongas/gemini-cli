@@ -47,10 +47,29 @@ ${folderStructure}`;
  * Retrieves environment-related information to be included in the chat context.
  * This includes the current working directory, date, operating system, and folder structure.
  * Optionally, it can also include the full file context if enabled.
+ *
+ * For local LLM servers (AuthType.LOCAL), this returns a minimal context to avoid
+ * overwhelming smaller models with too much information.
+ *
  * @param {Config} config - The runtime configuration and services.
  * @returns A promise that resolves to an array of `Part` objects containing environment information.
  */
 export async function getEnvironmentContext(config: Config): Promise<Part[]> {
+  // Check if using local LLM - if so, provide minimal context
+  const authType = config.getContentGeneratorConfig()?.authType;
+  const isLocalLLM = authType === 'local';
+
+  if (isLocalLLM) {
+    // For local LLMs, provide only essential context to avoid overwhelming the model
+    const workspaceContext = config.getWorkspaceContext();
+    const workspaceDirectories = workspaceContext.getDirectories();
+    const workingDir = workspaceDirectories[0] || process.cwd();
+
+    const minimalContext = `Working directory: ${workingDir}`;
+    return [{ text: minimalContext }];
+  }
+
+  // Full context for cloud LLMs (Gemini, etc.)
   const today = new Date().toLocaleDateString(undefined, {
     weekday: 'long',
     year: 'numeric',

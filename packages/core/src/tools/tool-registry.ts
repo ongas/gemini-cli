@@ -429,6 +429,9 @@ export class ToolRegistry {
     this.tools.forEach((tool) => {
       declarations.push(tool.schema);
     });
+    console.log(
+      `[TOOL REGISTRY DEBUG] getFunctionDeclarations returning ${declarations.length} tools: ${declarations.map((d) => d.name).join(', ')}`,
+    );
     return declarations;
   }
 

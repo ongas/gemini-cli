@@ -21,6 +21,11 @@ import {
 } from '../utils/messageInspectors.js';
 import * as fs from 'node:fs';
 import { promptIdContext } from './promptIdContext.js';
+import {
+  findPythonMatchWithFlexibleIndentation,
+  isPythonFile,
+  applyPythonMatch,
+} from './pythonIndentMatcher.js';
 
 const EDIT_MODEL = DEFAULT_GEMINI_FLASH_LITE_MODEL;
 const EDIT_CONFIG: GenerateContentConfig = {
@@ -251,6 +256,42 @@ export async function ensureCorrectEdit(
         );
       }
     } else if (occurrences === 0) {
+      // Try Python-specific indentation-flexible matching before LLM correction
+      if (filePath && isPythonFile(filePath)) {
+        const pythonMatch = findPythonMatchWithFlexibleIndentation(
+          currentContent,
+          unescapedOldStringAttempt,
+          originalParams.new_string,
+        );
+
+        if (pythonMatch) {
+          const { actualOldString, actualNewString } = applyPythonMatch(
+            currentContent,
+            pythonMatch,
+          );
+
+          // Found a match with flexible indentation!
+          finalOldString = actualOldString;
+          finalNewString = actualNewString;
+          occurrences = 1; // We found exactly one match
+
+          console.log(
+            `[Python Edit] Found match with flexible indentation adjustment (base indent: ${pythonMatch.fileIndent} spaces)`,
+          );
+
+          const result: CorrectedEditResult = {
+            params: {
+              file_path: originalParams.file_path,
+              old_string: finalOldString,
+              new_string: finalNewString,
+            },
+            occurrences,
+          };
+          editCorrectionCache.set(cacheKey, result);
+          return result;
+        }
+      }
+
       if (filePath) {
         // In order to keep from clobbering edits made outside our system,
         // let's check if there was a more recent edit to the file than what

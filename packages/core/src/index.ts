@@ -29,6 +29,7 @@ export * from './agents/registry.js';
 export * from './agents/markdown-agent-loader.js';
 export * from './agents/codebase-investigator.js';
 export * from './agents/types.js';
+export * from './agents/executor.js';
 
 export * from './fallback/types.js';
 

@@ -151,18 +151,36 @@ export class LlamaCppContentGenerator implements ContentGenerator {
       (t): t is Tool => 'functionDeclarations' in t,
     );
 
-    return toolsArray.map((tool) => ({
-      type: 'function' as const,
-      function: {
-        name: tool.functionDeclarations?.[0]?.name || 'unknown',
-        description: tool.functionDeclarations?.[0]?.description || '',
-        parameters:
-          (tool.functionDeclarations?.[0]?.parameters as Record<
-            string,
-            unknown
-          >) || {},
-      },
-    }));
+    console.log(
+      `[LLAMACPP TOOLS DEBUG] Converting ${toolsArray.length} Tool objects`,
+    );
+
+    // Flatten all function declarations from all Tool objects
+    const result: LlamaCppTool[] = [];
+    for (const tool of toolsArray) {
+      if (!tool.functionDeclarations) continue;
+
+      console.log(
+        `[LLAMACPP TOOLS DEBUG] Tool has ${tool.functionDeclarations.length} function declarations`,
+      );
+
+      for (const decl of tool.functionDeclarations) {
+        console.log(`[LLAMACPP TOOLS DEBUG]   - Converting ${decl.name}`);
+        result.push({
+          type: 'function' as const,
+          function: {
+            name: decl.name || 'unknown',
+            description: decl.description || '',
+            parameters: (decl.parameters as Record<string, unknown>) || {},
+          },
+        });
+      }
+    }
+
+    console.log(
+      `[LLAMACPP TOOLS DEBUG] Final result: ${result.length} tools - ${result.map((t) => t.function.name).join(', ')}`,
+    );
+    return result;
   }
 
   /**
@@ -306,8 +324,9 @@ export class LlamaCppContentGenerator implements ContentGenerator {
     const contentsArray = this.normalizeContents(request.contents);
     const messages = this.convertToLlamaCppMessages(contentsArray);
 
-    // Add system instruction if provided in config
-    if (request.config?.systemInstruction) {
+    // For llama.cpp: prepend system instruction to first user message instead of separate message
+    // This works better with many local models that don't handle system role well
+    if (request.config?.systemInstruction && messages.length > 0) {
       const sysInstr = request.config.systemInstruction;
       let systemText = '';
 
@@ -326,10 +345,12 @@ export class LlamaCppContentGenerator implements ContentGenerator {
       }
 
       if (systemText) {
-        messages.unshift({
-          role: 'system',
-          content: systemText,
-        });
+        // Find first user message and prepend system instruction
+        const firstUserIdx = messages.findIndex((m) => m.role === 'user');
+        if (firstUserIdx >= 0) {
+          messages[firstUserIdx].content =
+            `${systemText}\n\n${messages[firstUserIdx].content}`;
+        }
       }
     }
 
@@ -394,30 +415,66 @@ export class LlamaCppContentGenerator implements ContentGenerator {
     const contentsArray = this.normalizeContents(request.contents);
     const messages = this.convertToLlamaCppMessages(contentsArray);
 
-    // Add system instruction if provided in config
-    if (request.config?.systemInstruction) {
-      const sysInstr = request.config.systemInstruction;
-      let systemText = '';
+    // For llama.cpp: Use minimal single-message mode by default to avoid timeouts
+    // Many local models struggle with long system instructions and conversation history
+    // This can be disabled by setting LLAMACPP_FULL_CONTEXT=1
+    const testMinimalMode = process.env['LLAMACPP_FULL_CONTEXT'] !== '1';
 
-      if (typeof sysInstr === 'string') {
-        systemText = sysInstr;
-      } else {
-        const sysArray = this.normalizeContents(sysInstr);
-        systemText = sysArray
-          .map(
-            (c: Content) =>
-              c.parts
-                ?.map((p: Part) => ('text' in p ? p.text : ''))
-                .join(' ') || '',
-          )
-          .join('\n');
-      }
+    if (testMinimalMode) {
+      // Find the last user message (the actual user prompt)
+      const lastUserMessage = messages.reverse().find((m) => m.role === 'user');
 
-      if (systemText) {
-        messages.unshift({
-          role: 'system',
-          content: systemText,
+      if (lastUserMessage) {
+        // Reset to just this one message
+        messages.length = 0;
+
+        // If tools are available, prepend a MINIMAL instruction about using them
+        // This is much shorter than the full CLI system prompt
+        let userContent =
+          lastUserMessage.content.split('\n\n').pop() ||
+          lastUserMessage.content;
+
+        if (request.config?.tools && request.config.tools.length > 0) {
+          // Ultra-minimal tool instruction - just 15 tokens
+          const toolInstruction =
+            'You have tools available. Use them when appropriate.\n\n';
+          userContent = toolInstruction + userContent;
+        }
+
+        messages.push({
+          role: 'user',
+          content: userContent,
         });
+      }
+    } else {
+      // For llama.cpp: prepend system instruction to first user message instead of separate message
+      // This works better with many local models that don't handle system role well
+      if (request.config?.systemInstruction && messages.length > 0) {
+        const sysInstr = request.config.systemInstruction;
+        let systemText = '';
+
+        if (typeof sysInstr === 'string') {
+          systemText = sysInstr;
+        } else {
+          const sysArray = this.normalizeContents(sysInstr);
+          systemText = sysArray
+            .map(
+              (c: Content) =>
+                c.parts
+                  ?.map((p: Part) => ('text' in p ? p.text : ''))
+                  .join(' ') || '',
+            )
+            .join('\n');
+        }
+
+        if (systemText) {
+          // Find first user message and prepend system instruction
+          const firstUserIdx = messages.findIndex((m) => m.role === 'user');
+          if (firstUserIdx >= 0) {
+            messages[firstUserIdx].content =
+              `${systemText}\n\n${messages[firstUserIdx].content}`;
+          }
+        }
       }
     }
 
@@ -427,9 +484,31 @@ export class LlamaCppContentGenerator implements ContentGenerator {
       stream: true,
       temperature: request.config?.temperature,
       top_p: request.config?.topP,
+      // Re-enable tools for testing - now that we have minimal context, let's see if tools work
       tools: this.convertToLlamaCppTools(request.config?.tools),
-      tool_choice: request.config?.tools ? 'auto' : undefined,
+      tool_choice:
+        request.config?.tools && request.config.tools.length > 0
+          ? 'auto'
+          : undefined,
     };
+
+    // Debug: Log request details
+    console.log('[LLAMACPP DEBUG] Request details:');
+    console.log(`  Model: ${llamaCppRequest.model}`);
+    console.log(`  Messages: ${llamaCppRequest.messages.length}`);
+    for (let i = 0; i < llamaCppRequest.messages.length; i++) {
+      const msg = llamaCppRequest.messages[i];
+      const contentPreview = msg.content.substring(0, 100);
+      console.log(
+        `  Message ${i} [${msg.role}]: ${contentPreview}${msg.content.length > 100 ? '...' : ''}`,
+      );
+    }
+    console.log(`  Tools: ${llamaCppRequest.tools?.length || 0}`);
+    if (llamaCppRequest.tools && llamaCppRequest.tools.length > 0) {
+      console.log(
+        `  Tool names: ${llamaCppRequest.tools.map((t) => t.function.name).join(', ')}`,
+      );
+    }
 
     async function* streamGenerator(): AsyncGenerator<GenerateContentResponse> {
       let response;
@@ -483,6 +562,11 @@ export class LlamaCppContentGenerator implements ContentGenerator {
       let chunksReceived = 0;
       let hasFinishReason = false;
 
+      // Buffer for accumulating tool call arguments across chunks
+      const toolCallBuffers = new Map<string, string>();
+      // Track tool names since they only come in the first chunk
+      const toolCallNames = new Map<string, string>();
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -496,6 +580,33 @@ export class LlamaCppContentGenerator implements ContentGenerator {
           if (trimmed.startsWith('data: ')) {
             const data = trimmed.slice(6); // Remove 'data: ' prefix
             if (data === '[DONE]') {
+              // Before returning, try to parse any accumulated tool calls that didn't complete properly
+              for (const [
+                toolId,
+                accumulatedArgs,
+              ] of toolCallBuffers.entries()) {
+                if (accumulatedArgs.trim().length > 0) {
+                  try {
+                    console.log(
+                      `[LLAMACPP DEBUG] Attempting to parse final buffered tool call: ${accumulatedArgs}`,
+                    );
+                    const parsedArgs = JSON.parse(accumulatedArgs);
+                    // We don't have the tool name here, so log it for debugging
+                    console.log(
+                      `[LLAMACPP DEBUG] Successfully parsed final tool call with args:`,
+                      parsedArgs,
+                    );
+                  } catch (error) {
+                    console.warn(
+                      `⚠️  LOCAL LLM WARNING: Stream ended with incomplete tool call in buffer:\n` +
+                        `  Tool ID: ${toolId}\n` +
+                        `  Buffered: ${accumulatedArgs}\n` +
+                        `  Error: ${error}`,
+                    );
+                  }
+                }
+              }
+
               if (!hasFinishReason) {
                 console.warn(
                   `⚠️  LOCAL LLM WARNING: Stream ended with [DONE] but no finish_reason was received.\n` +
@@ -514,7 +625,92 @@ export class LlamaCppContentGenerator implements ContentGenerator {
                 hasFinishReason = true;
               }
 
-              yield convertStreamChunkToGeminiResponse(chunk);
+              // Handle streaming tool calls - accumulate arguments across chunks
+              const choice = chunk.choices[0];
+              if (choice?.delta?.tool_calls) {
+                for (const toolCall of choice.delta.tool_calls) {
+                  // llama.cpp sends different IDs in different chunks - use 'current' as single key
+                  const toolId = 'current';
+                  const toolName = toolCall.function.name;
+
+                  // Store tool name if provided (only in first chunk)
+                  if (toolName) {
+                    toolCallNames.set(toolId, toolName);
+                    console.log(
+                      `[LLAMACPP DEBUG] Tool call started: ${toolName}`,
+                    );
+                  }
+
+                  // Accumulate arguments
+                  const existingArgs = toolCallBuffers.get(toolId) || '';
+                  const newArgs = toolCall.function.arguments || '';
+                  const accumulated = existingArgs + newArgs;
+                  toolCallBuffers.set(toolId, accumulated);
+
+                  console.log(`[LLAMACPP DEBUG] Accumulating: ${accumulated}`);
+
+                  // Only try to parse when we have a complete JSON (ends with '}')
+                  const accumulatedArgs = toolCallBuffers.get(toolId) || '';
+                  if (accumulatedArgs.trim().endsWith('}')) {
+                    try {
+                      // Try to parse - if successful, yield the tool call
+                      const parsedArgs = JSON.parse(accumulatedArgs);
+
+                      // Get the stored tool name
+                      const storedToolName = toolCallNames.get(toolId);
+                      if (!storedToolName) {
+                        console.warn(
+                          `[LLAMACPP DEBUG] No tool name found, skipping`,
+                        );
+                        continue;
+                      }
+
+                      console.log(
+                        `[LLAMACPP DEBUG] ✅ Successfully parsed complete tool call: ${storedToolName}(${JSON.stringify(parsedArgs)})`,
+                      );
+
+                      // Create a response with the complete tool call
+                      const geminiResponse: GenerateContentResponse = {
+                        candidates: [
+                          {
+                            content: {
+                              role: 'model',
+                              parts: [
+                                {
+                                  functionCall: {
+                                    name: storedToolName,
+                                    args: parsedArgs,
+                                  },
+                                },
+                              ],
+                            },
+                            finishReason:
+                              choice.finish_reason === 'stop'
+                                ? 'STOP'
+                                : undefined,
+                            index: choice.index,
+                          },
+                        ],
+                      } as GenerateContentResponse;
+
+                      yield geminiResponse;
+
+                      // Clear the buffers for this tool call
+                      toolCallBuffers.delete(toolId);
+                      toolCallNames.delete(toolId);
+                    } catch (parseError) {
+                      // Not yet complete JSON, keep accumulating
+                      // Don't warn - this is expected during streaming
+                      console.log(
+                        `[LLAMACPP DEBUG] JSON not yet complete: ${parseError}`,
+                      );
+                    }
+                  }
+                }
+              } else {
+                // No tool calls in this chunk, yield text content normally
+                yield convertStreamChunkToGeminiResponse(chunk);
+              }
             } catch (error) {
               console.warn(
                 `⚠️  LOCAL LLM WARNING: Failed to parse stream chunk (chunk #${chunksReceived}):\n`,

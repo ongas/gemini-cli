@@ -20,6 +20,7 @@ import type { UserTierId } from '../code_assist/types.js';
 import { LoggingContentGenerator } from './loggingContentGenerator.js';
 import { InstallationManager } from '../utils/installationManager.js';
 import { OllamaContentGenerator } from './ollamaContentGenerator.js';
+import { LlamaCppContentGenerator } from './llamaCppContentGenerator.js';
 
 /**
  * Interface abstracting the core functionalities for generating content and counting tokens.
@@ -105,16 +106,6 @@ export async function createContentGenerator(
   gcConfig: Config,
   sessionId?: string,
 ): Promise<ContentGenerator> {
-  console.log(
-    `[DEBUG createContentGenerator] Received auth type: ${config.authType}`,
-  );
-  console.log(
-    `[DEBUG createContentGenerator] AuthType.LOCAL = ${AuthType.LOCAL}`,
-  );
-  console.log(
-    `[DEBUG createContentGenerator] Match? ${config.authType === AuthType.LOCAL}`,
-  );
-  console.log(`[DEBUG createContentGenerator] Stack:\n${new Error().stack}`);
   const version = process.env['CLI_VERSION'] || process.version;
   const userAgent = `GeminiCLI/${version} (${process.platform}; ${process.arch})`;
   const baseHeaders: Record<string, string> = {
@@ -161,11 +152,27 @@ export async function createContentGenerator(
   }
 
   if (config.authType === AuthType.LOCAL) {
-    const ollamaBaseUrl = config.ollamaBaseUrl || 'http://localhost:11434';
-    return new LoggingContentGenerator(
-      new OllamaContentGenerator(ollamaBaseUrl, gcConfig),
-      gcConfig,
-    );
+    // Check environment variable to determine which local LLM provider to use
+    const localProvider = process.env['LOCAL_LLM_PROVIDER'] || 'ollama';
+
+    if (localProvider === 'llamacpp') {
+      const llamaCppBaseUrl =
+        process.env['LLAMACPP_BASE_URL'] || 'http://localhost:8000';
+      return new LoggingContentGenerator(
+        new LlamaCppContentGenerator(llamaCppBaseUrl, gcConfig),
+        gcConfig,
+      );
+    } else {
+      // Default to Ollama
+      const ollamaBaseUrl =
+        process.env['OLLAMA_BASE_URL'] ||
+        config.ollamaBaseUrl ||
+        'http://localhost:11434';
+      return new LoggingContentGenerator(
+        new OllamaContentGenerator(ollamaBaseUrl, gcConfig),
+        gcConfig,
+      );
+    }
   }
 
   throw new Error(

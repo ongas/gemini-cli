@@ -87,13 +87,32 @@ export class AgentExecutor<TOutput extends z.ZodTypeAny> {
     const parentToolRegistry = await runtimeContext.getToolRegistry();
 
     if (definition.toolConfig) {
+      console.log(
+        '[EXECUTOR DEBUG] Agent tools config:',
+        definition.toolConfig.tools,
+      );
+      console.log(
+        '[EXECUTOR DEBUG] Available tools in parent registry:',
+        parentToolRegistry.getAllToolNames(),
+      );
+
       for (const toolRef of definition.toolConfig.tools) {
         if (typeof toolRef === 'string') {
           // If the tool is referenced by name, retrieve it from the parent
           // registry and register it with the agent's isolated registry.
+          console.log('[EXECUTOR DEBUG] Looking up tool by name:', toolRef);
           const toolFromParent = parentToolRegistry.getTool(toolRef);
           if (toolFromParent) {
+            console.log(
+              '[EXECUTOR DEBUG] Found tool in parent registry:',
+              toolRef,
+            );
             agentToolRegistry.registerTool(toolFromParent);
+          } else {
+            console.log(
+              '[EXECUTOR DEBUG] Tool not found in parent registry:',
+              toolRef,
+            );
           }
         } else if (
           typeof toolRef === 'object' &&
@@ -105,6 +124,11 @@ export class AgentExecutor<TOutput extends z.ZodTypeAny> {
         // Note: Raw `FunctionDeclaration` objects in the config don't need to be
         // registered; their schemas are passed directly to the model later.
       }
+
+      console.log(
+        '[EXECUTOR DEBUG] Registered tools in agent registry:',
+        agentToolRegistry.getAllToolNames(),
+      );
 
       // Validate that all registered tools are safe for non-interactive
       // execution.

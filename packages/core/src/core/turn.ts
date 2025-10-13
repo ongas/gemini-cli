@@ -62,6 +62,7 @@ export enum GeminiEventType {
 
 export type ServerGeminiRetryEvent = {
   type: GeminiEventType.Retry;
+  value?: string;
 };
 
 export interface StructuredError {
@@ -233,7 +234,7 @@ export class Turn {
 
         // Handle the new RETRY event
         if (streamEvent.type === 'retry') {
-          yield { type: GeminiEventType.Retry };
+          yield { type: GeminiEventType.Retry, value: streamEvent.error };
           continue; // Skip to the next event in the stream
         }
 

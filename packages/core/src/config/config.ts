@@ -1048,8 +1048,23 @@ export class Config {
       // On some platforms, the className can be minified to _ClassName.
       const normalizedClassName = className.replace(/^_+/, '');
 
+      // Check if agent tools are specified via environment variable
+      const agentToolsEnv = process.env['AGENT_TOOLS'];
+      const agentTools = agentToolsEnv
+        ? agentToolsEnv.split(',').map((t) => t.trim())
+        : null;
+
       let isEnabled = true; // Enabled by default if coreTools is not set.
-      if (coreTools) {
+
+      // If agent tools are specified, ONLY enable those tools
+      if (agentTools) {
+        isEnabled = agentTools.some(
+          (tool) => tool === toolName || tool === normalizedClassName,
+        );
+        console.log(
+          `[AGENT TOOLS DEBUG] Checking ${toolName}: agentTools=[${agentTools.join(',')}], isEnabled=${isEnabled}`,
+        );
+      } else if (coreTools) {
         isEnabled = coreTools.some(
           (tool) =>
             tool === toolName ||

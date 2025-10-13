@@ -49,7 +49,7 @@ export enum StreamEventType {
 
 export type StreamEvent =
   | { type: StreamEventType.CHUNK; value: GenerateContentResponse }
-  | { type: StreamEventType.RETRY };
+  | { type: StreamEventType.RETRY; error?: string };
 
 /**
  * Options for retrying due to invalid content from the model.
@@ -473,7 +473,12 @@ export class GeminiChat {
         for (let attempt = 0; attempt < MAX_FLASH_ATTEMPTS; attempt++) {
           try {
             if (attempt > 0) {
-              yield { type: StreamEventType.RETRY };
+              // Include error message from previous attempt in retry event
+              const errorMessage =
+                lastError instanceof Error
+                  ? lastError.message
+                  : String(lastError);
+              yield { type: StreamEventType.RETRY, error: errorMessage };
             }
 
             const stream = await self.makeApiCallAndProcessStream(
@@ -960,6 +965,46 @@ export class GeminiChat {
     // - Empty response text (e.g., only thoughts with no actual content)
     if (!hasToolCall && (!hasFinishReason || !responseText)) {
       if (!hasFinishReason) {
+        // Special error message for local LLM servers
+        if (isOllama) {
+          // Detect which local server type based on the content generator
+          let contentGen: any = this.config.getContentGenerator();
+
+          // Unwrap LoggingContentGenerator if present
+          if (contentGen && typeof contentGen.getWrapped === 'function') {
+            contentGen = contentGen.getWrapped();
+          }
+
+          const isLlamaCpp =
+            contentGen.constructor.name === 'LlamaCppContentGenerator';
+
+          const serverType = isLlamaCpp ? 'llama.cpp' : 'Ollama';
+          const defaultUrl = isLlamaCpp
+            ? 'http://localhost:8000'
+            : 'http://localhost:11434';
+          const apiPath = isLlamaCpp ? '/v1/chat/completions' : '/api/chat';
+          const curlExample =
+            `curl -X POST ${defaultUrl}${apiPath} \\\n` +
+            `       -H "Content-Type: application/json" \\\n` +
+            `       -d '{"model": "<your-model>", "messages": [{"role": "user", "content": "Say hello"}], "stream": true}'`;
+
+          throw new InvalidStreamError(
+            `❌ LOCAL LLM ERROR: Stream timed out without receiving any response\n\n` +
+              `Server type: ${serverType}\n\n` +
+              `Troubleshooting:\n` +
+              `  1. Check if the ${serverType} server is running and accessible\n` +
+              `  2. Try a simpler test request first:\n` +
+              `     ${curlExample}\n\n` +
+              `  3. The server may be timing out on complex requests with tools/system instructions\n` +
+              `  4. Check server logs for errors or configuration issues\n` +
+              `  5. Consider:\n` +
+              `     • Reducing the number of tools available to the agent\n` +
+              `     • Using a more capable model (e.g., qwen2.5-coder:32b instead of 7b)\n` +
+              `     • Increasing server timeout settings if available`,
+            'NO_FINISH_REASON',
+          );
+        }
+
         throw new InvalidStreamError(
           'Model stream ended without a finish reason.\n\n' +
             'This can happen due to:\n' +

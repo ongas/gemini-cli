@@ -62,7 +62,7 @@ function analyzeIndentationPattern(text: string): {
   }
 
   // Build pattern with relative indentation
-  const pattern: IndentPattern[] = lines.map(line => {
+  const pattern: IndentPattern[] = lines.map((line) => {
     const lineIndent = line.trim().length > 0 ? getLeadingSpaces(line) : 0;
     return {
       content: line.trim(),
@@ -113,7 +113,7 @@ function adjustIndentation(
   const indentDiff = fileBaseIndent - oldBaseIndent;
 
   return lines
-    .map(line => {
+    .map((line) => {
       if (line.trim().length === 0) {
         return ''; // Empty lines stay empty
       }
@@ -138,9 +138,31 @@ export function findPythonMatchWithFlexibleIndentation(
   fileContent: string,
   oldString: string,
   newString: string,
+  debug = false,
 ): MatchResult | null {
   const fileLines = fileContent.split('\n');
-  const { baseIndent: oldBaseIndent, pattern: oldPattern } = analyzeIndentationPattern(oldString);
+  const { baseIndent: oldBaseIndent, pattern: oldPattern } =
+    analyzeIndentationPattern(oldString);
+
+  if (debug) {
+    console.log(
+      `[Python Matcher] Searching for pattern with ${oldPattern.length} lines`,
+    );
+    console.log(
+      `[Python Matcher] old_string base indent: ${oldBaseIndent} spaces`,
+    );
+    console.log(
+      `[Python Matcher] First line pattern: "${oldPattern[0].content}" (relative indent: ${oldPattern[0].relativeIndent})`,
+    );
+    if (oldPattern.length > 1) {
+      console.log(
+        `[Python Matcher] Last line pattern: "${oldPattern[oldPattern.length - 1].content}" (relative indent: ${oldPattern[oldPattern.length - 1].relativeIndent})`,
+      );
+    }
+  }
+
+  let bestPartialMatch = 0;
+  let bestPartialMatchLine = -1;
 
   // Search through the file for a matching pattern
   for (let i = 0; i <= fileLines.length - oldPattern.length; i++) {
@@ -150,6 +172,25 @@ export function findPythonMatchWithFlexibleIndentation(
     const { baseIndent: candidateBaseIndent, pattern: candidatePattern } =
       analyzeIndentationPattern(candidateText);
 
+    // Track best partial match for debugging
+    if (debug) {
+      let matchingLines = 0;
+      for (let j = 0; j < Math.min(oldPattern.length, candidatePattern.length); j++) {
+        if (
+          oldPattern[j].content === candidatePattern[j].content &&
+          oldPattern[j].relativeIndent === candidatePattern[j].relativeIndent
+        ) {
+          matchingLines++;
+        } else {
+          break;
+        }
+      }
+      if (matchingLines > bestPartialMatch) {
+        bestPartialMatch = matchingLines;
+        bestPartialMatchLine = i;
+      }
+    }
+
     if (patternsMatch(oldPattern, candidatePattern)) {
       // Found a match! Adjust newString indentation to match the file
       const adjustedNewString = adjustIndentation(
@@ -157,6 +198,12 @@ export function findPythonMatchWithFlexibleIndentation(
         oldBaseIndent,
         candidateBaseIndent,
       );
+
+      if (debug) {
+        console.log(
+          `[Python Matcher] ✓ Found exact match at line ${i + 1} (file indent: ${candidateBaseIndent} spaces)`,
+        );
+      }
 
       return {
         startLine: i,
@@ -167,6 +214,43 @@ export function findPythonMatchWithFlexibleIndentation(
     }
   }
 
+  if (debug && bestPartialMatch > 0) {
+    console.log(
+      `[Python Matcher] Best partial match: ${bestPartialMatch}/${oldPattern.length} lines at line ${bestPartialMatchLine + 1}`,
+    );
+    // Show where the match diverged
+    const candidateLines = fileLines.slice(
+      bestPartialMatchLine,
+      bestPartialMatchLine + oldPattern.length,
+    );
+    const candidateText = candidateLines.join('\n');
+    const { pattern: candidatePattern } =
+      analyzeIndentationPattern(candidateText);
+
+    for (let j = 0; j < oldPattern.length; j++) {
+      if (
+        j >= candidatePattern.length ||
+        oldPattern[j].content !== candidatePattern[j].content ||
+        oldPattern[j].relativeIndent !== candidatePattern[j].relativeIndent
+      ) {
+        console.log(
+          `[Python Matcher] Mismatch at line ${j + 1}:`,
+        );
+        console.log(
+          `  Expected: "${oldPattern[j].content}" (rel indent: ${oldPattern[j].relativeIndent})`,
+        );
+        if (j < candidatePattern.length) {
+          console.log(
+            `  Got:      "${candidatePattern[j].content}" (rel indent: ${candidatePattern[j].relativeIndent})`,
+          );
+        } else {
+          console.log(`  Got:      [end of candidate]`);
+        }
+        break;
+      }
+    }
+  }
+
   return null;
 }
 
@@ -174,9 +258,11 @@ export function findPythonMatchWithFlexibleIndentation(
  * Checks if a file is likely a Python file based on its path.
  */
 export function isPythonFile(filePath: string): boolean {
-  return filePath.endsWith('.py') ||
-         filePath.endsWith('.pyw') ||
-         filePath.endsWith('.pyi');
+  return (
+    filePath.endsWith('.py') ||
+    filePath.endsWith('.pyw') ||
+    filePath.endsWith('.pyi')
+  );
 }
 
 /**

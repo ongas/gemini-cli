@@ -328,6 +328,8 @@ export class GeminiChat {
   // model.
   private sendPromise: Promise<void> = Promise.resolve();
   private readonly chatRecordingService: ChatRecordingService;
+  // Track consecutive empty response errors to fail faster on persistent issues
+  private consecutiveEmptyResponses = 0;
 
   constructor(
     private readonly config: Config,
@@ -492,6 +494,8 @@ export class GeminiChat {
               yield { type: StreamEventType.CHUNK, value: chunk };
             }
 
+            // Success! Reset empty response counter
+            self.consecutiveEmptyResponses = 0;
             lastError = null;
             break;
           } catch (error) {
@@ -501,6 +505,31 @@ export class GeminiChat {
             // Check if this error should be retried (e.g., not safety/recitation blocks)
             const shouldRetryError =
               isContentError && (error as InvalidStreamError).shouldRetry;
+
+            // Track consecutive empty responses to detect persistent issues
+            const isEmptyResponseError =
+              isContentError &&
+              (error as InvalidStreamError).type === 'NO_RESPONSE_TEXT';
+
+            if (isEmptyResponseError && self.config.isInFallbackMode()) {
+              self.consecutiveEmptyResponses++;
+              console.log(
+                `[RETRY DEBUG] Consecutive empty responses: ${self.consecutiveEmptyResponses}`,
+              );
+
+              // If we've seen 2+ consecutive empty responses in fallback mode,
+              // fail faster instead of waiting through all retries
+              if (self.consecutiveEmptyResponses >= 2) {
+                console.log(
+                  '[RETRY DEBUG] Detected pattern of persistent empty responses, stopping retries early',
+                );
+                console.log(
+                  '[RETRY DEBUG] This suggests the model cannot handle this request in fallback mode',
+                );
+                // Don't continue retrying - break out and throw the error
+                break;
+              }
+            }
 
             // Check dynamically: use Flash limits if in fallback mode, otherwise Pro limits
             const maxAttempts = self.config.isInFallbackMode()
@@ -946,6 +975,32 @@ export class GeminiChat {
       .map((part) => part.text)
       .join('')
       .trim();
+
+    // Diagnostic: Log detailed part information when we have parts but no text
+    if (consolidatedParts.length > 0 && !responseText) {
+      console.warn(
+        '[EMPTY RESPONSE DIAGNOSTIC] Received parts with no text content:',
+      );
+      console.warn(
+        `[EMPTY RESPONSE DIAGNOSTIC] Total parts: ${consolidatedParts.length}`,
+      );
+      consolidatedParts.forEach((part, idx) => {
+        const partType = part.functionCall
+          ? `functionCall(${part.functionCall.name})`
+          : part.functionResponse
+            ? `functionResponse(${part.functionResponse.name})`
+            : part.fileData
+              ? 'fileData'
+              : part.inlineData
+                ? 'inlineData'
+                : part.thought
+                  ? 'thought'
+                  : part.text !== undefined
+                    ? `text(${part.text.length} chars: "${part.text.substring(0, 50)}${part.text.length > 50 ? '..."' : '"'}")`
+                    : `unknown(keys: ${Object.keys(part).join(',')})`;
+        console.warn(`[EMPTY RESPONSE DIAGNOSTIC]   Part ${idx}: ${partType}`);
+      });
+    }
 
     // Record model response text from the collected parts
     if (responseText) {

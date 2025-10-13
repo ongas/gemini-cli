@@ -179,9 +179,17 @@ class EditToolInvocation implements ToolInvocation<EditToolParams, ToolResult> {
           type: ToolErrorType.ATTEMPT_TO_CREATE_EXISTING_FILE,
         };
       } else if (occurrences === 0) {
+        // Check if there's an enhanced error message from the corrector
+        const baseMessage = `Failed to edit, 0 occurrences found for old_string in ${params.file_path}. No edits made. The exact text in old_string was not found. Ensure you're not escaping content incorrectly and check whitespace, indentation, and context. Use ${ReadFileTool.Name} tool to verify.`;
+        const enhancedMessage = correctedEdit.errorMessage
+          ? `${baseMessage}\n\n${correctedEdit.errorMessage}`
+          : baseMessage;
+
         error = {
-          display: `Failed to edit, could not find the string to replace.`,
-          raw: `Failed to edit, 0 occurrences found for old_string in ${params.file_path}. No edits made. The exact text in old_string was not found. Ensure you're not escaping content incorrectly and check whitespace, indentation, and context. Use ${ReadFileTool.Name} tool to verify.`,
+          display: correctedEdit.errorMessage
+            ? correctedEdit.errorMessage
+            : `Failed to edit, could not find the string to replace.`,
+          raw: enhancedMessage,
           type: ToolErrorType.EDIT_NO_OCCURRENCE_FOUND,
         };
       } else if (occurrences !== expectedReplacements) {

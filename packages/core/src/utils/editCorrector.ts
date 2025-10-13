@@ -56,6 +56,140 @@ const editCorrectionCache = new LruCache<string, CorrectedEditResult>(
 // Cache for ensureCorrectFileContent results
 const fileContentCorrectionCache = new LruCache<string, string>(MAX_CACHE_SIZE);
 
+// Track failed edit attempts to provide better error messages and prevent loops
+interface FailedEditAttempt {
+  filePath: string;
+  oldString: string;
+  timestamp: number;
+  attemptNumber: number;
+}
+
+const MAX_FAILED_ATTEMPTS_TRACKED = 100;
+const FAILED_EDIT_WINDOW_MS = 60000; // Track failures within 60 seconds
+const failedEditAttempts = new LruCache<string, FailedEditAttempt[]>(
+  MAX_FAILED_ATTEMPTS_TRACKED,
+);
+
+/**
+ * Records a failed edit attempt for tracking purposes.
+ */
+function recordFailedEditAttempt(
+  filePath: string,
+  oldString: string,
+): number {
+  const now = Date.now();
+  const key = filePath;
+
+  // Get existing attempts for this file
+  let attempts = failedEditAttempts.get(key) || [];
+
+  // Clean up old attempts outside the time window
+  attempts = attempts.filter(
+    (attempt) => now - attempt.timestamp < FAILED_EDIT_WINDOW_MS,
+  );
+
+  // Count attempts with similar old_string (using first 100 chars as approximation)
+  const oldStringPrefix = oldString.substring(0, 100);
+  const similarAttempts = attempts.filter((attempt) =>
+    attempt.oldString.substring(0, 100).includes(oldStringPrefix) ||
+    oldStringPrefix.includes(attempt.oldString.substring(0, 100)),
+  );
+
+  const attemptNumber = similarAttempts.length + 1;
+
+  // Add new attempt
+  attempts.push({
+    filePath,
+    oldString,
+    timestamp: now,
+    attemptNumber,
+  });
+
+  // Store updated attempts
+  failedEditAttempts.set(key, attempts);
+
+  return attemptNumber;
+}
+
+/**
+ * Gets information about recent failed attempts for a file.
+ */
+function getFailedAttemptInfo(filePath: string, oldString: string): {
+  recentAttempts: number;
+  shouldStop: boolean;
+  errorMessage: string | null;
+} {
+  const now = Date.now();
+  const key = filePath;
+
+  const attempts = failedEditAttempts.get(key) || [];
+  const recentAttempts = attempts.filter(
+    (attempt) => now - attempt.timestamp < FAILED_EDIT_WINDOW_MS,
+  );
+
+  if (recentAttempts.length === 0) {
+    return { recentAttempts: 0, shouldStop: false, errorMessage: null };
+  }
+
+  // Check for similar attempts
+  const oldStringPrefix = oldString.substring(0, 100);
+  const similarAttempts = recentAttempts.filter((attempt) =>
+    attempt.oldString.substring(0, 100).includes(oldStringPrefix) ||
+    oldStringPrefix.includes(attempt.oldString.substring(0, 100)),
+  );
+
+  const count = similarAttempts.length;
+
+  if (count >= 3) {
+    const firstAttempt = similarAttempts[0];
+    const timeSinceFirst = ((now - firstAttempt.timestamp) / 1000).toFixed(1);
+
+    const errorMessage = `
+CRITICAL: Edit tool has failed ${count} times on file ${filePath} in the last ${timeSinceFirst} seconds.
+
+Previous failed attempts:
+${similarAttempts.map((attempt, i) => `${i + 1}. Attempt at ${new Date(attempt.timestamp).toISOString().substring(11, 19)} - old_string started with: "${attempt.oldString.substring(0, 60).replace(/\n/g, '\\n')}..."`).join('\n')}
+
+STOP trying to edit this location. The edit tool cannot find a match for your old_string.
+
+Recommended actions:
+1. STOP immediately - do not attempt this edit again
+2. Use the read_file tool to re-read lines around the area you're trying to edit
+3. Carefully verify the EXACT content including all whitespace and indentation
+4. If this is Python code, ensure your indentation exactly matches the file
+5. Consider if the file content has changed since you last read it
+6. If multiple attempts fail, the issue may be with your understanding of the file content - read it again
+
+Do NOT retry the same edit. The loop detection system will terminate the conversation if you continue.
+`.trim();
+
+    return {
+      recentAttempts: count,
+      shouldStop: true,
+      errorMessage,
+    };
+  } else if (count === 2) {
+    const errorMessage = `
+Warning: Edit tool has failed ${count} times on file ${filePath} for similar content.
+
+This is your LAST attempt before the system will block further edits to this location.
+
+Before trying again:
+1. Use read_file to verify the exact file content
+2. Ensure your old_string matches EXACTLY (including all whitespace)
+3. For Python files, verify the indentation matches precisely
+`.trim();
+
+    return {
+      recentAttempts: count,
+      shouldStop: false,
+      errorMessage,
+    };
+  }
+
+  return { recentAttempts: count, shouldStop: false, errorMessage: null };
+}
+
 /**
  * Defines the structure of the parameters within CorrectedEditResult
  */
@@ -71,6 +205,7 @@ interface CorrectedEditParams {
 export interface CorrectedEditResult {
   params: CorrectedEditParams;
   occurrences: number;
+  errorMessage?: string; // Optional enhanced error message for repeated failures
 }
 
 /**
@@ -188,6 +323,18 @@ export async function ensureCorrectEdit(
     return cachedResult;
   }
 
+  // Check for repeated failures before attempting correction
+  const failureInfo = getFailedAttemptInfo(filePath, originalParams.old_string);
+  if (failureInfo.shouldStop && failureInfo.errorMessage) {
+    // Return result with 0 occurrences and the enhanced error message
+    const result: CorrectedEditResult = {
+      params: { ...originalParams },
+      occurrences: 0,
+      errorMessage: failureInfo.errorMessage,
+    };
+    return result;
+  }
+
   let finalNewString = originalParams.new_string;
   const newStringPotentiallyEscaped =
     unescapeStringForGeminiBug(originalParams.new_string) !==
@@ -258,10 +405,21 @@ export async function ensureCorrectEdit(
     } else if (occurrences === 0) {
       // Try Python-specific indentation-flexible matching before LLM correction
       if (filePath && isPythonFile(filePath)) {
+        console.log(
+          `[Python Edit] Attempting flexible indentation matching for ${filePath}`,
+        );
+        console.log(
+          `[Python Edit] old_string has ${unescapedOldStringAttempt.split('\n').length} lines`,
+        );
+        console.log(
+          `[Python Edit] File has ${currentContent.split('\n').length} total lines`,
+        );
+
         const pythonMatch = findPythonMatchWithFlexibleIndentation(
           currentContent,
           unescapedOldStringAttempt,
           originalParams.new_string,
+          true, // Enable debug logging
         );
 
         if (pythonMatch) {
@@ -276,7 +434,7 @@ export async function ensureCorrectEdit(
           occurrences = 1; // We found exactly one match
 
           console.log(
-            `[Python Edit] Found match with flexible indentation adjustment (base indent: ${pythonMatch.fileIndent} spaces)`,
+            `[Python Edit] ✓ Found match with flexible indentation adjustment (base indent: ${pythonMatch.fileIndent} spaces)`,
           );
 
           const result: CorrectedEditResult = {
@@ -289,6 +447,16 @@ export async function ensureCorrectEdit(
           };
           editCorrectionCache.set(cacheKey, result);
           return result;
+        } else {
+          console.log(
+            `[Python Edit] ✗ No match found with flexible indentation`,
+          );
+          console.log(
+            `[Python Edit] First line of old_string (trimmed): "${unescapedOldStringAttempt.split('\n')[0].trim()}"`,
+          );
+          console.log(
+            `[Python Edit] Last line of old_string (trimmed): "${unescapedOldStringAttempt.split('\n').slice(-1)[0].trim()}"`,
+          );
         }
       }
 
@@ -310,9 +478,13 @@ export async function ensureCorrectEdit(
           if (diff > 2000) {
             // Hard coded for 2 seconds
             // This file was edited sooner
+            recordFailedEditAttempt(filePath, originalParams.old_string);
+
+            const failureWarning = getFailedAttemptInfo(filePath, originalParams.old_string);
             const result: CorrectedEditResult = {
               params: { ...originalParams },
               occurrences: 0, // Explicitly 0 as LLM failed
+              errorMessage: failureWarning.errorMessage ?? undefined,
             };
             editCorrectionCache.set(cacheKey, result);
             return result;
@@ -349,9 +521,13 @@ export async function ensureCorrectEdit(
         }
       } else {
         // LLM correction also failed for old_string
+        recordFailedEditAttempt(filePath, originalParams.old_string);
+
+        const failureWarning = getFailedAttemptInfo(filePath, originalParams.old_string);
         const result: CorrectedEditResult = {
           params: { ...originalParams },
           occurrences: 0, // Explicitly 0 as LLM failed
+          errorMessage: failureWarning.errorMessage ?? undefined,
         };
         editCorrectionCache.set(cacheKey, result);
         return result;

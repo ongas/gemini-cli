@@ -19,6 +19,7 @@ export interface HttpError extends Error {
 
 export interface RetryOptions {
   maxAttempts: number;
+  maxQuotaRetries: number; // Maximum retries specifically for quota errors
   initialDelayMs: number;
   maxDelayMs: number;
   shouldRetryOnError: (error: Error) => boolean;
@@ -32,6 +33,7 @@ export interface RetryOptions {
 
 const DEFAULT_RETRY_OPTIONS: RetryOptions = {
   maxAttempts: 10,
+  maxQuotaRetries: 2, // Limit quota error retries to prevent regenerating same text repeatedly
   initialDelayMs: 5000,
   maxDelayMs: 30000, // 30 seconds
   shouldRetryOnError: defaultShouldRetry,
@@ -90,6 +92,7 @@ export async function retryWithBackoff<T>(
 
   const {
     maxAttempts,
+    maxQuotaRetries,
     initialDelayMs,
     maxDelayMs,
     onPersistent429,
@@ -102,6 +105,7 @@ export async function retryWithBackoff<T>(
   };
 
   let attempt = 0;
+  let quotaRetryCount = 0; // Track quota-specific retries separately
   let currentDelay = initialDelayMs;
 
   while (attempt < maxAttempts) {
@@ -130,8 +134,18 @@ export async function retryWithBackoff<T>(
         onPersistent429 &&
         authType === AuthType.LOGIN_WITH_GOOGLE
       ) {
+        quotaRetryCount++;
+
+        // Check if we've exceeded quota retry limit
+        if (quotaRetryCount > maxQuotaRetries) {
+          console.log(
+            `[RETRY DEBUG] Exceeded quota retry limit (${maxQuotaRetries}), throwing error`,
+          );
+          throw classifiedError;
+        }
+
         console.log(
-          '[RETRY DEBUG] TerminalQuotaError detected, attempting fallback...',
+          `[RETRY DEBUG] TerminalQuotaError detected (${quotaRetryCount}/${maxQuotaRetries}), attempting fallback...`,
         );
         try {
           const fallbackModel = await onPersistent429(
@@ -145,9 +159,9 @@ export async function retryWithBackoff<T>(
 
           if (fallbackModel) {
             console.log(
-              '[RETRY DEBUG] Fallback successful, resetting attempts and continuing...',
+              '[RETRY DEBUG] Fallback successful, continuing with new model...',
             );
-            attempt = 0; // Reset attempts and retry with the new model.
+            // Don't reset attempt counter - keep tracking total attempts
             currentDelay = initialDelayMs;
             continue;
           } else {
@@ -166,14 +180,25 @@ export async function retryWithBackoff<T>(
       // For RetryableQuotaError (per-minute throttling), wait and retry with same model
       // Don't switch models - this is just temporary throttling
       if (classifiedError instanceof RetryableQuotaError) {
+        quotaRetryCount++;
+
+        // Check quota retry limit first
+        if (quotaRetryCount > maxQuotaRetries) {
+          console.warn(
+            `Exceeded quota retry limit (${maxQuotaRetries}). Stopping retries to prevent loops.`,
+          );
+          throw classifiedError;
+        }
+
         if (attempt >= maxAttempts) {
           throw classifiedError;
         }
+
         // Cap retry delay at 60 seconds even if API requests longer
         // Excessive delays (e.g., 90s+) hurt UX more than helping with throttling
         const cappedDelay = Math.min(classifiedError.retryDelayMs, 60000);
         console.warn(
-          `Attempt ${attempt} failed: ${classifiedError.message}. Retrying after ${cappedDelay}ms...`,
+          `Quota retry ${quotaRetryCount}/${maxQuotaRetries}: ${classifiedError.message}. Retrying after ${cappedDelay}ms...`,
         );
         await delay(cappedDelay);
         continue;

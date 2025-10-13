@@ -39,6 +39,7 @@ interface LlamaCppRequest {
   stream: boolean;
   temperature?: number;
   top_p?: number;
+  max_tokens?: number;
   tools?: LlamaCppTool[];
   tool_choice?: 'auto' | 'none';
 }
@@ -484,6 +485,9 @@ export class LlamaCppContentGenerator implements ContentGenerator {
       stream: true,
       temperature: request.config?.temperature,
       top_p: request.config?.topP,
+      // Set max_tokens to allow completion of responses (especially with many tools)
+      // Default to 2048 which is reasonable for most responses
+      max_tokens: 2048,
       // Re-enable tools for testing - now that we have minimal context, let's see if tools work
       tools: this.convertToLlamaCppTools(request.config?.tools),
       tool_choice:

@@ -297,38 +297,79 @@ class EditToolInvocation implements ToolInvocation<EditToolParams, ToolResult> {
       originalContent: editData.currentContent,
       newContent: editData.newContent,
       onConfirm: async (outcome: ToolConfirmationOutcome) => {
-        if (outcome === ToolConfirmationOutcome.ProceedAlways) {
-          this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
-        } else if (
-          outcome === ToolConfirmationOutcome.ProceedAlwaysAllSessions
-        ) {
-          // Add to persistent storage for all sessions
-          const approvalStorage = this.config.getApprovalStorage();
-          try {
+        const fs = await import('node:fs');
+        const logPath = '/tmp/gemini-edit-callback-debug.log';
+        const timestamp = new Date().toISOString();
+
+        fs.appendFileSync(
+          logPath,
+          `${timestamp} - onConfirm CALLBACK START, outcome=${outcome}\n`,
+        );
+
+        try {
+          if (outcome === ToolConfirmationOutcome.ProceedAlways) {
+            fs.appendFileSync(
+              logPath,
+              `${timestamp} - Matched ProceedAlways\n`,
+            );
+            this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
+          } else if (
+            outcome === ToolConfirmationOutcome.ProceedAlwaysAllSessions
+          ) {
+            fs.appendFileSync(
+              logPath,
+              `${timestamp} - Matched ProceedAlwaysAllSessions\n`,
+            );
+            // Add to persistent storage for all sessions
+            const approvalStorage = this.config.getApprovalStorage();
+            fs.appendFileSync(
+              logPath,
+              `${timestamp} - Got approvalStorage, about to call approveKind\n`,
+            );
             await approvalStorage.approveKind(
               Kind.Edit,
               'Always allow edit operations',
             );
-            console.log(
-              `[DEBUG] Persistent approval saved for edit operations`,
+            fs.appendFileSync(
+              logPath,
+              `${timestamp} - approveKind completed\n`,
             );
             // Also set session-level approval
             this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
-          } catch (error) {
-            console.error(`[ERROR] Failed to save persistent approval:`, error);
-            // Still set session-level approval even if persistent save fails
-            this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
+            fs.appendFileSync(
+              logPath,
+              `${timestamp} - setApprovalMode completed\n`,
+            );
           }
-        }
 
-        if (ideConfirmation) {
-          const result = await ideConfirmation;
-          if (result.status === 'accepted' && result.content) {
-            // TODO(chrstn): See https://github.com/google-gemini/gemini-cli/pull/5618#discussion_r2255413084
-            // for info on a possible race condition where the file is modified on disk while being edited.
-            this.params.old_string = editData.currentContent ?? '';
-            this.params.new_string = result.content;
+          if (ideConfirmation) {
+            fs.appendFileSync(
+              logPath,
+              `${timestamp} - Processing ideConfirmation\n`,
+            );
+            const result = await ideConfirmation;
+            if (result.status === 'accepted' && result.content) {
+              // TODO(chrstn): See https://github.com/google-gemini/gemini-cli/pull/5618#discussion_r2255413084
+              // for info on a possible race condition where the file is modified on disk while being edited.
+              this.params.old_string = editData.currentContent ?? '';
+              this.params.new_string = result.content;
+            }
           }
+
+          fs.appendFileSync(
+            logPath,
+            `${timestamp} - onConfirm CALLBACK END successfully\n`,
+          );
+        } catch (error) {
+          fs.appendFileSync(
+            logPath,
+            `${timestamp} - onConfirm CALLBACK ERROR: ${error instanceof Error ? error.message : String(error)}\n`,
+          );
+          fs.appendFileSync(
+            logPath,
+            `${timestamp} - onConfirm CALLBACK ERROR stack: ${error instanceof Error ? error.stack : 'no stack'}\n`,
+          );
+          throw error;
         }
       },
       ideConfirmation,

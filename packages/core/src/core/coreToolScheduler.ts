@@ -833,12 +833,55 @@ export class CoreToolScheduler {
     signal: AbortSignal,
     payload?: ToolConfirmationPayload,
   ): Promise<void> {
+    const fs = await import('node:fs');
+    const logPath = '/tmp/gemini-scheduler-debug.log';
+    const timestamp = new Date().toISOString();
+
+    fs.appendFileSync(
+      logPath,
+      `${timestamp} - handleConfirmationResponse START, callId=${callId}, outcome=${outcome}\n`,
+    );
+    fs.appendFileSync(
+      logPath,
+      `${timestamp} - originalOnConfirm type: ${typeof originalOnConfirm}, name: ${originalOnConfirm.name}\n`,
+    );
+    fs.appendFileSync(
+      logPath,
+      `${timestamp} - originalOnConfirm toString (first 200 chars): ${originalOnConfirm.toString().substring(0, 200)}\n`,
+    );
+
     const toolCall = this.toolCalls.find(
       (c) => c.request.callId === callId && c.status === 'awaiting_approval',
     );
 
+    fs.appendFileSync(
+      logPath,
+      `${timestamp} - toolCall found=${!!toolCall}, status=${toolCall?.status}\n`,
+    );
+
     if (toolCall && toolCall.status === 'awaiting_approval') {
-      await originalOnConfirm(outcome);
+      fs.appendFileSync(
+        logPath,
+        `${timestamp} - About to call originalOnConfirm\n`,
+      );
+      try {
+        await originalOnConfirm(outcome);
+        fs.appendFileSync(
+          logPath,
+          `${timestamp} - originalOnConfirm completed successfully\n`,
+        );
+      } catch (error) {
+        fs.appendFileSync(
+          logPath,
+          `${timestamp} - originalOnConfirm ERROR: ${error instanceof Error ? error.message : String(error)}\n`,
+        );
+        throw error;
+      }
+    } else {
+      fs.appendFileSync(
+        logPath,
+        `${timestamp} - Skipping originalOnConfirm because toolCall=${!!toolCall}, status=${toolCall?.status}\n`,
+      );
     }
 
     if (outcome === ToolConfirmationOutcome.ProceedAlways) {

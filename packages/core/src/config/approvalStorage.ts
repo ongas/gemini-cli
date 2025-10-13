@@ -40,19 +40,59 @@ export class ApprovalStorage {
    * Save approval rules to storage
    */
   async saveRules(rules: ApprovalRule[]): Promise<void> {
-    await this.storage.set<ApprovalRules>(APPROVAL_RULES_KEY, { rules });
+    const fs = await import('node:fs');
+    const logPath = '/tmp/gemini-approval-debug.log';
+    const timestamp = new Date().toISOString();
+
+    fs.appendFileSync(
+      logPath,
+      `${timestamp} - saveRules called with ${rules.length} rules\n`,
+    );
+    fs.appendFileSync(
+      logPath,
+      `${timestamp} - rules: ${JSON.stringify(rules, null, 2)}\n`,
+    );
+
+    try {
+      await this.storage.set<ApprovalRules>(APPROVAL_RULES_KEY, { rules });
+      fs.appendFileSync(
+        logPath,
+        `${timestamp} - storage.set completed successfully\n`,
+      );
+    } catch (error) {
+      fs.appendFileSync(
+        logPath,
+        `${timestamp} - storage.set ERROR: ${error instanceof Error ? error.message : String(error)}\n`,
+      );
+      throw error;
+    }
   }
 
   /**
    * Add a new approval rule
    */
   async addRule(rule: Omit<ApprovalRule, 'id' | 'createdAt'>): Promise<void> {
+    const fs = await import('node:fs');
+    const logPath = '/tmp/gemini-approval-debug.log';
+    const timestamp = new Date().toISOString();
+
+    fs.appendFileSync(
+      logPath,
+      `${timestamp} - addRule called with type=${rule.type}, value=${rule.value}\n`,
+    );
+
     const rules = await this.loadRules();
+    fs.appendFileSync(
+      logPath,
+      `${timestamp} - loaded ${rules.length} existing rules\n`,
+    );
 
     // Check if rule already exists
     const exists = rules.some(
       (r) => r.type === rule.type && r.value === rule.value,
     );
+
+    fs.appendFileSync(logPath, `${timestamp} - rule exists check: ${exists}\n`);
 
     if (!exists) {
       const newRule: ApprovalRule = {
@@ -61,7 +101,21 @@ export class ApprovalStorage {
         createdAt: Date.now(),
       };
       rules.push(newRule);
+      fs.appendFileSync(
+        logPath,
+        `${timestamp} - pushed new rule, now have ${rules.length} rules\n`,
+      );
+      fs.appendFileSync(
+        logPath,
+        `${timestamp} - about to call saveRules with ${rules.length} rules\n`,
+      );
       await this.saveRules(rules);
+      fs.appendFileSync(logPath, `${timestamp} - saveRules completed\n`);
+    } else {
+      fs.appendFileSync(
+        logPath,
+        `${timestamp} - skipped adding rule (already exists)\n`,
+      );
     }
   }
 
@@ -182,11 +236,36 @@ export class ApprovalStorage {
    * Add approval for a tool kind (e.g., "edit", "execute")
    */
   async approveKind(kind: Kind, description?: string): Promise<void> {
-    await this.addRule({
-      type: 'tool_kind',
-      value: kind,
-      description: description ?? `Always allow ${kind} operations`,
-    });
+    const fs = await import('node:fs');
+    const logPath = '/tmp/gemini-approval-debug.log';
+    const timestamp = new Date().toISOString();
+
+    fs.appendFileSync(
+      logPath,
+      `${timestamp} - approveKind called with kind=${kind}, description=${description}\n`,
+    );
+
+    try {
+      await this.addRule({
+        type: 'tool_kind',
+        value: kind,
+        description: description ?? `Always allow ${kind} operations`,
+      });
+      fs.appendFileSync(
+        logPath,
+        `${timestamp} - approveKind completed successfully\n`,
+      );
+    } catch (error) {
+      fs.appendFileSync(
+        logPath,
+        `${timestamp} - approveKind ERROR: ${error instanceof Error ? error.message : String(error)}\n`,
+      );
+      fs.appendFileSync(
+        logPath,
+        `${timestamp} - approveKind ERROR stack: ${error instanceof Error ? error.stack : 'no stack'}\n`,
+      );
+      throw error;
+    }
   }
 
   /**

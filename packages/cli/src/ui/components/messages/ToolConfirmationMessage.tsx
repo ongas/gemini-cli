@@ -63,7 +63,17 @@ export const ToolConfirmationMessage: React.FC<
   }, [config]);
 
   const handleConfirm = async (outcome: ToolConfirmationOutcome) => {
+    const fs = await import('node:fs');
+    fs.appendFileSync(
+      '/tmp/gemini-ui-debug.log',
+      `${new Date().toISOString()} - handleConfirm called with outcome: ${outcome}\n`,
+    );
+
     if (confirmationDetails.type === 'edit') {
+      fs.appendFileSync(
+        '/tmp/gemini-ui-debug.log',
+        `${new Date().toISOString()} - Confirmation type is 'edit'\n`,
+      );
       if (config.getIdeMode() && isDiffingEnabled) {
         const cliOutcome =
           outcome === ToolConfirmationOutcome.Cancel ? 'rejected' : 'accepted';
@@ -73,7 +83,28 @@ export const ToolConfirmationMessage: React.FC<
         );
       }
     }
-    onConfirm(outcome);
+
+    fs.appendFileSync(
+      '/tmp/gemini-ui-debug.log',
+      `${new Date().toISOString()} - About to call onConfirm\n`,
+    );
+    try {
+      await onConfirm(outcome);
+      fs.appendFileSync(
+        '/tmp/gemini-ui-debug.log',
+        `${new Date().toISOString()} - onConfirm completed successfully\n`,
+      );
+    } catch (error) {
+      fs.appendFileSync(
+        '/tmp/gemini-ui-debug.log',
+        `${new Date().toISOString()} - onConfirm ERROR: ${error instanceof Error ? error.message : String(error)}\n`,
+      );
+      fs.appendFileSync(
+        '/tmp/gemini-ui-debug.log',
+        `${new Date().toISOString()} - onConfirm ERROR stack: ${error instanceof Error ? error.stack : 'no stack'}\n`,
+      );
+      throw error;
+    }
   };
 
   const isTrustedFolder = config.isTrustedFolder();

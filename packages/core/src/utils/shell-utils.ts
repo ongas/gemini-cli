@@ -323,8 +323,15 @@ export function checkCommandPermissions(
     return {
       allAllowed: false,
       disallowedCommands: [command],
-      blockReason:
-        'Command substitution using $(), `` ` ``, <(), or >() is not allowed for security reasons',
+      blockReason: `Command substitution using $(), backticks (\`\`), <(), or >() is not allowed for security reasons.
+
+REQUIRED ACTION: Break this into multiple separate shell commands instead:
+1. Use temporary files: command1 > /tmp/result.txt && command2 $(cat /tmp/result.txt)
+   becomes: command1 > /tmp/result.txt [first call] then command2 [second call, read file to get value]
+2. Use pipes without substitution: command1 | command2
+3. Create a shell script file with Write tool, then execute: bash script.sh
+
+This security restriction cannot be overridden. Rewrite the command to avoid all substitution patterns.`,
       isHardDenial: true,
     };
   }

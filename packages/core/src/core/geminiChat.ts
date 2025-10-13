@@ -1022,19 +1022,17 @@ export class GeminiChat {
       });
     }
 
-    // Special handling for llama.cpp partial responses:
-    // If using llama.cpp and we got meaningful text (even without finish reason),
-    // accept it as a valid response instead of throwing an error.
-    // This allows slow 7B models to work even if they timeout mid-response.
-    const gotPartialResponse = responseText.length > 0 && !hasFinishReason;
-    if (gotPartialResponse && isLlamaCpp && hasTools) {
-      console.warn(
-        `[LLAMA.CPP] Accepting partial response (${chunkCount} chunks, ${responseText.length} chars) despite no finish reason.`,
-      );
-      console.warn(
-        `[LLAMA.CPP] 7B model with ${this.generationConfig.tools?.length || 0} tools is slow. Consider using Ollama or a larger model for better performance.`,
-      );
-      // Add to history and return successfully (don't throw error)
+    // Special handling for llama.cpp responses:
+    // llama.cpp/vLLM often doesn't send finish_reason even when generation completes naturally.
+    // If using llama.cpp and we got meaningful text (regardless of finish reason),
+    // accept it as a valid response.
+    if (isLlamaCpp && hasTools && responseText.length > 0) {
+      if (!hasFinishReason) {
+        console.log(
+          `[LLAMA.CPP] Accepting response (${chunkCount} chunks, ${responseText.length} chars) without finish_reason (llama.cpp often omits this).`,
+        );
+      }
+      // Add to history and return successfully
       this.history.push({ role: 'model', parts: consolidatedParts });
       return;
     }

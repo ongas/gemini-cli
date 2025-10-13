@@ -837,12 +837,23 @@ export class GeminiChat {
 
     // Timeout strategy:
     // - Ollama: 90s for first chunk (model loading), then 30s for subsequent chunks
+    // - llama.cpp with tools: 90s for first chunk, then 60s for subsequent (slower processing)
     // - Flash fallback: 10s (throttling usually fails fast)
     // - Pro/others: 30s
+
+    // Detect if we're using llama.cpp
+    let contentGen: any = this.config.getContentGenerator();
+    if (contentGen && typeof contentGen.getWrapped === 'function') {
+      contentGen = contentGen.getWrapped();
+    }
+    const isLlamaCpp = contentGen.constructor.name === 'LlamaCppContentGenerator';
+    const hasTools = (this.generationConfig.tools?.length || 0) > 0;
+
     const FIRST_CHUNK_TIMEOUT_MS = isOllama ? 90000 : 30000; // 90s for Ollama first load
-    const SUBSEQUENT_CHUNK_TIMEOUT_MS = this.config.isInFallbackMode()
-      ? 10000
-      : 30000; // 10s for Flash, 30s for others
+    const SUBSEQUENT_CHUNK_TIMEOUT_MS =
+      isLlamaCpp && hasTools ? 60000 : // llama.cpp with tools gets 60s (slow tool processing)
+      this.config.isInFallbackMode() ? 10000 : // Flash fallback: 10s
+      30000; // Others: 30s
     const MAX_CHUNKS = 1000; // Maximum chunks to prevent infinite loops
     let chunkCount = 0;
     const streamIterator = this.stopBeforeSecondMutator(streamResponse);
@@ -1051,23 +1062,46 @@ python -m vllm.entrypoints.openai.api_server \\
   --host 0.0.0.0 --port ${port}`
             : `ollama serve`;
 
-          // Build agent-aware guidance for llama.cpp timeouts
-          let errorMessage = `❌ LOCAL LLM ERROR: Stream timed out without receiving any response\n\nServer type: ${serverType}\nModel: ${model}\n`;
+          // Check if we got partial response (stream started but timed out mid-response)
+          const gotPartialResponse = responseText.length > 0;
+
+          // Build agent-aware guidance based on whether we got a partial response
+          let errorMessage = gotPartialResponse
+            ? `❌ LOCAL LLM ERROR: Stream timed out mid-response (${chunkCount} chunks received, ${responseText.length} chars)\n\nServer type: ${serverType}\nModel: ${model}\n`
+            : `❌ LOCAL LLM ERROR: Stream timed out without receiving any response\n\nServer type: ${serverType}\nModel: ${model}\n`;
 
           if (isLlamaCpp) {
-            errorMessage +=
-              `\n⚠️  LIKELY CAUSE: 7B models cannot handle tool calling\n` +
-              `Qwen2.5-Coder-7B times out when processing function/tool schemas.\n\n` +
-              `SOLUTIONS:\n` +
-              `  1. Use Ollama instead (supports tools with 7B models):\n` +
-              `     ollama pull qwen2.5-coder:7b\n` +
-              `     Then use agent: ollama-coder\n\n` +
-              `  2. Use a larger model with llama.cpp (32B+):\n` +
-              `     python -m vllm.entrypoints.openai.api_server \\\n` +
-              `       --model Qwen/Qwen2.5-Coder-32B-Instruct \\\n` +
-              `       --host 0.0.0.0 --port ${port}\n\n` +
-              `  3. Use simplified agent without tools:\n` +
-              `     Agent: llamacpp-coder (Q&A only, no file operations)\n`;
+            if (gotPartialResponse) {
+              // Model is responding but very slowly - likely struggling with tools
+              errorMessage +=
+                `\n⚠️  LIKELY CAUSE: 7B model is too slow with tool calling\n` +
+                `The model responded but couldn't finish processing ${this.generationConfig.tools?.length || 0} tools within the timeout.\n\n` +
+                `SOLUTIONS:\n` +
+                `  1. Use Ollama instead (faster tool handling with 7B models):\n` +
+                `     ollama pull qwen2.5-coder:7b\n` +
+                `     Then use agent: ollama-coder\n\n` +
+                `  2. Use a larger, faster model with llama.cpp (32B+):\n` +
+                `     python -m vllm.entrypoints.openai.api_server \\\n` +
+                `       --model Qwen/Qwen2.5-Coder-32B-Instruct \\\n` +
+                `       --host 0.0.0.0 --port ${port}\n\n` +
+                `  3. Use simplified agent without tools:\n` +
+                `     Agent: llamacpp-coder (Q&A only, no file operations)\n`;
+            } else {
+              // Model never responded - likely cannot handle tools at all
+              errorMessage +=
+                `\n⚠️  LIKELY CAUSE: 7B models cannot handle tool calling\n` +
+                `Qwen2.5-Coder-7B times out when processing function/tool schemas.\n\n` +
+                `SOLUTIONS:\n` +
+                `  1. Use Ollama instead (supports tools with 7B models):\n` +
+                `     ollama pull qwen2.5-coder:7b\n` +
+                `     Then use agent: ollama-coder\n\n` +
+                `  2. Use a larger model with llama.cpp (32B+):\n` +
+                `     python -m vllm.entrypoints.openai.api_server \\\n` +
+                `       --model Qwen/Qwen2.5-Coder-32B-Instruct \\\n` +
+                `       --host 0.0.0.0 --port ${port}\n\n` +
+                `  3. Use simplified agent without tools:\n` +
+                `     Agent: llamacpp-coder (Q&A only, no file operations)\n`;
+            }
           }
 
           errorMessage +=
@@ -1081,7 +1115,9 @@ python -m vllm.entrypoints.openai.api_server \\
             `  # Test with simple request:\n` +
             `  ${curlExample}`;
 
-          throw new InvalidStreamError(errorMessage, 'NO_FINISH_REASON');
+          // Don't retry if we got a partial response - the model is fundamentally too slow
+          // Retrying will just hit the same timeout and cause duplicate responses
+          throw new InvalidStreamError(errorMessage, 'NO_FINISH_REASON', undefined, !gotPartialResponse);
         }
 
         throw new InvalidStreamError(

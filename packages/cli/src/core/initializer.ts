@@ -33,7 +33,9 @@ export async function initializeApp(
   config: Config,
   settings: LoadedSettings,
 ): Promise<InitializationResult> {
-  console.log(`[DEBUG initializer] Auth type from settings: ${settings.merged.security?.auth?.selectedType}`);
+  console.log(
+    `[DEBUG initializer] Auth type from settings: ${settings.merged.security?.auth?.selectedType}`,
+  );
   const authError = await performInitialAuth(
     config,
     settings.merged.security?.auth?.selectedType,

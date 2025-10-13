@@ -294,7 +294,7 @@ export async function main() {
       const geminiAgentsDir = path.join(cwd, '.gemini', 'agents');
 
       // Start with built-in agents
-      const agents: any[] = [CodebaseInvestigatorAgent];
+      const agents: unknown[] = [CodebaseInvestigatorAgent];
 
       // Load custom agents from .gemini/agents/
       if (fs.existsSync(geminiAgentsDir)) {
@@ -470,10 +470,14 @@ export async function main() {
           }
           settings.merged.security.auth.selectedType = 'ollama';
           console.log(`\n🤖 Using ${argv.agent} agent (Ollama: ${model})`);
-          console.log(`[DEBUG] Set security.auth.selectedType to: ${settings.merged.security.auth.selectedType}\n`);
+          console.log(
+            `[DEBUG] Set security.auth.selectedType to: ${settings.merged.security.auth.selectedType}\n`,
+          );
         } else if (model) {
           process.env['GEMINI_MODEL'] = model;
-          console.log(`\n🤖 Using ${argv.agent} agent (${provider}: ${model})\n`);
+          console.log(
+            `\n🤖 Using ${argv.agent} agent (${provider}: ${model})\n`,
+          );
         }
       }
     } catch (error) {

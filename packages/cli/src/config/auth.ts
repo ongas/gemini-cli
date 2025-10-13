@@ -39,9 +39,9 @@ export function validateAuthMethod(authMethod: string): string | null {
     return null;
   }
 
-  if (authMethod === AuthType.OLLAMA) {
-    // Ollama doesn't require any environment variables - it uses localhost by default
-    // Users can optionally set OLLAMA_BASE_URL to use a different endpoint
+  if (authMethod === AuthType.LOCAL) {
+    // Local LLM servers (Ollama, llama.cpp) don't require any environment variables - they use localhost by default
+    // Users can optionally set OLLAMA_BASE_URL or LLAMACPP_BASE_URL to use a different endpoint
     return null;
   }
 

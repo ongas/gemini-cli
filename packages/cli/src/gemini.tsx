@@ -468,8 +468,22 @@ export async function main() {
           if (!settings.merged.security.auth) {
             settings.merged.security.auth = {};
           }
-          settings.merged.security.auth.selectedType = 'ollama';
+          settings.merged.security.auth.selectedType = 'local';
           console.log(`\n🤖 Using ${argv.agent} agent (Ollama: ${model})`);
+          console.log(
+            `[DEBUG] Set security.auth.selectedType to: ${settings.merged.security.auth.selectedType}\n`,
+          );
+        } else if (provider === 'llamacpp' && model) {
+          process.env['GEMINI_MODEL'] = model;
+          // Set auth type for llama.cpp (use local auth type for local servers)
+          if (!settings.merged.security) {
+            settings.merged.security = {};
+          }
+          if (!settings.merged.security.auth) {
+            settings.merged.security.auth = {};
+          }
+          settings.merged.security.auth.selectedType = 'local';
+          console.log(`\n🤖 Using ${argv.agent} agent (llama.cpp: ${model})`);
           console.log(
             `[DEBUG] Set security.auth.selectedType to: ${settings.merged.security.auth.selectedType}\n`,
           );

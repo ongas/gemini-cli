@@ -47,7 +47,7 @@ export enum AuthType {
   USE_GEMINI = 'gemini-api-key',
   USE_VERTEX_AI = 'vertex-ai',
   CLOUD_SHELL = 'cloud-shell',
-  OLLAMA = 'ollama',
+  LOCAL = 'local',
 }
 
 export type ContentGeneratorConfig = {
@@ -109,10 +109,10 @@ export async function createContentGenerator(
     `[DEBUG createContentGenerator] Received auth type: ${config.authType}`,
   );
   console.log(
-    `[DEBUG createContentGenerator] AuthType.OLLAMA = ${AuthType.OLLAMA}`,
+    `[DEBUG createContentGenerator] AuthType.LOCAL = ${AuthType.LOCAL}`,
   );
   console.log(
-    `[DEBUG createContentGenerator] Match? ${config.authType === AuthType.OLLAMA}`,
+    `[DEBUG createContentGenerator] Match? ${config.authType === AuthType.LOCAL}`,
   );
   console.log(`[DEBUG createContentGenerator] Stack:\n${new Error().stack}`);
   const version = process.env['CLI_VERSION'] || process.version;
@@ -160,7 +160,7 @@ export async function createContentGenerator(
     return new LoggingContentGenerator(googleGenAI.models, gcConfig);
   }
 
-  if (config.authType === AuthType.OLLAMA) {
+  if (config.authType === AuthType.LOCAL) {
     const ollamaBaseUrl = config.ollamaBaseUrl || 'http://localhost:11434';
     return new LoggingContentGenerator(
       new OllamaContentGenerator(ollamaBaseUrl, gcConfig),

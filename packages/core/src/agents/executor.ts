@@ -322,7 +322,7 @@ export class AgentExecutor<TOutput extends z.ZodTypeAny> {
 
       // Override getContentGeneratorConfig to return Ollama config
       providerConfig.getContentGeneratorConfig = () => ({
-        authType: AuthType.OLLAMA,
+        authType: AuthType.LOCAL,
         ollamaBaseUrl,
       });
     } else if (provider === 'llamacpp') {
@@ -341,7 +341,7 @@ export class AgentExecutor<TOutput extends z.ZodTypeAny> {
 
       // Override getContentGeneratorConfig to return llama.cpp config
       providerConfig.getContentGeneratorConfig = () => ({
-        authType: AuthType.OLLAMA, // Use OLLAMA auth type for local server
+        authType: AuthType.LOCAL, // Use LOCAL auth type for local server
         ollamaBaseUrl: llamaCppBaseUrl, // Reuse ollamaBaseUrl field for llama.cpp URL
       });
     } else {

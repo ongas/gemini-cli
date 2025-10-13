@@ -19,7 +19,7 @@ function getAuthTypeFromEnv(): AuthType | undefined {
     return AuthType.USE_VERTEX_AI;
   }
   if (process.env['OLLAMA_BASE_URL'] || process.env['USE_OLLAMA'] === 'true') {
-    return AuthType.OLLAMA;
+    return AuthType.LOCAL;
   }
   if (process.env['GEMINI_API_KEY']) {
     return AuthType.USE_GEMINI;

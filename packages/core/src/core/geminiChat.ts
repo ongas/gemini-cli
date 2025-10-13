@@ -797,9 +797,9 @@ export class GeminiChat {
     let hasFinishReason = false;
     let lastFinishReason: FinishReason | undefined;
 
-    // Detect Ollama for longer first-chunk timeout (model loading)
+    // Detect local LLM server for longer first-chunk timeout (model loading)
     const authType = this.config.getContentGeneratorConfig()?.authType;
-    const isOllama = authType === 'ollama';
+    const isOllama = authType === 'local';
 
     // Timeout strategy:
     // - Ollama: 90s for first chunk (model loading), then 30s for subsequent chunks

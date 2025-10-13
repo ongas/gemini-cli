@@ -343,17 +343,39 @@ export class LlamaCppContentGenerator implements ContentGenerator {
       tool_choice: request.config?.tools ? 'auto' : undefined,
     };
 
-    const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(llamaCppRequest),
-    });
+    let response;
+    try {
+      response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(llamaCppRequest),
+      });
+    } catch (error) {
+      throw new Error(
+        `❌ LOCAL LLM ERROR: Cannot connect to llama.cpp server at ${this.baseUrl}\n\n` +
+          `Troubleshooting:\n` +
+          `  1. Check if llama.cpp server is running:\n` +
+          `     curl ${this.baseUrl}/health\n\n` +
+          `  2. Start llama.cpp server if needed:\n` +
+          `     llama-server --model /path/to/model.gguf --port 8000\n\n` +
+          `  3. Check LLAMACPP_BASE_URL environment variable\n\n` +
+          `Original error: ${error}`,
+      );
+    }
 
     if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Unknown error');
       throw new Error(
-        `llama.cpp API error: ${response.status} ${response.statusText}`,
+        `❌ LOCAL LLM ERROR: llama.cpp API returned ${response.status} ${response.statusText}\n\n` +
+          `Server URL: ${this.baseUrl}/v1/chat/completions\n` +
+          `Model: ${request.model}\n\n` +
+          `Response: ${errorText}\n\n` +
+          `Troubleshooting:\n` +
+          `  • Verify the model is loaded in llama.cpp\n` +
+          `  • Check server logs for errors\n` +
+          `  • Try: curl ${this.baseUrl}/v1/models`,
       );
     }
 
@@ -410,28 +432,56 @@ export class LlamaCppContentGenerator implements ContentGenerator {
     };
 
     async function* streamGenerator(): AsyncGenerator<GenerateContentResponse> {
-      const response = await fetch(`${baseUrl}/v1/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(llamaCppRequest),
-      });
+      let response;
+      try {
+        response = await fetch(`${baseUrl}/v1/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(llamaCppRequest),
+        });
+      } catch (error) {
+        throw new Error(
+          `❌ LOCAL LLM ERROR: Cannot connect to llama.cpp server at ${baseUrl}\n\n` +
+            `Troubleshooting:\n` +
+            `  1. Check if llama.cpp server is running:\n` +
+            `     curl ${baseUrl}/health\n\n` +
+            `  2. Start llama.cpp server if needed:\n` +
+            `     llama-server --model /path/to/model.gguf --port 8000\n\n` +
+            `  3. Check LLAMACPP_BASE_URL environment variable\n\n` +
+            `Original error: ${error}`,
+        );
+      }
 
       if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
         throw new Error(
-          `llama.cpp API error: ${response.status} ${response.statusText}`,
+          `❌ LOCAL LLM ERROR: llama.cpp API returned ${response.status} ${response.statusText}\n\n` +
+            `Server URL: ${baseUrl}/v1/chat/completions\n` +
+            `Model: ${llamaCppRequest.model}\n\n` +
+            `Response: ${errorText}\n\n` +
+            `Troubleshooting:\n` +
+            `  • Verify the model is loaded in llama.cpp\n` +
+            `  • Check server logs for errors\n` +
+            `  • Try: curl ${baseUrl}/v1/models`,
         );
       }
 
       // llama.cpp streams Server-Sent Events (SSE) format
       const reader = response.body?.getReader();
       if (!reader) {
-        throw new Error('No response body from llama.cpp');
+        throw new Error(
+          `❌ LOCAL LLM ERROR: No response body from llama.cpp server\n\n` +
+            `This usually indicates a server configuration issue.\n` +
+            `Check llama.cpp server logs for details.`,
+        );
       }
 
       const decoder = new TextDecoder();
       let buffer = '';
+      let chunksReceived = 0;
+      let hasFinishReason = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -446,20 +496,48 @@ export class LlamaCppContentGenerator implements ContentGenerator {
           if (trimmed.startsWith('data: ')) {
             const data = trimmed.slice(6); // Remove 'data: ' prefix
             if (data === '[DONE]') {
+              if (!hasFinishReason) {
+                console.warn(
+                  `⚠️  LOCAL LLM WARNING: Stream ended with [DONE] but no finish_reason was received.\n` +
+                    `This may indicate the model stopped generating unexpectedly.\n` +
+                    `Chunks received: ${chunksReceived}`,
+                );
+              }
               return;
             }
             try {
               const chunk: LlamaCppStreamChunk = JSON.parse(data);
+              chunksReceived++;
+
+              // Track if we've seen a finish_reason
+              if (chunk.choices[0]?.finish_reason === 'stop') {
+                hasFinishReason = true;
+              }
+
               yield convertStreamChunkToGeminiResponse(chunk);
             } catch (error) {
               console.warn(
-                'Failed to parse llama.cpp stream chunk:',
-                data,
-                error,
+                `⚠️  LOCAL LLM WARNING: Failed to parse stream chunk (chunk #${chunksReceived}):\n`,
+                `Data: ${data.substring(0, 200)}...\n`,
+                `Error: ${error}`,
               );
             }
           }
         }
+      }
+
+      // Stream ended without [DONE]
+      if (!hasFinishReason) {
+        console.error(
+          `❌ LOCAL LLM ERROR: Stream ended unexpectedly without finish_reason\n\n` +
+            `Chunks received: ${chunksReceived}\n` +
+            `Server: ${baseUrl}\n\n` +
+            `This usually means:\n` +
+            `  • The model crashed or ran out of memory\n` +
+            `  • The server was interrupted\n` +
+            `  • Network connection was lost\n\n` +
+            `Check llama.cpp server logs for details.`,
+        );
       }
     }
 

@@ -257,17 +257,40 @@ export class OllamaContentGenerator implements ContentGenerator {
       tools: this.convertToOllamaTools(request.config?.tools),
     };
 
-    const response = await fetch(`${this.baseUrl}/api/chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(ollamaRequest),
-    });
+    let response;
+    try {
+      response = await fetch(`${this.baseUrl}/api/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(ollamaRequest),
+      });
+    } catch (error) {
+      throw new Error(
+        `❌ LOCAL LLM ERROR: Cannot connect to Ollama server at ${this.baseUrl}\n\n` +
+          `Troubleshooting:\n` +
+          `  1. Check if Ollama is running:\n` +
+          `     ollama list\n\n` +
+          `  2. Start Ollama if needed:\n` +
+          `     ollama serve\n\n` +
+          `  3. Check OLLAMA_BASE_URL environment variable\n` +
+          `     (default: http://localhost:11434)\n\n` +
+          `Original error: ${error}`,
+      );
+    }
 
     if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Unknown error');
       throw new Error(
-        `Ollama API error: ${response.status} ${response.statusText}`,
+        `❌ LOCAL LLM ERROR: Ollama API returned ${response.status} ${response.statusText}\n\n` +
+          `Server URL: ${this.baseUrl}/api/chat\n` +
+          `Model: ${request.model}\n\n` +
+          `Response: ${errorText}\n\n` +
+          `Troubleshooting:\n` +
+          `  • Verify the model exists: ollama list\n` +
+          `  • Pull the model if needed: ollama pull ${request.model}\n` +
+          `  • Check Ollama logs for errors`,
       );
     }
 
@@ -324,28 +347,57 @@ export class OllamaContentGenerator implements ContentGenerator {
     };
 
     async function* streamGenerator(): AsyncGenerator<GenerateContentResponse> {
-      const response = await fetch(`${baseUrl}/api/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(ollamaRequest),
-      });
+      let response;
+      try {
+        response = await fetch(`${baseUrl}/api/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(ollamaRequest),
+        });
+      } catch (error) {
+        throw new Error(
+          `❌ LOCAL LLM ERROR: Cannot connect to Ollama server at ${baseUrl}\n\n` +
+            `Troubleshooting:\n` +
+            `  1. Check if Ollama is running:\n` +
+            `     ollama list\n\n` +
+            `  2. Start Ollama if needed:\n` +
+            `     ollama serve\n\n` +
+            `  3. Check OLLAMA_BASE_URL environment variable\n` +
+            `     (default: http://localhost:11434)\n\n` +
+            `Original error: ${error}`,
+        );
+      }
 
       if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
         throw new Error(
-          `Ollama API error: ${response.status} ${response.statusText}`,
+          `❌ LOCAL LLM ERROR: Ollama API returned ${response.status} ${response.statusText}\n\n` +
+            `Server URL: ${baseUrl}/api/chat\n` +
+            `Model: ${ollamaRequest.model}\n\n` +
+            `Response: ${errorText}\n\n` +
+            `Troubleshooting:\n` +
+            `  • Verify the model exists: ollama list\n` +
+            `  • Pull the model if needed: ollama pull ${ollamaRequest.model}\n` +
+            `  • Check Ollama logs for errors`,
         );
       }
 
       // Ollama streams newline-delimited JSON
       const reader = response.body?.getReader();
       if (!reader) {
-        throw new Error('No response body from Ollama');
+        throw new Error(
+          `❌ LOCAL LLM ERROR: No response body from Ollama server\n\n` +
+            `This usually indicates a server configuration issue.\n` +
+            `Check Ollama logs for details.`,
+        );
       }
 
       const decoder = new TextDecoder();
       let buffer = '';
+      let chunksReceived = 0;
+      let hasFinishReason = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -359,16 +411,32 @@ export class OllamaContentGenerator implements ContentGenerator {
           if (line.trim()) {
             try {
               const ollamaResponse: OllamaResponse = JSON.parse(line);
+              chunksReceived++;
+
+              // Track if we've seen done=true
+              if (ollamaResponse.done) {
+                hasFinishReason = true;
+              }
+
               yield convertToGeminiResponse(ollamaResponse);
             } catch (error) {
               console.warn(
-                'Failed to parse Ollama response line:',
-                line,
-                error,
+                `⚠️  LOCAL LLM WARNING: Failed to parse Ollama response (chunk #${chunksReceived}):\n`,
+                `Data: ${line.substring(0, 200)}...\n`,
+                `Error: ${error}`,
               );
             }
           }
         }
+      }
+
+      // Check if stream completed properly
+      if (!hasFinishReason) {
+        console.warn(
+          `⚠️  LOCAL LLM WARNING: Ollama stream ended without done=true\n` +
+            `Chunks received: ${chunksReceived}\n` +
+            `This may indicate the model stopped generating unexpectedly.`,
+        );
       }
     }
 

@@ -255,32 +255,53 @@ class EditToolInvocation implements ToolInvocation<EditToolParams, ToolResult> {
     const logPath = '/tmp/gemini-edit-shouldconfirm-debug.log';
     const timestamp = new Date().toISOString();
 
-    fs.appendFileSync(logPath, `${timestamp} - shouldConfirmExecute START for ${this.params.file_path}\n`);
+    fs.appendFileSync(
+      logPath,
+      `${timestamp} - shouldConfirmExecute START for ${this.params.file_path}\n`,
+    );
 
     const currentMode = this.config.getApprovalMode();
-    fs.appendFileSync(logPath, `${timestamp} - Current approval mode: ${currentMode}\n`);
+    fs.appendFileSync(
+      logPath,
+      `${timestamp} - Current approval mode: ${currentMode}\n`,
+    );
 
     if (currentMode === ApprovalMode.AUTO_EDIT) {
-      fs.appendFileSync(logPath, `${timestamp} - Skipping confirmation (AUTO_EDIT mode)\n`);
+      fs.appendFileSync(
+        logPath,
+        `${timestamp} - Skipping confirmation (AUTO_EDIT mode)\n`,
+      );
       return false;
     }
 
     // Check persistent approvals
     const approvalStorage = this.config.getApprovalStorage();
-    fs.appendFileSync(logPath, `${timestamp} - Got approvalStorage, calling isKindApproved\n`);
+    fs.appendFileSync(
+      logPath,
+      `${timestamp} - Got approvalStorage, calling isKindApproved\n`,
+    );
 
     const kindApproval = await approvalStorage.isKindApproved(Kind.Edit);
-    fs.appendFileSync(logPath, `${timestamp} - isKindApproved result: ${kindApproval}\n`);
+    fs.appendFileSync(
+      logPath,
+      `${timestamp} - isKindApproved result: ${kindApproval}\n`,
+    );
 
     if (kindApproval) {
       // Also set session-level approval for performance
       fs.appendFileSync(logPath, `${timestamp} - Setting AUTO_EDIT mode\n`);
       this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
-      fs.appendFileSync(logPath, `${timestamp} - Returning false (no confirmation needed)\n`);
+      fs.appendFileSync(
+        logPath,
+        `${timestamp} - Returning false (no confirmation needed)\n`,
+      );
       return false;
     }
 
-    fs.appendFileSync(logPath, `${timestamp} - No persistent approval found, will show confirmation\n`);
+    fs.appendFileSync(
+      logPath,
+      `${timestamp} - No persistent approval found, will show confirmation\n`,
+    );
 
     let editData: CalculatedEdit;
     try {

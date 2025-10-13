@@ -141,7 +141,11 @@ export const useGeminiStream = (
           if (writeTodosTools.length > 0) {
             // Get the most recent WriteTodosTool call
             const latestTodoTool = writeTodosTools[writeTodosTools.length - 1];
-            const todosParam = (latestTodoTool.request.args as { todos?: Array<{ description: string; status: string }> })?.todos;
+            const todosParam = (
+              latestTodoTool.request.args as {
+                todos?: Array<{ description: string; status: string }>;
+              }
+            )?.todos;
 
             if (todosParam && Array.isArray(todosParam)) {
               // Helper function to convert to active/present continuous form
@@ -197,7 +201,9 @@ export const useGeminiStream = (
                 status: todo.status as 'pending' | 'in_progress' | 'completed',
               }));
 
-              const currentTaskId = todoItems.find((t) => t.status === 'in_progress')?.id;
+              const currentTaskId = todoItems.find(
+                (t) => t.status === 'in_progress',
+              )?.id;
 
               setTodoChecklist({
                 todos: todoItems,

@@ -797,8 +797,18 @@ export class GeminiChat {
     let hasFinishReason = false;
     let lastFinishReason: FinishReason | undefined;
 
-    // Use shorter timeout in fallback mode since Flash throttling often results in no chunks at all
-    const CHUNK_TIMEOUT_MS = this.config.isInFallbackMode() ? 10000 : 30000; // 10s for Flash, 30s for Pro
+    // Detect Ollama for longer first-chunk timeout (model loading)
+    const authType = this.config.getContentGeneratorConfig()?.authType;
+    const isOllama = authType === 'ollama';
+
+    // Timeout strategy:
+    // - Ollama: 90s for first chunk (model loading), then 30s for subsequent chunks
+    // - Flash fallback: 10s (throttling usually fails fast)
+    // - Pro/others: 30s
+    const FIRST_CHUNK_TIMEOUT_MS = isOllama ? 90000 : 30000; // 90s for Ollama first load
+    const SUBSEQUENT_CHUNK_TIMEOUT_MS = this.config.isInFallbackMode()
+      ? 10000
+      : 30000; // 10s for Flash, 30s for others
     const MAX_CHUNKS = 1000; // Maximum chunks to prevent infinite loops
     let chunkCount = 0;
     const streamIterator = this.stopBeforeSecondMutator(streamResponse);
@@ -817,11 +827,17 @@ export class GeminiChat {
 
         console.log('[STREAM DEBUG] Waiting for next chunk...');
         // Wrap each chunk read with a timeout
+        // Use longer timeout for first chunk (Ollama model loading), shorter for subsequent
+        const chunkTimeout =
+          chunkCount === 1
+            ? FIRST_CHUNK_TIMEOUT_MS
+            : SUBSEQUENT_CHUNK_TIMEOUT_MS;
+
         const timeoutPromise = new Promise<{ done: true; value: undefined }>(
           (_, reject) =>
             setTimeout(
               () => reject(new Error('Stream chunk timeout')),
-              CHUNK_TIMEOUT_MS,
+              chunkTimeout,
             ),
         );
 
@@ -832,8 +848,9 @@ export class GeminiChat {
           result = await Promise.race([chunkPromise, timeoutPromise]);
           console.log('[STREAM DEBUG] Chunk received, done:', result.done);
         } catch (_timeoutError) {
+          const timeoutSeconds = Math.round(chunkTimeout / 1000);
           console.warn(
-            '[STREAM DEBUG] Stream stalled - no chunks received for 30 seconds. Treating as incomplete stream.',
+            `[STREAM DEBUG] Stream stalled - no chunks received for ${timeoutSeconds} seconds. Treating as incomplete stream.`,
           );
           // Stream stalled, break out and handle validation below
           break;

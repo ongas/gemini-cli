@@ -454,11 +454,13 @@ export async function main() {
         const yaml = yamlMatch[1];
         const providerMatch = yaml.match(/^Provider:\s*(.+)$/m);
         const modelMatch = yaml.match(/^Model:\s*(.+)$/m);
+        const toolsMatch = yaml.match(/^Tools:\s*(.+)$/m);
 
         const provider = providerMatch
           ? providerMatch[1].trim().toLowerCase()
           : 'gemini';
         const model = modelMatch ? modelMatch[1].trim() : undefined;
+        const tools = toolsMatch ? toolsMatch[1].trim() : undefined;
 
         // Override the model and auth based on provider
         if (provider === 'ollama' && model) {
@@ -487,6 +489,11 @@ export async function main() {
           settings.merged.security.auth.selectedType = 'local';
         } else if (model) {
           process.env['GEMINI_MODEL'] = model;
+        }
+
+        // Set tools for agent-specific tool filtering
+        if (tools && tools !== 'all') {
+          process.env['AGENT_TOOLS'] = tools;
         }
       }
     } catch (error) {

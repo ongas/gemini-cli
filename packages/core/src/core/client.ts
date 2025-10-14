@@ -10,6 +10,7 @@ import type {
   Content,
   Tool,
   GenerateContentResponse,
+  FunctionDeclaration,
 } from '@google/genai';
 import {
   getDirectoryContextString,
@@ -190,7 +191,24 @@ export class GeminiClient {
 
   async setTools(): Promise<void> {
     const toolRegistry = this.config.getToolRegistry();
-    const toolDeclarations = toolRegistry.getFunctionDeclarations();
+
+    // Check if agent specified specific tools to use
+    const agentTools = process.env['AGENT_TOOLS'];
+    let toolDeclarations: FunctionDeclaration[];
+
+    if (agentTools) {
+      // Filter to only the tools specified by the agent
+      const toolNames = agentTools.split(',').map((t: string) => t.trim());
+      toolDeclarations =
+        toolRegistry.getFunctionDeclarationsFiltered(toolNames);
+      console.log(
+        `[AGENT TOOLS] Filtered to ${toolDeclarations.length} tools: ${toolNames.join(', ')}`,
+      );
+    } else {
+      // Use all available tools
+      toolDeclarations = toolRegistry.getFunctionDeclarations();
+    }
+
     const tools: Tool[] = [{ functionDeclarations: toolDeclarations }];
     this.getChat().setTools(tools);
   }
@@ -224,7 +242,24 @@ export class GeminiClient {
     const envParts = await getEnvironmentContext(this.config);
 
     const toolRegistry = this.config.getToolRegistry();
-    const toolDeclarations = toolRegistry.getFunctionDeclarations();
+
+    // Check if agent specified specific tools to use
+    const agentTools = process.env['AGENT_TOOLS'];
+    let toolDeclarations: FunctionDeclaration[];
+
+    if (agentTools) {
+      // Filter to only the tools specified by the agent
+      const toolNames = agentTools.split(',').map((t: string) => t.trim());
+      toolDeclarations =
+        toolRegistry.getFunctionDeclarationsFiltered(toolNames);
+      console.log(
+        `[AGENT TOOLS] Filtered to ${toolDeclarations.length} tools: ${toolNames.join(', ')}`,
+      );
+    } else {
+      // Use all available tools
+      toolDeclarations = toolRegistry.getFunctionDeclarations();
+    }
+
     const tools: Tool[] = [{ functionDeclarations: toolDeclarations }];
 
     const history: Content[] = [

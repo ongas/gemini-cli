@@ -138,6 +138,90 @@ export class LlamaCppContentGenerator implements ContentGenerator {
   }
 
   /**
+   * Recursively remove empty nested objects from schema properties
+   * llama.cpp's JSON schema parser rejects empty objects like {"result": {}}
+   */
+  private cleanEmptyProperties(
+    obj: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const cleaned: Record<string, unknown> = {};
+    const removedKeys: string[] = [];
+
+    for (const [key, value] of Object.entries(obj)) {
+      if (key === 'properties' && typeof value === 'object' && value !== null) {
+        // Handle the properties object specially
+        const props = value as Record<string, unknown>;
+        const cleanedProps: Record<string, unknown> = {};
+
+        for (const [propKey, propValue] of Object.entries(props)) {
+          // Skip properties that are empty objects
+          if (
+            typeof propValue === 'object' &&
+            propValue !== null &&
+            !Array.isArray(propValue) &&
+            Object.keys(propValue).length === 0
+          ) {
+            console.log(
+              `[LLAMACPP TOOLS DEBUG] Removing empty property: ${propKey}`,
+            );
+            removedKeys.push(propKey);
+            continue;
+          }
+
+          // Recursively clean nested objects
+          if (
+            typeof propValue === 'object' &&
+            propValue !== null &&
+            !Array.isArray(propValue)
+          ) {
+            cleanedProps[propKey] = this.cleanEmptyProperties(
+              propValue as Record<string, unknown>,
+            );
+          } else {
+            cleanedProps[propKey] = propValue;
+          }
+        }
+
+        // Only include properties if it's not empty after cleaning
+        if (Object.keys(cleanedProps).length > 0) {
+          cleaned[key] = cleanedProps;
+        } else {
+          console.log(
+            `[LLAMACPP TOOLS DEBUG] Removing empty properties object`,
+          );
+        }
+      } else if (
+        key === 'required' &&
+        Array.isArray(value) &&
+        removedKeys.length > 0
+      ) {
+        // Filter out any removed keys from the required array
+        const cleanedRequired = value.filter(
+          (req) => !removedKeys.includes(req as string),
+        );
+        if (cleanedRequired.length > 0) {
+          cleaned[key] = cleanedRequired;
+        } else {
+          console.log(`[LLAMACPP TOOLS DEBUG] Removing empty required array`);
+        }
+      } else if (
+        typeof value === 'object' &&
+        value !== null &&
+        !Array.isArray(value)
+      ) {
+        // Recursively clean other nested objects
+        cleaned[key] = this.cleanEmptyProperties(
+          value as Record<string, unknown>,
+        );
+      } else {
+        cleaned[key] = value;
+      }
+    }
+
+    return cleaned;
+  }
+
+  /**
    * Convert Gemini Tool format to llama.cpp format
    */
   private convertToLlamaCppTools(
@@ -167,12 +251,42 @@ export class LlamaCppContentGenerator implements ContentGenerator {
 
       for (const decl of tool.functionDeclarations) {
         console.log(`[LLAMACPP TOOLS DEBUG]   - Converting ${decl.name}`);
+
+        let parameters = (decl.parameters as Record<string, unknown>) || {};
+
+        // Fix empty nested objects that llama.cpp can't handle
+        // Recursively clean up any properties that are empty objects
+        parameters = this.cleanEmptyProperties(parameters);
+
+        // If we end up with an empty schema after cleaning (no properties, no required),
+        // llama.cpp will reject it. Provide a minimal valid schema with a dummy optional parameter.
+        if (
+          parameters.type === 'OBJECT' &&
+          !parameters.properties &&
+          !parameters.required
+        ) {
+          console.log(
+            `[LLAMACPP TOOLS DEBUG] Converting ${decl.name} to minimal schema with dummy parameter`,
+          );
+          // llama.cpp rejects completely empty schemas, so add a dummy optional parameter
+          parameters = {
+            type: 'object',
+            properties: {
+              _dummy: {
+                type: 'string',
+                description: 'Unused parameter (can be omitted)',
+              },
+            },
+            // Don't make it required - it's truly optional
+          };
+        }
+
         result.push({
           type: 'function' as const,
           function: {
             name: decl.name || 'unknown',
             description: decl.description || '',
-            parameters: (decl.parameters as Record<string, unknown>) || {},
+            parameters,
           },
         });
       }

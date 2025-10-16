@@ -626,6 +626,39 @@ export class GrepTool extends BaseDeclarativeTool<GrepToolParams, ToolResult> {
   }
 
   /**
+   * Escapes regex special characters in a string to make it literal
+   * @param str The string to escape
+   * @returns The escaped string safe for use in a regex
+   */
+  private escapeRegexSpecialChars(str: string): string {
+    // Escape all regex special characters
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  /**
+   * Attempts to fix common regex errors by escaping special characters
+   * @param pattern The original pattern
+   * @returns The sanitized pattern that should work as a regex
+   */
+  private sanitizePattern(pattern: string): string {
+    try {
+      // First, try the pattern as-is
+      new RegExp(pattern);
+      return pattern; // It's valid, use it
+    } catch (error) {
+      // Pattern is invalid - try to fix it by escaping special chars
+      const escaped = this.escapeRegexSpecialChars(pattern);
+      try {
+        new RegExp(escaped);
+        return escaped; // Escaped version works
+      } catch {
+        // Even escaped version doesn't work, return original
+        return pattern;
+      }
+    }
+  }
+
+  /**
    * Validates the parameters for the tool
    * @param params Parameters to validate
    * @returns An error message string if invalid, null otherwise
@@ -633,10 +666,16 @@ export class GrepTool extends BaseDeclarativeTool<GrepToolParams, ToolResult> {
   protected override validateToolParamValues(
     params: GrepToolParams,
   ): string | null {
+    // Try to sanitize the pattern first
+    const sanitized = this.sanitizePattern(params.pattern);
+
     try {
-      new RegExp(params.pattern);
+      new RegExp(sanitized);
+      // Update the pattern with the sanitized version
+      params.pattern = sanitized;
     } catch (error) {
-      return `Invalid regular expression pattern provided: ${params.pattern}. Error: ${getErrorMessage(error)}`;
+      const errorMsg = getErrorMessage(error);
+      return `Invalid regular expression pattern: "${params.pattern}". Error: ${errorMsg}. Tip: Special regex characters like ( ) [ ] { } . * + ? ^ $ | \\ need to be escaped with a backslash (\\) for literal matching.`;
     }
 
     // Only validate path if one is provided

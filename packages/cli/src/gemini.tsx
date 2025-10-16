@@ -631,12 +631,12 @@ export async function main() {
   // to run Gemini CLI. It is now safe to perform expensive initialization that
   // may have side effects.
   {
+    const sessionId = randomUUID();
     const extensionEnablementManager = new ExtensionEnablementManager(
       ExtensionStorage.getUserExtensionsDir(),
       argv.extensions,
     );
     const extensions = loadExtensions(extensionEnablementManager);
-    const sessionId = randomUUID();
     const config = await loadCliConfig(
       settings.merged,
       extensions,

@@ -261,6 +261,7 @@ export class LlamaCppContentGenerator implements ContentGenerator {
         // If we end up with an empty schema after cleaning (no properties, no required),
         // llama.cpp will reject it. Provide a minimal valid schema with a dummy optional parameter.
         if (
+          decl.name !== 'complete_task' && // EXCEPTION: Do not add dummy parameter for 'complete_task' as it has a defined schema.
           parameters['type'] === 'OBJECT' &&
           !parameters['properties'] &&
           !parameters['required']

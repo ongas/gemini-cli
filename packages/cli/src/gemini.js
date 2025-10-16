@@ -34,7 +34,7 @@ import {
 } from './utils/cleanup.js';
 import { getCliVersion } from './utils/version.js';
 import { AuthType } from '@google/gemini-cli-core/src/core/contentGenerator';
-import { AgentDefinition } from '@google/gemini-cli-core';
+
 import { randomUUID } from 'node:crypto';
 import { initializeApp } from './core/initializer.js';
 import { validateAuthMethod } from './config/auth.js';

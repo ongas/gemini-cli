@@ -64,7 +64,7 @@ export const cleanupContextCommand: SlashCommand = {
           }
 
           const response = part.functionResponse.response;
-          const output = response?.output;
+          const output = response?.['output'];
 
           if (typeof output !== 'string' || output.length < 500) {
             return part; // Keep small outputs
@@ -121,9 +121,9 @@ export const cleanupContextCommand: SlashCommand = {
 /**
  * Estimates token count using 1 token ≈ 4 characters approximation
  */
-function estimateTokens(contents: unknown[]): number {
+function estimateTokens(contents: any[]): number {
   const totalChars = contents.reduce(
-    (sum, content) => sum + JSON.stringify(content).length,
+    (sum: number, content) => sum + JSON.stringify(content).length,
     0,
   );
   return Math.ceil(totalChars / 4);

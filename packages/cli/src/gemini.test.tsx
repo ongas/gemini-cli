@@ -311,6 +311,9 @@ describe('gemini.tsx main function kitty protocol', () => {
       allFiles: undefined,
       showMemoryUsage: undefined,
       yolo: undefined,
+      init: undefined,
+      listAgents: undefined,
+      agent: undefined,
       approvalMode: undefined,
       telemetry: undefined,
       checkpointing: undefined,
@@ -331,7 +334,6 @@ describe('gemini.tsx main function kitty protocol', () => {
       useWriteTodos: undefined,
       outputFormat: undefined,
       continueSession: undefined,
-      initStandards: undefined,
     });
 
     await main();

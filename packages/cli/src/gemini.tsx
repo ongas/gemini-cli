@@ -35,16 +35,15 @@ import {
 } from './utils/cleanup.js';
 import { getCliVersion } from './utils/version.js';
 import type { Config } from '@google/gemini-cli-core';
-import {
-  sessionId,
-  logUserPrompt,
-  AuthType,
-  getOauthClient,
-} from '@google/gemini-cli-core';
+import { AuthType } from '../../core/src/core/contentGenerator.js';
+import type { AgentDefinition } from '@google/gemini-cli-core';
+import { randomUUID } from 'node:crypto';
 import {
   initializeApp,
   type InitializationResult,
 } from './core/initializer.js';
+import { getOauthClient } from '../../core/src/code_assist/oauth2.js';
+import { logUserPrompt } from '../../core/src/telemetry/loggers.js';
 import { validateAuthMethod } from './config/auth.js';
 import { setMaxSizedBoxDebugging } from './ui/components/shared/MaxSizedBox.js';
 import { validateNonInteractiveAuth } from './validateNonInterActiveAuth.js';
@@ -398,7 +397,7 @@ export async function main() {
 
       console.log('\n📋 Available Agents:\n');
 
-      for (const agent of agents) {
+      for (const agent of agents as AgentDefinition[]) {
         const provider = agent.modelConfig.provider || 'gemini';
         const model = agent.modelConfig.model;
         const temp = agent.modelConfig.temp;
@@ -467,14 +466,14 @@ export async function main() {
           process.env['GEMINI_MODEL'] = model;
           // Set environment variable to indicate Ollama provider
           process.env['LOCAL_LLM_PROVIDER'] = 'ollama';
-          // Set auth type for Ollama in merged settings
+          // Set auth type for ollama (use local auth type for local servers)
           if (!settings.merged.security) {
             settings.merged.security = {};
           }
           if (!settings.merged.security.auth) {
             settings.merged.security.auth = {};
           }
-          settings.merged.security.auth.selectedType = 'local';
+          settings.merged.security.auth.selectedType = AuthType.LOCAL;
         } else if (provider === 'llamacpp' && model) {
           process.env['GEMINI_MODEL'] = model;
           // Set environment variable to indicate llama.cpp provider
@@ -486,7 +485,7 @@ export async function main() {
           if (!settings.merged.security.auth) {
             settings.merged.security.auth = {};
           }
-          settings.merged.security.auth.selectedType = 'local';
+          settings.merged.security.auth.selectedType = AuthType.LOCAL;
         } else if (model) {
           process.env['GEMINI_MODEL'] = model;
         }
@@ -557,6 +556,7 @@ export async function main() {
     // another way to decouple refreshAuth from requiring a config.
 
     if (sandboxConfig) {
+      const sessionId = randomUUID();
       const partialConfig = await loadCliConfig(
         settings.merged,
         [],
@@ -636,6 +636,7 @@ export async function main() {
       argv.extensions,
     );
     const extensions = loadExtensions(extensionEnablementManager);
+    const sessionId = randomUUID();
     const config = await loadCliConfig(
       settings.merged,
       extensions,
@@ -700,7 +701,11 @@ export async function main() {
       config.isBrowserLaunchSuppressed()
     ) {
       // Do oauth before app renders to make copying the link possible.
-      await getOauthClient(settings.merged.security.auth.selectedType, config);
+      const selectedAuthType = settings.merged.security.auth.selectedType;
+      if (!selectedAuthType) {
+        throw new Error('Selected authentication type is not defined.');
+      }
+      await getOauthClient(selectedAuthType as AuthType, config); // Workaround for TS2345
     }
 
     if (config.getExperimentalZedIntegration()) {

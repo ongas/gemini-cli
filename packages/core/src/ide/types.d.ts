@@ -58,26 +58,26 @@ export declare const FileSchema: z.ZodObject<
   {
     timestamp: number;
     path: string;
+    isActive?: boolean | undefined;
+    selectedText?: string | undefined;
     cursor?:
       | {
           line: number;
           character: number;
         }
       | undefined;
-    isActive?: boolean | undefined;
-    selectedText?: string | undefined;
   },
   {
     timestamp: number;
     path: string;
+    isActive?: boolean | undefined;
+    selectedText?: string | undefined;
     cursor?:
       | {
           line: number;
           character: number;
         }
       | undefined;
-    isActive?: boolean | undefined;
-    selectedText?: string | undefined;
   }
 >;
 export type File = z.infer<typeof FileSchema>;
@@ -145,26 +145,26 @@ export declare const IdeContextSchema: z.ZodObject<
                 {
                   timestamp: number;
                   path: string;
+                  isActive?: boolean | undefined;
+                  selectedText?: string | undefined;
                   cursor?:
                     | {
                         line: number;
                         character: number;
                       }
                     | undefined;
-                  isActive?: boolean | undefined;
-                  selectedText?: string | undefined;
                 },
                 {
                   timestamp: number;
                   path: string;
+                  isActive?: boolean | undefined;
+                  selectedText?: string | undefined;
                   cursor?:
                     | {
                         line: number;
                         character: number;
                       }
                     | undefined;
-                  isActive?: boolean | undefined;
-                  selectedText?: string | undefined;
                 }
               >,
               'many'
@@ -178,38 +178,38 @@ export declare const IdeContextSchema: z.ZodObject<
         'strip',
         z.ZodTypeAny,
         {
-          isTrusted?: boolean | undefined;
           openFiles?:
             | {
                 timestamp: number;
                 path: string;
+                isActive?: boolean | undefined;
+                selectedText?: string | undefined;
                 cursor?:
                   | {
                       line: number;
                       character: number;
                     }
                   | undefined;
-                isActive?: boolean | undefined;
-                selectedText?: string | undefined;
               }[]
             | undefined;
+          isTrusted?: boolean | undefined;
         },
         {
-          isTrusted?: boolean | undefined;
           openFiles?:
             | {
                 timestamp: number;
                 path: string;
+                isActive?: boolean | undefined;
+                selectedText?: string | undefined;
                 cursor?:
                   | {
                       line: number;
                       character: number;
                     }
                   | undefined;
-                isActive?: boolean | undefined;
-                selectedText?: string | undefined;
               }[]
             | undefined;
+          isTrusted?: boolean | undefined;
         }
       >
     >;
@@ -219,42 +219,42 @@ export declare const IdeContextSchema: z.ZodObject<
   {
     workspaceState?:
       | {
-          isTrusted?: boolean | undefined;
           openFiles?:
             | {
                 timestamp: number;
                 path: string;
+                isActive?: boolean | undefined;
+                selectedText?: string | undefined;
                 cursor?:
                   | {
                       line: number;
                       character: number;
                     }
                   | undefined;
-                isActive?: boolean | undefined;
-                selectedText?: string | undefined;
               }[]
             | undefined;
+          isTrusted?: boolean | undefined;
         }
       | undefined;
   },
   {
     workspaceState?:
       | {
-          isTrusted?: boolean | undefined;
           openFiles?:
             | {
                 timestamp: number;
                 path: string;
+                isActive?: boolean | undefined;
+                selectedText?: string | undefined;
                 cursor?:
                   | {
                       line: number;
                       character: number;
                     }
                   | undefined;
-                isActive?: boolean | undefined;
-                selectedText?: string | undefined;
               }[]
             | undefined;
+          isTrusted?: boolean | undefined;
         }
       | undefined;
   }
@@ -328,26 +328,26 @@ export declare const IdeContextNotificationSchema: z.ZodObject<
                     {
                       timestamp: number;
                       path: string;
+                      isActive?: boolean | undefined;
+                      selectedText?: string | undefined;
                       cursor?:
                         | {
                             line: number;
                             character: number;
                           }
                         | undefined;
-                      isActive?: boolean | undefined;
-                      selectedText?: string | undefined;
                     },
                     {
                       timestamp: number;
                       path: string;
+                      isActive?: boolean | undefined;
+                      selectedText?: string | undefined;
                       cursor?:
                         | {
                             line: number;
                             character: number;
                           }
                         | undefined;
-                      isActive?: boolean | undefined;
-                      selectedText?: string | undefined;
                     }
                   >,
                   'many'
@@ -361,38 +361,38 @@ export declare const IdeContextNotificationSchema: z.ZodObject<
             'strip',
             z.ZodTypeAny,
             {
-              isTrusted?: boolean | undefined;
               openFiles?:
                 | {
                     timestamp: number;
                     path: string;
+                    isActive?: boolean | undefined;
+                    selectedText?: string | undefined;
                     cursor?:
                       | {
                           line: number;
                           character: number;
                         }
                       | undefined;
-                    isActive?: boolean | undefined;
-                    selectedText?: string | undefined;
                   }[]
                 | undefined;
+              isTrusted?: boolean | undefined;
             },
             {
-              isTrusted?: boolean | undefined;
               openFiles?:
                 | {
                     timestamp: number;
                     path: string;
+                    isActive?: boolean | undefined;
+                    selectedText?: string | undefined;
                     cursor?:
                       | {
                           line: number;
                           character: number;
                         }
                       | undefined;
-                    isActive?: boolean | undefined;
-                    selectedText?: string | undefined;
                   }[]
                 | undefined;
+              isTrusted?: boolean | undefined;
             }
           >
         >;
@@ -402,42 +402,42 @@ export declare const IdeContextNotificationSchema: z.ZodObject<
       {
         workspaceState?:
           | {
-              isTrusted?: boolean | undefined;
               openFiles?:
                 | {
                     timestamp: number;
                     path: string;
+                    isActive?: boolean | undefined;
+                    selectedText?: string | undefined;
                     cursor?:
                       | {
                           line: number;
                           character: number;
                         }
                       | undefined;
-                    isActive?: boolean | undefined;
-                    selectedText?: string | undefined;
                   }[]
                 | undefined;
+              isTrusted?: boolean | undefined;
             }
           | undefined;
       },
       {
         workspaceState?:
           | {
-              isTrusted?: boolean | undefined;
               openFiles?:
                 | {
                     timestamp: number;
                     path: string;
+                    isActive?: boolean | undefined;
+                    selectedText?: string | undefined;
                     cursor?:
                       | {
                           line: number;
                           character: number;
                         }
                       | undefined;
-                    isActive?: boolean | undefined;
-                    selectedText?: string | undefined;
                   }[]
                 | undefined;
+              isTrusted?: boolean | undefined;
             }
           | undefined;
       }
@@ -449,21 +449,21 @@ export declare const IdeContextNotificationSchema: z.ZodObject<
     params: {
       workspaceState?:
         | {
-            isTrusted?: boolean | undefined;
             openFiles?:
               | {
                   timestamp: number;
                   path: string;
+                  isActive?: boolean | undefined;
+                  selectedText?: string | undefined;
                   cursor?:
                     | {
                         line: number;
                         character: number;
                       }
                     | undefined;
-                  isActive?: boolean | undefined;
-                  selectedText?: string | undefined;
                 }[]
               | undefined;
+            isTrusted?: boolean | undefined;
           }
         | undefined;
     };
@@ -474,21 +474,21 @@ export declare const IdeContextNotificationSchema: z.ZodObject<
     params: {
       workspaceState?:
         | {
-            isTrusted?: boolean | undefined;
             openFiles?:
               | {
                   timestamp: number;
                   path: string;
+                  isActive?: boolean | undefined;
+                  selectedText?: string | undefined;
                   cursor?:
                     | {
                         line: number;
                         character: number;
                       }
                     | undefined;
-                  isActive?: boolean | undefined;
-                  selectedText?: string | undefined;
                 }[]
               | undefined;
+            isTrusted?: boolean | undefined;
           }
         | undefined;
     };

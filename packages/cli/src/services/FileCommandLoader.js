@@ -153,14 +153,33 @@ export class FileCommandLoader {
     const isMarkdown = filePath.endsWith('.md');
     let validDef;
     if (isMarkdown) {
-      // For markdown files, extract first heading as description, use entire content as prompt
-      const lines = fileContent.trim().split('\n');
+      // Extract YAML frontmatter first if present (must be at the very start)
+      const yamlMatch = fileContent.match(/^---\n([\s\S]*?)\n---/);
+      const yamlContent = yamlMatch ? yamlMatch[1] : '';
+      // If YAML frontmatter exists, skip past it for the prompt content
+      let contentAfterYaml = fileContent;
+      if (yamlMatch) {
+        contentAfterYaml = fileContent.substring(yamlMatch[0].length).trim();
+      }
+      // Try to extract description from YAML frontmatter first
       let description;
-      if (lines.length > 0 && lines[0].startsWith('#')) {
-        description = lines[0].replace(/^#+\s*/, '').trim();
+      if (yamlContent) {
+        const descMatch = yamlContent.match(/^description:\s*(.+)$/im);
+        if (descMatch) {
+          description = descMatch[1].trim();
+          // Remove surrounding quotes if present
+          description = description.replace(/^["']|["']$/g, '');
+        }
+      }
+      // Fall back to extracting first heading as description if no YAML description
+      if (!description) {
+        const lines = contentAfterYaml.split('\n');
+        if (lines.length > 0 && lines[0].startsWith('#')) {
+          description = lines[0].replace(/^#+\s*/, '').trim();
+        }
       }
       validDef = {
-        prompt: fileContent,
+        prompt: contentAfterYaml, // Use content without frontmatter
         description,
       };
     } else {

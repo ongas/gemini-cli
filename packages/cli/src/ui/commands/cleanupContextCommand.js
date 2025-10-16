@@ -53,7 +53,7 @@ export const cleanupContextCommand = {
             return part;
           }
           const response = part.functionResponse.response;
-          const output = response?.output;
+          const output = response?.['output'];
           if (typeof output !== 'string' || output.length < 500) {
             return part; // Keep small outputs
           }

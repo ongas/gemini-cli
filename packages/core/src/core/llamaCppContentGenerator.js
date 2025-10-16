@@ -3,94 +3,6 @@
  * Copyright 2025 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
-
-import type {
-  CountTokensResponse,
-  GenerateContentResponse,
-  GenerateContentParameters,
-  CountTokensParameters,
-  EmbedContentResponse,
-  EmbedContentParameters,
-  Content,
-  Part,
-  Tool,
-  ToolListUnion,
-} from '@google/genai';
-import type { ContentGenerator } from './contentGenerator.js';
-import type { Config } from '../config/config.js';
-
-interface LlamaCppMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
-
-interface LlamaCppTool {
-  type: 'function';
-  function: {
-    name: string;
-    description: string;
-    parameters: Record<string, unknown>;
-  };
-}
-
-interface LlamaCppRequest {
-  model: string;
-  messages: LlamaCppMessage[];
-  stream: boolean;
-  temperature?: number;
-  top_p?: number;
-  max_tokens?: number;
-  tools?: LlamaCppTool[];
-  tool_choice?: 'auto' | 'none';
-}
-
-interface LlamaCppFunctionCall {
-  name: string;
-  arguments: string; // JSON string
-}
-
-interface LlamaCppToolCall {
-  id: string;
-  type: 'function';
-  function: LlamaCppFunctionCall;
-}
-
-interface LlamaCppResponseMessage {
-  role: string;
-  content: string | null;
-  tool_calls?: LlamaCppToolCall[];
-}
-
-interface LlamaCppChoice {
-  index: number;
-  message: LlamaCppResponseMessage;
-  finish_reason: string | null;
-}
-
-interface LlamaCppResponse {
-  id: string;
-  object: string;
-  created: number;
-  model: string;
-  choices: LlamaCppChoice[];
-}
-
-interface LlamaCppStreamChunk {
-  id: string;
-  object: string;
-  created: number;
-  model: string;
-  choices: Array<{
-    index: number;
-    delta: {
-      role?: string;
-      content?: string;
-      tool_calls?: LlamaCppToolCall[];
-    };
-    finish_reason: string | null;
-  }>;
-}
-
 /**
  * ContentGenerator implementation for llama.cpp (llama-server)
  *
@@ -98,17 +10,15 @@ interface LlamaCppStreamChunk {
  * via its OpenAI-compatible API endpoint.
  * API docs: https://github.com/ggerganov/llama.cpp/blob/master/examples/server/README.md
  */
-export class LlamaCppContentGenerator implements ContentGenerator {
-  private baseUrl: string;
-
-  constructor(baseUrl: string = 'http://localhost:8000', _config?: Config) {
+export class LlamaCppContentGenerator {
+  baseUrl;
+  constructor(baseUrl = 'http://localhost:8000', _config) {
     this.baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash
   }
-
   /**
    * Normalize ContentListUnion to Content[] for processing
    */
-  private normalizeContents(contents: unknown): Content[] {
+  normalizeContents(contents) {
     // If it's already an array of Content objects
     if (Array.isArray(contents)) {
       // Check if first element is a Content object (has role and parts)
@@ -117,12 +27,11 @@ export class LlamaCppContentGenerator implements ContentGenerator {
         'role' in contents[0] &&
         'parts' in contents[0]
       ) {
-        return contents as Content[];
+        return contents;
       }
       // If it's an array of parts, wrap in a single Content
       return [{ role: 'user', parts: contents }];
     }
-
     // If it's a single Content object
     if (
       typeof contents === 'object' &&
@@ -130,29 +39,23 @@ export class LlamaCppContentGenerator implements ContentGenerator {
       'role' in contents &&
       'parts' in contents
     ) {
-      return [contents as Content];
+      return [contents];
     }
-
     // If it's a single Part, wrap it
-    return [{ role: 'user', parts: [contents as Part] }];
+    return [{ role: 'user', parts: [contents] }];
   }
-
   /**
    * Recursively remove empty nested objects from schema properties
    * llama.cpp's JSON schema parser rejects empty objects like {"result": {}}
    */
-  private cleanEmptyProperties(
-    obj: Record<string, unknown>,
-  ): Record<string, unknown> {
-    const cleaned: Record<string, unknown> = {};
-    const removedKeys: string[] = [];
-
+  cleanEmptyProperties(obj) {
+    const cleaned = {};
+    const removedKeys = [];
     for (const [key, value] of Object.entries(obj)) {
       if (key === 'properties' && typeof value === 'object' && value !== null) {
         // Handle the properties object specially
-        const props = value as Record<string, unknown>;
-        const cleanedProps: Record<string, unknown> = {};
-
+        const props = value;
+        const cleanedProps = {};
         for (const [propKey, propValue] of Object.entries(props)) {
           // Skip properties that are empty objects
           if (
@@ -167,21 +70,17 @@ export class LlamaCppContentGenerator implements ContentGenerator {
             removedKeys.push(propKey);
             continue;
           }
-
           // Recursively clean nested objects
           if (
             typeof propValue === 'object' &&
             propValue !== null &&
             !Array.isArray(propValue)
           ) {
-            cleanedProps[propKey] = this.cleanEmptyProperties(
-              propValue as Record<string, unknown>,
-            );
+            cleanedProps[propKey] = this.cleanEmptyProperties(propValue);
           } else {
             cleanedProps[propKey] = propValue;
           }
         }
-
         // Only include properties if it's not empty after cleaning
         if (Object.keys(cleanedProps).length > 0) {
           cleaned[key] = cleanedProps;
@@ -197,7 +96,7 @@ export class LlamaCppContentGenerator implements ContentGenerator {
       ) {
         // Filter out any removed keys from the required array
         const cleanedRequired = value.filter(
-          (req) => !removedKeys.includes(req as string),
+          (req) => !removedKeys.includes(req),
         );
         if (cleanedRequired.length > 0) {
           cleaned[key] = cleanedRequired;
@@ -210,54 +109,38 @@ export class LlamaCppContentGenerator implements ContentGenerator {
         !Array.isArray(value)
       ) {
         // Recursively clean other nested objects
-        cleaned[key] = this.cleanEmptyProperties(
-          value as Record<string, unknown>,
-        );
+        cleaned[key] = this.cleanEmptyProperties(value);
       } else {
         cleaned[key] = value;
       }
     }
-
     return cleaned;
   }
-
   /**
    * Convert Gemini Tool format to llama.cpp format
    */
-  private convertToLlamaCppTools(
-    tools?: ToolListUnion,
-  ): LlamaCppTool[] | undefined {
+  convertToLlamaCppTools(tools) {
     if (!tools || tools.length === 0) {
       return undefined;
     }
-
     // Filter to only Tool types (not CallableTool)
-    const toolsArray = tools.filter(
-      (t): t is Tool => 'functionDeclarations' in t,
-    );
-
+    const toolsArray = tools.filter((t) => 'functionDeclarations' in t);
     console.log(
       `[LLAMACPP TOOLS DEBUG] Converting ${toolsArray.length} Tool objects`,
     );
-
     // Flatten all function declarations from all Tool objects
-    const result: LlamaCppTool[] = [];
+    const result = [];
     for (const tool of toolsArray) {
       if (!tool.functionDeclarations) continue;
-
       console.log(
         `[LLAMACPP TOOLS DEBUG] Tool has ${tool.functionDeclarations.length} function declarations`,
       );
-
       for (const decl of tool.functionDeclarations) {
         console.log(`[LLAMACPP TOOLS DEBUG]   - Converting ${decl.name}`);
-
-        let parameters = (decl.parameters as Record<string, unknown>) || {};
-
+        let parameters = decl.parameters || {};
         // Fix empty nested objects that llama.cpp can't handle
         // Recursively clean up any properties that are empty objects
         parameters = this.cleanEmptyProperties(parameters);
-
         // If we end up with an empty schema after cleaning (no properties, no required),
         // llama.cpp will reject it. Provide a minimal valid schema with a dummy optional parameter.
         if (
@@ -280,9 +163,8 @@ export class LlamaCppContentGenerator implements ContentGenerator {
             // Don't make it required - it's truly optional
           };
         }
-
         result.push({
-          type: 'function' as const,
+          type: 'function',
           function: {
             name: decl.name || 'unknown',
             description: decl.description || '',
@@ -291,34 +173,26 @@ export class LlamaCppContentGenerator implements ContentGenerator {
         });
       }
     }
-
     console.log(
       `[LLAMACPP TOOLS DEBUG] Final result: ${result.length} tools - ${result.map((t) => t.function.name).join(', ')}`,
     );
     return result;
   }
-
   /**
    * Convert Gemini Content format to llama.cpp messages format
    */
-  private convertToLlamaCppMessages(contents: Content[]): LlamaCppMessage[] {
-    const messages: LlamaCppMessage[] = [];
-
+  convertToLlamaCppMessages(contents) {
+    const messages = [];
     for (const content of contents) {
-      const role =
-        content.role === 'model'
-          ? 'assistant'
-          : (content.role as 'user' | 'system');
-
+      const role = content.role === 'model' ? 'assistant' : content.role;
       // Extract text from parts
-      const textParts: string[] = [];
+      const textParts = [];
       for (const part of content.parts || []) {
         if ('text' in part && part.text) {
           textParts.push(part.text);
         }
         // Function responses will be handled separately in conversation history
       }
-
       if (textParts.length > 0) {
         messages.push({
           role,
@@ -326,26 +200,20 @@ export class LlamaCppContentGenerator implements ContentGenerator {
         });
       }
     }
-
     return messages;
   }
-
   /**
    * Convert llama.cpp response to Gemini format
    */
-  private convertToGeminiResponse(
-    llamaCppResponse: LlamaCppResponse,
-  ): GenerateContentResponse {
+  convertToGeminiResponse(llamaCppResponse) {
     const choice = llamaCppResponse.choices[0];
-    const parts: Part[] = [];
-
+    const parts = [];
     // Add text content if present
     if (choice.message.content) {
       parts.push({
         text: choice.message.content,
       });
     }
-
     // Add function calls if present
     if (choice.message.tool_calls) {
       for (const toolCall of choice.message.tool_calls) {
@@ -366,7 +234,6 @@ export class LlamaCppContentGenerator implements ContentGenerator {
         }
       }
     }
-
     return {
       candidates: [
         {
@@ -378,25 +245,20 @@ export class LlamaCppContentGenerator implements ContentGenerator {
           index: choice.index,
         },
       ],
-    } as GenerateContentResponse;
+    };
   }
-
   /**
    * Convert llama.cpp stream chunk to Gemini format
    */
-  private convertStreamChunkToGeminiResponse(
-    chunk: LlamaCppStreamChunk,
-  ): GenerateContentResponse {
+  convertStreamChunkToGeminiResponse(chunk) {
     const choice = chunk.choices[0];
-    const parts: Part[] = [];
-
+    const parts = [];
     // Add text content if present
     if (choice.delta.content) {
       parts.push({
         text: choice.delta.content,
       });
     }
-
     // Add function calls if present
     if (choice.delta.tool_calls) {
       for (const toolCall of choice.delta.tool_calls) {
@@ -417,7 +279,6 @@ export class LlamaCppContentGenerator implements ContentGenerator {
         }
       }
     }
-
     return {
       candidates: [
         {
@@ -429,36 +290,27 @@ export class LlamaCppContentGenerator implements ContentGenerator {
           index: choice.index,
         },
       ],
-    } as GenerateContentResponse;
+    };
   }
-
-  async generateContent(
-    request: GenerateContentParameters,
-    _userPromptId: string,
-  ): Promise<GenerateContentResponse> {
+  async generateContent(request, _userPromptId) {
     const contentsArray = this.normalizeContents(request.contents);
     const messages = this.convertToLlamaCppMessages(contentsArray);
-
     // For llama.cpp: prepend system instruction to first user message instead of separate message
     // This works better with many local models that don't handle system role well
     if (request.config?.systemInstruction && messages.length > 0) {
       const sysInstr = request.config.systemInstruction;
       let systemText = '';
-
       if (typeof sysInstr === 'string') {
         systemText = sysInstr;
       } else {
         const sysArray = this.normalizeContents(sysInstr);
         systemText = sysArray
           .map(
-            (c: Content) =>
-              c.parts
-                ?.map((p: Part) => ('text' in p ? p.text : ''))
-                .join(' ') || '',
+            (c) =>
+              c.parts?.map((p) => ('text' in p ? p.text : '')).join(' ') || '',
           )
           .join('\n');
       }
-
       if (systemText) {
         // Find first user message and prepend system instruction
         const firstUserIdx = messages.findIndex((m) => m.role === 'user');
@@ -468,8 +320,7 @@ export class LlamaCppContentGenerator implements ContentGenerator {
         }
       }
     }
-
-    const llamaCppRequest: LlamaCppRequest = {
+    const llamaCppRequest = {
       model: request.model,
       messages,
       stream: false,
@@ -478,7 +329,6 @@ export class LlamaCppContentGenerator implements ContentGenerator {
       tools: this.convertToLlamaCppTools(request.config?.tools),
       tool_choice: request.config?.tools ? 'auto' : undefined,
     };
-
     let response;
     try {
       response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
@@ -500,7 +350,6 @@ export class LlamaCppContentGenerator implements ContentGenerator {
           `Original error: ${error}`,
       );
     }
-
     if (!response.ok) {
       const errorText = await response.text().catch(() => 'Unknown error');
       throw new Error(
@@ -514,48 +363,36 @@ export class LlamaCppContentGenerator implements ContentGenerator {
           `  • Try: curl ${this.baseUrl}/v1/models`,
       );
     }
-
-    const llamaCppResponse: LlamaCppResponse = await response.json();
+    const llamaCppResponse = await response.json();
     return this.convertToGeminiResponse(llamaCppResponse);
   }
-
-  async generateContentStream(
-    request: GenerateContentParameters,
-    _userPromptId: string,
-  ): Promise<AsyncGenerator<GenerateContentResponse>> {
+  async generateContentStream(request, _userPromptId) {
     const baseUrl = this.baseUrl;
     const convertStreamChunkToGeminiResponse =
       this.convertStreamChunkToGeminiResponse.bind(this);
-
     const contentsArray = this.normalizeContents(request.contents);
     const messages = this.convertToLlamaCppMessages(contentsArray);
-
     // For llama.cpp: Use minimal single-message mode by default to avoid timeouts
     // Many local models struggle with long system instructions and conversation history
     // This can be disabled by setting LLAMACPP_FULL_CONTEXT=1
     const testMinimalMode = process.env['LLAMACPP_FULL_CONTEXT'] !== '1';
-
     if (testMinimalMode) {
       // Find the last user message (the actual user prompt)
       const lastUserMessage = messages.reverse().find((m) => m.role === 'user');
-
       if (lastUserMessage) {
         // Reset to just this one message
         messages.length = 0;
-
         // If tools are available, prepend a MINIMAL instruction about using them
         // This is much shorter than the full CLI system prompt
         let userContent =
           lastUserMessage.content.split('\n\n').pop() ||
           lastUserMessage.content;
-
         if (request.config?.tools && request.config.tools.length > 0) {
           // Ultra-minimal tool instruction - just 15 tokens
           const toolInstruction =
             'You have tools available. Use them when appropriate.\n\n';
           userContent = toolInstruction + userContent;
         }
-
         messages.push({
           role: 'user',
           content: userContent,
@@ -567,21 +404,18 @@ export class LlamaCppContentGenerator implements ContentGenerator {
       if (request.config?.systemInstruction && messages.length > 0) {
         const sysInstr = request.config.systemInstruction;
         let systemText = '';
-
         if (typeof sysInstr === 'string') {
           systemText = sysInstr;
         } else {
           const sysArray = this.normalizeContents(sysInstr);
           systemText = sysArray
             .map(
-              (c: Content) =>
-                c.parts
-                  ?.map((p: Part) => ('text' in p ? p.text : ''))
-                  .join(' ') || '',
+              (c) =>
+                c.parts?.map((p) => ('text' in p ? p.text : '')).join(' ') ||
+                '',
             )
             .join('\n');
         }
-
         if (systemText) {
           // Find first user message and prepend system instruction
           const firstUserIdx = messages.findIndex((m) => m.role === 'user');
@@ -592,8 +426,7 @@ export class LlamaCppContentGenerator implements ContentGenerator {
         }
       }
     }
-
-    const llamaCppRequest: LlamaCppRequest = {
+    const llamaCppRequest = {
       model: request.model,
       messages,
       stream: true,
@@ -609,7 +442,6 @@ export class LlamaCppContentGenerator implements ContentGenerator {
           ? 'auto'
           : undefined,
     };
-
     // Debug: Log request details
     console.log('[LLAMACPP DEBUG] Request details:');
     console.log(`  Model: ${llamaCppRequest.model}`);
@@ -627,8 +459,7 @@ export class LlamaCppContentGenerator implements ContentGenerator {
         `  Tool names: ${llamaCppRequest.tools.map((t) => t.function.name).join(', ')}`,
       );
     }
-
-    async function* streamGenerator(): AsyncGenerator<GenerateContentResponse> {
+    async function* streamGenerator() {
       let response;
       try {
         response = await fetch(`${baseUrl}/v1/chat/completions`, {
@@ -650,7 +481,6 @@ export class LlamaCppContentGenerator implements ContentGenerator {
             `Original error: ${error}`,
         );
       }
-
       if (!response.ok) {
         const errorText = await response.text().catch(() => 'Unknown error');
         throw new Error(
@@ -664,7 +494,6 @@ export class LlamaCppContentGenerator implements ContentGenerator {
             `  • Try: curl ${baseUrl}/v1/models`,
         );
       }
-
       // llama.cpp streams Server-Sent Events (SSE) format
       const reader = response.body?.getReader();
       if (!reader) {
@@ -674,25 +503,20 @@ export class LlamaCppContentGenerator implements ContentGenerator {
             `Check llama.cpp server logs for details.`,
         );
       }
-
       const decoder = new TextDecoder();
       let buffer = '';
       let chunksReceived = 0;
       let hasFinishReason = false;
-
       // Buffer for accumulating tool call arguments across chunks
-      const toolCallBuffers = new Map<string, string>();
+      const toolCallBuffers = new Map();
       // Track tool names since they only come in the first chunk
-      const toolCallNames = new Map<string, string>();
-
+      const toolCallNames = new Map();
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
         buffer = lines.pop() || ''; // Keep incomplete line in buffer
-
         for (const line of lines) {
           const trimmed = line.trim();
           if (trimmed.startsWith('data: ')) {
@@ -724,7 +548,6 @@ export class LlamaCppContentGenerator implements ContentGenerator {
                   }
                 }
               }
-
               if (!hasFinishReason) {
                 console.warn(
                   `⚠️  LOCAL LLM WARNING: Stream ended with [DONE] but no finish_reason was received.\n` +
@@ -735,14 +558,12 @@ export class LlamaCppContentGenerator implements ContentGenerator {
               return;
             }
             try {
-              const chunk: LlamaCppStreamChunk = JSON.parse(data);
+              const chunk = JSON.parse(data);
               chunksReceived++;
-
               // Track if we've seen a finish_reason
               if (chunk.choices[0]?.finish_reason === 'stop') {
                 hasFinishReason = true;
               }
-
               // Handle streaming tool calls - accumulate arguments across chunks
               const choice = chunk.choices[0];
               if (choice?.delta?.tool_calls) {
@@ -750,7 +571,6 @@ export class LlamaCppContentGenerator implements ContentGenerator {
                   // llama.cpp sends different IDs in different chunks - use 'current' as single key
                   const toolId = 'current';
                   const toolName = toolCall.function.name;
-
                   // Store tool name if provided (only in first chunk)
                   if (toolName) {
                     toolCallNames.set(toolId, toolName);
@@ -758,22 +578,18 @@ export class LlamaCppContentGenerator implements ContentGenerator {
                       `[LLAMACPP DEBUG] Tool call started: ${toolName}`,
                     );
                   }
-
                   // Accumulate arguments
                   const existingArgs = toolCallBuffers.get(toolId) || '';
                   const newArgs = toolCall.function.arguments || '';
                   const accumulated = existingArgs + newArgs;
                   toolCallBuffers.set(toolId, accumulated);
-
                   console.log(`[LLAMACPP DEBUG] Accumulating: ${accumulated}`);
-
                   // Only try to parse when we have a complete JSON (ends with '}')
                   const accumulatedArgs = toolCallBuffers.get(toolId) || '';
                   if (accumulatedArgs.trim().endsWith('}')) {
                     try {
                       // Try to parse - if successful, yield the tool call
                       const parsedArgs = JSON.parse(accumulatedArgs);
-
                       // Get the stored tool name
                       const storedToolName = toolCallNames.get(toolId);
                       if (!storedToolName) {
@@ -782,13 +598,11 @@ export class LlamaCppContentGenerator implements ContentGenerator {
                         );
                         continue;
                       }
-
                       console.log(
                         `[LLAMACPP DEBUG] ✅ Successfully parsed complete tool call: ${storedToolName}(${JSON.stringify(parsedArgs)})`,
                       );
-
                       // Create a response with the complete tool call
-                      const geminiResponse: GenerateContentResponse = {
+                      const geminiResponse = {
                         candidates: [
                           {
                             content: {
@@ -809,10 +623,8 @@ export class LlamaCppContentGenerator implements ContentGenerator {
                             index: choice.index,
                           },
                         ],
-                      } as GenerateContentResponse;
-
+                      };
                       yield geminiResponse;
-
                       // Clear the buffers for this tool call
                       toolCallBuffers.delete(toolId);
                       toolCallNames.delete(toolId);
@@ -839,7 +651,6 @@ export class LlamaCppContentGenerator implements ContentGenerator {
           }
         }
       }
-
       // Stream ended without [DONE]
       if (!hasFinishReason) {
         console.error(
@@ -854,44 +665,30 @@ export class LlamaCppContentGenerator implements ContentGenerator {
         );
       }
     }
-
     return streamGenerator();
   }
-
-  async countTokens(
-    request: CountTokensParameters,
-  ): Promise<CountTokensResponse> {
+  async countTokens(request) {
     // llama.cpp doesn't have a dedicated token counting endpoint
     // Approximate: ~4 characters per token for English text
     const contentsArray = this.normalizeContents(request.contents);
-
     const text = contentsArray
       .map(
-        (c: Content) =>
-          c.parts?.map((p: Part) => ('text' in p ? p.text : '')).join('') || '',
+        (c) => c.parts?.map((p) => ('text' in p ? p.text : '')).join('') || '',
       )
       .join('');
-
     const approximateTokens = Math.ceil(text.length / 4);
-
     return {
       totalTokens: approximateTokens,
-    } as CountTokensResponse;
+    };
   }
-
-  async embedContent(
-    request: EmbedContentParameters,
-  ): Promise<EmbedContentResponse> {
+  async embedContent(request) {
     // llama.cpp supports embeddings via /v1/embeddings endpoint
     const contentsArray = this.normalizeContents(request.contents);
     const text = contentsArray
       .map(
-        (c: Content) =>
-          c.parts?.map((p: Part) => ('text' in p ? p.text : '')).join(' ') ||
-          '',
+        (c) => c.parts?.map((p) => ('text' in p ? p.text : '')).join(' ') || '',
       )
       .join('\n');
-
     const response = await fetch(`${this.baseUrl}/v1/embeddings`, {
       method: 'POST',
       headers: {
@@ -902,19 +699,17 @@ export class LlamaCppContentGenerator implements ContentGenerator {
         input: text,
       }),
     });
-
     if (!response.ok) {
       throw new Error(
         `llama.cpp embeddings API error: ${response.status} ${response.statusText}`,
       );
     }
-
     const result = await response.json();
-
     return {
       embedding: {
         values: result.data[0].embedding,
       },
-    } as EmbedContentResponse;
+    };
   }
 }
+//# sourceMappingURL=llamaCppContentGenerator.js.map

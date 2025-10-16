@@ -3,26 +3,14 @@
  * Copyright 2025 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
-
 // DISCLAIMER: This is a copied version of https://github.com/googleapis/js-genai/blob/main/src/chats.ts with the intention of working around a key bug
 // where function responses are not treated as "valid" responses: https://b.corp.google.com/issues/420354090
-
-import {
-  GenerateContentResponse,
-  type Content,
-  type GenerateContentConfig,
-  type SendMessageParameters,
-  type Part,
-  type Tool,
-  FinishReason,
-} from '@google/genai';
+import { GenerateContentResponse, FinishReason } from '@google/genai';
 import { toParts } from '../code_assist/converter.js';
 import { createUserContent } from '@google/genai';
 import { retryWithBackoff } from '../utils/retry.js';
-import type { Config } from '../config/config.js';
 import { getEffectiveModel } from '../config/models.js';
 import { hasCycleInSchema, MUTATOR_KINDS } from '../tools/tools.js';
-import type { StructuredError } from './turn.js';
 import {
   logContentRetry,
   logContentRetryFailure,
@@ -38,38 +26,22 @@ import { isFunctionResponse } from '../utils/messageInspectors.js';
 import { partListUnionToString } from './geminiRequest.js';
 import { uiTelemetryService } from '../telemetry/uiTelemetry.js';
 import { injectProjectStandards } from '../utils/projectStandardsInjector.js';
-
-export enum StreamEventType {
+export var StreamEventType;
+(function (StreamEventType) {
   /** A regular content chunk from the API. */
-  CHUNK = 'chunk',
+  StreamEventType['CHUNK'] = 'chunk';
   /** A signal that a retry is about to happen. The UI should discard any partial
    * content from the attempt that just failed. */
-  RETRY = 'retry',
-}
-
-export type StreamEvent =
-  | { type: StreamEventType.CHUNK; value: GenerateContentResponse }
-  | { type: StreamEventType.RETRY; error?: string };
-
-/**
- * Options for retrying due to invalid content from the model.
- */
-interface ContentRetryOptions {
-  /** Total number of attempts to make (1 initial + N retries). */
-  maxAttempts: number;
-  /** The base delay in milliseconds for linear backoff. */
-  initialDelayMs: number;
-}
-
-const INVALID_CONTENT_RETRY_OPTIONS: ContentRetryOptions = {
+  StreamEventType['RETRY'] = 'retry';
+})(StreamEventType || (StreamEventType = {}));
+const INVALID_CONTENT_RETRY_OPTIONS = {
   maxAttempts: 3, // 1 initial call + 2 retries (especially for Flash throttling)
   initialDelayMs: 500,
 };
-
 /**
  * Returns true if the response is valid, false otherwise.
  */
-function isValidResponse(response: GenerateContentResponse): boolean {
+function isValidResponse(response) {
   if (response.candidates === undefined || response.candidates.length === 0) {
     return false;
   }
@@ -79,8 +51,7 @@ function isValidResponse(response: GenerateContentResponse): boolean {
   }
   return isValidContent(content);
 }
-
-export function isValidNonThoughtTextPart(part: Part): boolean {
+export function isValidNonThoughtTextPart(part) {
   return (
     typeof part.text === 'string' &&
     !part.thought &&
@@ -92,8 +63,7 @@ export function isValidNonThoughtTextPart(part: Part): boolean {
     !part.fileData
   );
 }
-
-function isValidContent(content: Content): boolean {
+function isValidContent(content) {
   if (content.parts === undefined || content.parts.length === 0) {
     return false;
   }
@@ -107,21 +77,19 @@ function isValidContent(content: Content): boolean {
   }
   return true;
 }
-
 /**
  * Validates the history contains the correct roles.
  *
  * @throws Error if the history does not start with a user turn.
  * @throws Error if the history contains an invalid role.
  */
-function validateHistory(history: Content[]) {
+function validateHistory(history) {
   for (const content of history) {
     if (content.role !== 'user' && content.role !== 'model') {
       throw new Error(`Role must be user or model, but got ${content.role}.`);
     }
   }
 }
-
 /**
  * Extracts the curated (valid) history from a comprehensive history.
  *
@@ -130,11 +98,11 @@ function validateHistory(history: Content[]) {
  * filters or recitation). Extracting valid turns from the history
  * ensures that subsequent requests could be accepted by the model.
  */
-function extractCuratedHistory(comprehensiveHistory: Content[]): Content[] {
+function extractCuratedHistory(comprehensiveHistory) {
   if (comprehensiveHistory === undefined || comprehensiveHistory.length === 0) {
     return [];
   }
-  const curatedHistory: Content[] = [];
+  const curatedHistory = [];
   const length = comprehensiveHistory.length;
   let i = 0;
   while (i < length) {
@@ -142,7 +110,7 @@ function extractCuratedHistory(comprehensiveHistory: Content[]): Content[] {
       curatedHistory.push(comprehensiveHistory[i]);
       i++;
     } else {
-      const modelOutput: Content[] = [];
+      const modelOutput = [];
       let isValid = true;
       while (i < length && comprehensiveHistory[i].role === 'model') {
         modelOutput.push(comprehensiveHistory[i]);
@@ -158,22 +126,15 @@ function extractCuratedHistory(comprehensiveHistory: Content[]): Content[] {
   }
   return curatedHistory;
 }
-
 /**
  * Custom error to signal that a stream completed with invalid content,
  * which should trigger a retry.
  */
 export class InvalidStreamError extends Error {
-  readonly type: 'NO_FINISH_REASON' | 'NO_RESPONSE_TEXT';
-  readonly finishReason?: FinishReason;
-  readonly shouldRetry: boolean;
-
-  constructor(
-    message: string,
-    type: 'NO_FINISH_REASON' | 'NO_RESPONSE_TEXT',
-    finishReason?: FinishReason,
-    shouldRetry: boolean = true,
-  ) {
+  type;
+  finishReason;
+  shouldRetry;
+  constructor(message, type, finishReason, shouldRetry = true) {
     super(message);
     this.name = 'InvalidStreamError';
     this.type = type;
@@ -181,17 +142,14 @@ export class InvalidStreamError extends Error {
     this.shouldRetry = shouldRetry;
   }
 }
-
 /**
  * Estimates token count for content using the approximation: 1 token ≈ 4 characters.
  * This is a fast, local estimation that doesn't require an API call.
  */
-function estimateTokenCount(contents: Content[]): number {
+function estimateTokenCount(contents) {
   let totalChars = 0;
-
   for (const content of contents) {
     if (!content.parts) continue;
-
     for (const part of content.parts) {
       if (part.text) {
         totalChars += part.text.length;
@@ -200,45 +158,28 @@ function estimateTokenCount(contents: Content[]): number {
       // Those would need the actual countTokens API
     }
   }
-
   return Math.ceil(totalChars / 4);
 }
-
 /**
  * Estimates token count for a string.
  */
-function estimateStringTokens(text: string | undefined): number {
+function estimateStringTokens(text) {
   if (!text) return 0;
   return Math.ceil(text.length / 4);
 }
-
-interface ContextSizeInfo {
-  total: number;
-  history: number;
-  systemInstruction: number;
-  tools: number;
-  breakdown: string;
-}
-
 /**
  * Analyzes context size and returns breakdown.
  */
-function analyzeContextSize(
-  history: Content[],
-  systemInstruction: string | undefined,
-  tools: Tool[] | undefined,
-): ContextSizeInfo {
+function analyzeContextSize(history, systemInstruction, tools) {
   const historyTokens = estimateTokenCount(history);
   const systemTokens = estimateStringTokens(systemInstruction);
   const toolsTokens = tools ? estimateStringTokens(JSON.stringify(tools)) : 0;
   const total = historyTokens + systemTokens + toolsTokens;
-
   const breakdown =
     `Context size: ~${(total / 1000).toFixed(1)}K tokens\n` +
     `  • History: ${(historyTokens / 1000).toFixed(1)}K tokens\n` +
     `  • System: ${(systemTokens / 1000).toFixed(1)}K tokens\n` +
     `  • Tools: ${(toolsTokens / 1000).toFixed(1)}K tokens`;
-
   return {
     total,
     history: historyTokens,
@@ -247,50 +188,31 @@ function analyzeContextSize(
     breakdown,
   };
 }
-
-interface TrimResult {
-  trimmedHistory: Content[];
-  warning?: string;
-  breakdown?: string;
-}
-
 /**
  * Proactively checks context size and trims if necessary to prevent API failures.
  * Uses smart prioritization: trims oldest conversation history first.
  */
-function checkAndTrimContext(
-  model: string,
-  history: Content[],
-  systemInstruction: string | undefined,
-  tools: Tool[] | undefined,
-): TrimResult {
+function checkAndTrimContext(model, history, systemInstruction, tools) {
   const limit = tokenLimit(model);
   const safeLimit = Math.floor(limit * 0.7); // Use 70% of limit as safety threshold
-
   const sizeInfo = analyzeContextSize(history, systemInstruction, tools);
-
   if (sizeInfo.total < safeLimit) {
     return { trimmedHistory: history };
   }
-
   // Context is too large - need to trim
   const tokensToRemove = sizeInfo.total - safeLimit;
-
   // Strategy: Trim oldest conversation history first (keep at least last 2 turns)
   const minHistoryToKeep = Math.min(4, history.length); // Keep last 2 turns (user + model)
   let removedTokens = 0;
   let trimIndex = 0;
-
   for (let i = 0; i < history.length - minHistoryToKeep; i++) {
     const msgTokens = estimateTokenCount([history[i]]);
     removedTokens += msgTokens;
     trimIndex = i + 1;
-
     if (removedTokens >= tokensToRemove) {
       break;
     }
   }
-
   if (removedTokens < tokensToRemove) {
     // Even after trimming all old history, still too large
     // This means system instruction or tools are too large
@@ -306,28 +228,22 @@ function checkAndTrimContext(
       breakdown: sizeInfo.breakdown,
     };
   }
-
   const removedTurns = Math.floor(trimIndex / 2);
-
   return {
     trimmedHistory: history.slice(trimIndex),
     warning: `⚠️  Context approaching limit. Trimmed ${removedTurns} older conversation turn(s) to prevent errors.`,
     breakdown: sizeInfo.breakdown,
   };
 }
-
-import type { ToolListUnion } from '@google/genai';
-
-function toToolsArray(tools: ToolListUnion | undefined): Tool[] | undefined {
+function toToolsArray(tools) {
   if (!tools) {
     return undefined;
   }
   if (Array.isArray(tools)) {
-    return tools as Tool[];
+    return tools;
   }
-  return [tools] as Tool[];
+  return [tools];
 }
-
 /**
  * Chat session that enables sending messages to the model with previous
  * conversation context.
@@ -336,27 +252,26 @@ function toToolsArray(tools: ToolListUnion | undefined): Tool[] | undefined {
  * The session maintains all the turns between user and model.
  */
 export class GeminiChat {
+  config;
+  generationConfig;
+  history;
   // A promise to represent the current state of the message being sent to the
   // model.
-  private sendPromise: Promise<void> = Promise.resolve();
-  private readonly chatRecordingService: ChatRecordingService;
+  sendPromise = Promise.resolve();
+  chatRecordingService;
   // Track consecutive empty response errors to fail faster on persistent issues
-  private consecutiveEmptyResponses = 0;
-
-  constructor(
-    private readonly config: Config,
-    private readonly generationConfig: GenerateContentConfig = {},
-    private history: Content[] = [],
-  ) {
+  consecutiveEmptyResponses = 0;
+  constructor(config, generationConfig = {}, history = []) {
+    this.config = config;
+    this.generationConfig = generationConfig;
+    this.history = history;
     validateHistory(history);
     this.chatRecordingService = new ChatRecordingService(config);
     this.chatRecordingService.initialize();
   }
-
-  setSystemInstruction(sysInstr: string) {
+  setSystemInstruction(sysInstr) {
     this.generationConfig.systemInstruction = sysInstr;
   }
-
   /**
    * Sends a message to the model and returns the response in chunks.
    *
@@ -379,25 +294,19 @@ export class GeminiChat {
    * }
    * ```
    */
-  async sendMessageStream(
-    model: string,
-    params: SendMessageParameters,
-    prompt_id: string,
-  ): Promise<AsyncGenerator<StreamEvent>> {
+  async sendMessageStream(model, params, prompt_id) {
     await this.sendPromise;
-
-    let streamDoneResolver: () => void;
-    const streamDonePromise = new Promise<void>((resolve) => {
+    let streamDoneResolver;
+    const streamDonePromise = new Promise((resolve) => {
       streamDoneResolver = resolve;
     });
     this.sendPromise = streamDonePromise;
-
     // Inject project standards context if applicable
     let messageWithContext = params.message;
     // Extract text from PartListUnion for context injection
     if (Array.isArray(params.message)) {
       const textParts = params.message.filter(
-        (part: Part | string) =>
+        (part) =>
           typeof part === 'string' ||
           (typeof part === 'object' && 'text' in part && part.text),
       );
@@ -406,24 +315,22 @@ export class GeminiChat {
         const originalText =
           typeof firstTextPart === 'string'
             ? firstTextPart
-            : (firstTextPart.text ?? '');
-
+            : firstTextPart.text;
         const workingDir = this.config.getTargetDir();
         if (!workingDir) {
           throw new Error('Working directory is not defined.');
         }
         const textWithContext = await injectProjectStandards(
           originalText,
-          workingDir as string, // Workaround for TS2345
+          workingDir,
         );
-
         // Replace the first text part with context-injected version
         if (typeof textParts[0] === 'string') {
-          messageWithContext = params.message.map((part: Part | string) =>
+          messageWithContext = params.message.map((part) =>
             part === textParts[0] ? textWithContext : part,
           );
         } else {
-          messageWithContext = params.message.map((part: Part | string) => {
+          messageWithContext = params.message.map((part) => {
             if (part === textParts[0]) {
               if (typeof part === 'string') {
                 return textWithContext;
@@ -442,12 +349,10 @@ export class GeminiChat {
       }
       messageWithContext = await injectProjectStandards(
         params.message,
-        workingDir as string, // Workaround for TS2345
+        workingDir,
       );
     }
-
     const userContent = createUserContent(messageWithContext);
-
     // Record user input - capture complete message with all parts (text, files, images, etc.)
     // but skip recording function responses (tool call results) as they should be stored in tool call records
     if (!isFunctionResponse(userContent)) {
@@ -461,14 +366,11 @@ export class GeminiChat {
         content: userMessageContent,
       });
     }
-
     // Add user content to history ONCE before any attempts.
     this.history.push(userContent);
     let requestContents = this.getHistory(true);
-
     // Trim old tool results to save tokens
     requestContents = this.trimOldToolResults(requestContents);
-
     // Proactively check and trim context if needed
     // Convert systemInstruction to string for token estimation
     const systemInstructionStr =
@@ -477,16 +379,13 @@ export class GeminiChat {
         : this.generationConfig.systemInstruction
           ? JSON.stringify(this.generationConfig.systemInstruction)
           : undefined;
-
     const { trimmedHistory, warning, breakdown } = checkAndTrimContext(
       model,
       requestContents,
       systemInstructionStr,
       toToolsArray(this.generationConfig.tools),
     );
-
     requestContents = trimmedHistory;
-
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;
     return (async function* () {
@@ -497,14 +396,11 @@ export class GeminiChat {
           console.warn(breakdown + '\n');
         }
       }
-
       try {
-        let lastError: unknown = new Error('Request failed after all retries.');
-
+        let lastError = new Error('Request failed after all retries.');
         // Start with Pro retry limits, but will adjust dynamically if we fall back to Flash
         const MAX_FLASH_ATTEMPTS = 4; // Flash: 1 initial + 3 retries
         const MAX_PRO_ATTEMPTS = INVALID_CONTENT_RETRY_OPTIONS.maxAttempts; // Pro: 1 initial + 2 retries
-
         for (let attempt = 0; attempt < MAX_FLASH_ATTEMPTS; attempt++) {
           try {
             if (attempt > 0) {
@@ -515,18 +411,15 @@ export class GeminiChat {
                   : String(lastError);
               yield { type: StreamEventType.RETRY, error: errorMessage };
             }
-
             const stream = await self.makeApiCallAndProcessStream(
               model,
               requestContents,
               params,
               prompt_id,
             );
-
             for await (const chunk of stream) {
               yield { type: StreamEventType.CHUNK, value: chunk };
             }
-
             // Success! Reset empty response counter
             self.consecutiveEmptyResponses = 0;
             lastError = null;
@@ -534,22 +427,16 @@ export class GeminiChat {
           } catch (error) {
             lastError = error;
             const isContentError = error instanceof InvalidStreamError;
-
             // Check if this error should be retried (e.g., not safety/recitation blocks)
-            const shouldRetryError =
-              isContentError && (error as InvalidStreamError).shouldRetry;
-
+            const shouldRetryError = isContentError && error.shouldRetry;
             // Track consecutive empty responses to detect persistent issues
             const isEmptyResponseError =
-              isContentError &&
-              (error as InvalidStreamError).type === 'NO_RESPONSE_TEXT';
-
+              isContentError && error.type === 'NO_RESPONSE_TEXT';
             if (isEmptyResponseError && self.config.isInFallbackMode()) {
               self.consecutiveEmptyResponses++;
               console.log(
                 `[RETRY DEBUG] Consecutive empty responses: ${self.consecutiveEmptyResponses}`,
               );
-
               // If we've seen 2+ consecutive empty responses in fallback mode,
               // fail faster instead of waiting through all retries
               if (self.consecutiveEmptyResponses >= 2) {
@@ -563,12 +450,10 @@ export class GeminiChat {
                 break;
               }
             }
-
             // Check dynamically: use Flash limits if in fallback mode, otherwise Pro limits
             const maxAttempts = self.config.isInFallbackMode()
               ? MAX_FLASH_ATTEMPTS
               : MAX_PRO_ATTEMPTS;
-
             if (shouldRetryError) {
               // Check if we have more attempts left.
               if (attempt < maxAttempts - 1) {
@@ -584,41 +469,29 @@ export class GeminiChat {
                     INVALID_CONTENT_RETRY_OPTIONS.initialDelayMs *
                     (attempt + 1);
                 }
-
                 const totalSeconds = Math.round(retryDelay / 1000);
                 const modelName = self.config.isInFallbackMode()
                   ? 'Flash'
                   : 'Pro';
-
                 console.log(
                   `\n[RETRY] ${modelName} returned empty response. (attempt ${attempt + 1}/${maxAttempts})`,
                 );
-
                 logContentRetry(
                   self.config,
-                  new ContentRetryEvent(
-                    attempt,
-                    (error as InvalidStreamError).type,
-                    retryDelay,
-                    model,
-                  ),
+                  new ContentRetryEvent(attempt, error.type, retryDelay, model),
                 );
-
                 // Show countdown every 5 seconds
                 let remaining = totalSeconds;
                 console.log(`⏳ Waiting ${remaining}s before retry...`);
-
                 while (remaining > 0) {
                   // Wait 5 seconds or remaining time, whichever is less
                   const waitTime = Math.min(5, remaining);
                   await new Promise((res) => setTimeout(res, waitTime * 1000));
                   remaining -= waitTime;
-
                   if (remaining > 0) {
                     console.log(`⏳ Waiting ${remaining}s before retry...`);
                   }
                 }
-
                 console.log('🔄 Retrying now...\n');
                 continue;
               }
@@ -626,14 +499,13 @@ export class GeminiChat {
             break;
           }
         }
-
         if (lastError) {
           if (lastError instanceof InvalidStreamError) {
             logContentRetryFailure(
               self.config,
               new ContentRetryFailureEvent(
                 INVALID_CONTENT_RETRY_OPTIONS.maxAttempts,
-                (lastError as InvalidStreamError).type,
+                lastError.type,
                 model,
               ),
             );
@@ -645,30 +517,22 @@ export class GeminiChat {
           throw lastError;
         }
       } finally {
-        streamDoneResolver!();
+        streamDoneResolver();
       }
     })();
   }
-
-  private async makeApiCallAndProcessStream(
-    model: string,
-    requestContents: Content[],
-    params: SendMessageParameters,
-    prompt_id: string,
-  ): Promise<AsyncGenerator<GenerateContentResponse>> {
+  async makeApiCallAndProcessStream(model, requestContents, params, prompt_id) {
     const apiCall = () => {
       const modelToUse = getEffectiveModel(
         this.config.isInFallbackMode(),
         model,
       );
-
       console.log('[API CALL DEBUG] Calling API with model:', modelToUse);
       console.log(
         '[API CALL DEBUG] isInFallbackMode:',
         this.config.isInFallbackMode(),
       );
       console.log('[API CALL DEBUG] requested model:', model);
-
       return this.config.getContentGenerator().generateContentStream(
         {
           model: modelToUse,
@@ -678,20 +542,14 @@ export class GeminiChat {
         prompt_id,
       );
     };
-
-    const onPersistent429Callback = async (
-      authType?: string,
-      error?: unknown,
-    ) => await handleFallback(this.config, model, authType, error);
-
+    const onPersistent429Callback = async (authType, error) =>
+      await handleFallback(this.config, model, authType, error);
     const streamResponse = await retryWithBackoff(apiCall, {
       onPersistent429: onPersistent429Callback,
       authType: this.config.getContentGeneratorConfig()?.authType,
     });
-
     return this.processStreamResponse(model, streamResponse);
   }
-
   /**
    * Returns the chat history.
    *
@@ -715,7 +573,7 @@ export class GeminiChat {
    * @return History contents alternating between user and model for the entire
    * chat session.
    */
-  getHistory(curated: boolean = false): Content[] {
+  getHistory(curated = false) {
     const history = curated
       ? extractCuratedHistory(this.history)
       : this.history;
@@ -723,33 +581,29 @@ export class GeminiChat {
     // chat session.
     return structuredClone(history);
   }
-
   /**
    * Clears the chat history.
    */
-  clearHistory(): void {
+  clearHistory() {
     this.history = [];
   }
-
   /**
    * Adds a new entry to the chat history.
    */
-  addHistory(content: Content): void {
+  addHistory(content) {
     this.history.push(content);
   }
-
-  setHistory(history: Content[]): void {
+  setHistory(history) {
     this.history = history;
   }
-
-  stripThoughtsFromHistory(): void {
+  stripThoughtsFromHistory() {
     this.history = this.history.map((content) => {
       const newContent = { ...content };
       if (newContent.parts) {
         newContent.parts = newContent.parts.map((part) => {
           if (part && typeof part === 'object' && 'thoughtSignature' in part) {
             const newPart = { ...part };
-            delete (newPart as { thoughtSignature?: string }).thoughtSignature;
+            delete newPart.thoughtSignature;
             return newPart;
           }
           return part;
@@ -758,45 +612,37 @@ export class GeminiChat {
       return newContent;
     });
   }
-
-  setTools(tools: Tool[]): void {
+  setTools(tools) {
     this.generationConfig.tools = tools;
   }
-
   /**
    * Trims old tool results (functionResponse) from history to save tokens.
    * Keeps recent tool results (last 4 contents = 2 turns) in full.
    * Older tool results are replaced with brief summaries.
    */
-  private trimOldToolResults(contents: Content[]): Content[] {
+  trimOldToolResults(contents) {
     if (contents.length <= 4) {
       return contents; // Keep everything if conversation is short
     }
-
     // Keep last 4 contents (approximately 2 user-model turn pairs) at full size
     const recentCount = 4;
     const recentContents = contents.slice(-recentCount);
     const olderContents = contents.slice(0, -recentCount);
-
     const trimmedOlderContents = olderContents.map((content) => {
       if (content.role !== 'user') {
         return content; // Don't trim model responses
       }
-
       const hasFunctionResponse = content.parts?.some(
         (part) => part.functionResponse,
       );
-
       if (!hasFunctionResponse) {
         return content; // No tool results to trim
       }
-
       // Trim functionResponse parts
       const trimmedParts = content.parts?.map((part) => {
         if (!part.functionResponse) {
           return part; // Keep non-tool parts as-is
         }
-
         const response = part.functionResponse.response;
         if (
           !response ||
@@ -805,13 +651,11 @@ export class GeminiChat {
         ) {
           return part; // Keep small outputs
         }
-
         // Replace large output with summary
         const toolName = part.functionResponse.name || 'unknown_tool';
         const output = response['output'];
         const outputPreview = output.substring(0, 200);
         const summary = `[Tool result truncated: ${toolName} returned ${output.length} chars. First 200 chars: ${outputPreview}...]`;
-
         return {
           functionResponse: {
             ...part.functionResponse,
@@ -819,17 +663,14 @@ export class GeminiChat {
           },
         };
       });
-
       return {
         ...content,
         parts: trimmedParts,
       };
     });
-
     return [...trimmedOlderContents, ...recentContents];
   }
-
-  async maybeIncludeSchemaDepthContext(error: StructuredError): Promise<void> {
+  async maybeIncludeSchemaDepthContext(error) {
     // Check for potentially problematic cyclic tools with cyclic schemas
     // and include a recommendation to remove potentially problematic tools.
     if (
@@ -837,7 +678,7 @@ export class GeminiChat {
       isInvalidArgumentError(error.message)
     ) {
       const tools = this.config.getToolRegistry().getAllTools();
-      const cyclicSchemaTools: string[] = [];
+      const cyclicSchemaTools = [];
       for (const tool of tools) {
         if (
           (tool.schema.parametersJsonSchema &&
@@ -856,36 +697,27 @@ export class GeminiChat {
       }
     }
   }
-
-  private async *processStreamResponse(
-    model: string,
-    streamResponse: AsyncGenerator<GenerateContentResponse>,
-  ): AsyncGenerator<GenerateContentResponse> {
-    const modelResponseParts: Part[] = [];
-
+  async *processStreamResponse(model, streamResponse) {
+    const modelResponseParts = [];
     let hasToolCall = false;
     let hasFinishReason = false;
-    let lastFinishReason: FinishReason | undefined;
-
+    let lastFinishReason;
     // Detect local LLM server for longer first-chunk timeout (model loading)
     const authType = this.config.getContentGeneratorConfig()?.authType;
     const isOllama = authType === 'local';
-
     // Timeout strategy:
     // - Ollama: 90s for first chunk (model loading), then 30s for subsequent chunks
     // - llama.cpp with tools: 90s for first chunk, then 60s for subsequent (slower processing)
     // - Flash fallback: 10s (throttling usually fails fast)
     // - Pro/others: 30s
-
     // Detect if we're using llama.cpp
-    let contentGen: any = this.config.getContentGenerator();
+    let contentGen = this.config.getContentGenerator();
     if (contentGen && typeof contentGen.getWrapped === 'function') {
       contentGen = contentGen.getWrapped();
     }
     const isLlamaCpp =
       contentGen.constructor.name === 'LlamaCppContentGenerator';
     const hasTools = (this.generationConfig.tools?.length || 0) > 0;
-
     const FIRST_CHUNK_TIMEOUT_MS = isOllama ? 90000 : 30000; // 90s for Ollama first load
     const SUBSEQUENT_CHUNK_TIMEOUT_MS =
       isLlamaCpp && hasTools
@@ -896,11 +728,9 @@ export class GeminiChat {
     const MAX_CHUNKS = 1000; // Maximum chunks to prevent infinite loops
     let chunkCount = 0;
     const streamIterator = this.stopBeforeSecondMutator(streamResponse);
-
     try {
       while (true) {
         chunkCount++;
-
         // Safety limit: prevent infinite streaming loops
         if (chunkCount > MAX_CHUNKS) {
           console.warn(
@@ -908,7 +738,6 @@ export class GeminiChat {
           );
           break;
         }
-
         console.log('[STREAM DEBUG] Waiting for next chunk...');
         // Wrap each chunk read with a timeout
         // Use longer timeout for first chunk (Ollama model loading), shorter for subsequent
@@ -916,17 +745,13 @@ export class GeminiChat {
           chunkCount === 1
             ? FIRST_CHUNK_TIMEOUT_MS
             : SUBSEQUENT_CHUNK_TIMEOUT_MS;
-
-        const timeoutPromise = new Promise<{ done: true; value: undefined }>(
-          (_, reject) =>
-            setTimeout(
-              () => reject(new Error('Stream chunk timeout')),
-              chunkTimeout,
-            ),
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error('Stream chunk timeout')),
+            chunkTimeout,
+          ),
         );
-
         const chunkPromise = streamIterator.next();
-
         let result;
         try {
           result = await Promise.race([chunkPromise, timeoutPromise]);
@@ -939,14 +764,11 @@ export class GeminiChat {
           // Stream stalled, break out and handle validation below
           break;
         }
-
         if (result.done) {
           console.log('[STREAM DEBUG] Stream complete');
           break;
         }
-
         const chunk = result.value;
-
         // Debug logging
         const chunkInfo = {
           hasCandidate: !!chunk?.candidates?.[0],
@@ -959,16 +781,13 @@ export class GeminiChat {
           '[STREAM DEBUG] Received chunk:',
           JSON.stringify(chunkInfo),
         );
-
         hasFinishReason =
           chunk?.candidates?.some((candidate) => candidate.finishReason) ??
           false;
-
         // Capture the last finish reason we see
         if (chunk?.candidates?.[0]?.finishReason) {
           lastFinishReason = chunk.candidates[0].finishReason;
         }
-
         if (isValidResponse(chunk)) {
           const content = chunk.candidates?.[0]?.content;
           if (content?.parts) {
@@ -980,13 +799,11 @@ export class GeminiChat {
               hasToolCall = true;
               console.log('[STREAM DEBUG] Tool call detected');
             }
-
             modelResponseParts.push(
               ...content.parts.filter((part) => !part.thought),
             );
           }
         }
-
         // Record token usage if this chunk has usageMetadata
         if (chunk.usageMetadata) {
           this.chatRecordingService.recordMessageTokens(chunk.usageMetadata);
@@ -996,7 +813,6 @@ export class GeminiChat {
             );
           }
         }
-
         yield chunk; // Yield every chunk to the UI immediately.
         console.log('[STREAM DEBUG] Chunk yielded, waiting for next...');
       }
@@ -1004,9 +820,8 @@ export class GeminiChat {
       console.error('Stream processing error:', error);
       throw error;
     }
-
     // String thoughts and consolidate text parts.
-    const consolidatedParts: Part[] = [];
+    const consolidatedParts = [];
     for (const part of modelResponseParts) {
       const lastPart = consolidatedParts[consolidatedParts.length - 1];
       if (
@@ -1019,13 +834,11 @@ export class GeminiChat {
         consolidatedParts.push(part);
       }
     }
-
     const responseText = consolidatedParts
       .filter((part) => part.text)
       .map((part) => part.text)
       .join('')
       .trim();
-
     // Diagnostic: Log detailed part information when we have parts but no text
     if (consolidatedParts.length > 0 && !responseText) {
       console.warn(
@@ -1051,7 +864,6 @@ export class GeminiChat {
         console.warn(`[EMPTY RESPONSE DIAGNOSTIC]   Part ${idx}: ${partType}`);
       });
     }
-
     // Record model response text from the collected parts
     if (responseText) {
       this.chatRecordingService.recordMessage({
@@ -1060,7 +872,6 @@ export class GeminiChat {
         content: responseText,
       });
     }
-
     // Special handling for llama.cpp responses:
     // llama.cpp/vLLM often doesn't send finish_reason even when generation completes naturally.
     // If using llama.cpp and we got meaningful text (regardless of finish reason),
@@ -1075,7 +886,6 @@ export class GeminiChat {
       this.history.push({ role: 'model', parts: consolidatedParts });
       return;
     }
-
     // Stream validation logic: A stream is considered successful if:
     // 1. There's a tool call (tool calls can end without explicit finish reasons), OR
     // 2. There's a finish reason AND we have non-empty response text
@@ -1088,16 +898,13 @@ export class GeminiChat {
         // Special error message for local LLM servers
         if (isOllama) {
           // Detect which local server type based on the content generator
-          let contentGen: any = this.config.getContentGenerator();
-
+          let contentGen = this.config.getContentGenerator();
           // Unwrap LoggingContentGenerator if present
           if (contentGen && typeof contentGen.getWrapped === 'function') {
             contentGen = contentGen.getWrapped();
           }
-
           const isLlamaCpp =
             contentGen.constructor.name === 'LlamaCppContentGenerator';
-
           const serverType = isLlamaCpp ? 'llama.cpp' : 'Ollama';
           const defaultUrl = isLlamaCpp
             ? 'http://localhost:8000'
@@ -1107,7 +914,6 @@ export class GeminiChat {
             `curl -X POST ${defaultUrl}${apiPath} \\\n` +
             `       -H "Content-Type: application/json" \\\n` +
             `       -d '{"model": "<your-model>", "messages": [{"role": "user", "content": "Say hello"}], "stream": true}'`;
-
           const port = isLlamaCpp ? '8000' : '11434';
           const startCommand = isLlamaCpp
             ? `export HF_HOME="/path/to/models"
@@ -1115,15 +921,12 @@ python -m vllm.entrypoints.openai.api_server \\
   --model Qwen/Qwen2.5-Coder-7B-Instruct \\
   --host 0.0.0.0 --port ${port}`
             : `ollama serve`;
-
           // Check if we got partial response (stream started but timed out mid-response)
           const gotPartialResponse = responseText.length > 0;
-
           // Build agent-aware guidance based on whether we got a partial response
           let errorMessage = gotPartialResponse
             ? `❌ LOCAL LLM ERROR: Stream timed out mid-response (${chunkCount} chunks received, ${responseText.length} chars)\n\nServer type: ${serverType}\nModel: ${model}\n`
             : `❌ LOCAL LLM ERROR: Stream timed out without receiving any response\n\nServer type: ${serverType}\nModel: ${model}\n`;
-
           if (isLlamaCpp) {
             if (gotPartialResponse) {
               // Model is responding but very slowly - likely struggling with tools
@@ -1157,7 +960,6 @@ python -m vllm.entrypoints.openai.api_server \\
                 `     Agent: llamacpp-coder (Q&A only, no file operations)\n`;
             }
           }
-
           errorMessage +=
             `\nDIAGNOSTICS:\n` +
             `  # Check if server is running:\n` +
@@ -1168,7 +970,6 @@ python -m vllm.entrypoints.openai.api_server \\
             `  ${startCommand}\n\n` +
             `  # Test with simple request:\n` +
             `  ${curlExample}`;
-
           // Don't retry if we got a partial response - the model is fundamentally too slow
           // Retrying will just hit the same timeout and cause duplicate responses
           throw new InvalidStreamError(
@@ -1178,7 +979,6 @@ python -m vllm.entrypoints.openai.api_server \\
             !gotPartialResponse,
           );
         }
-
         throw new InvalidStreamError(
           'Model stream ended without a finish reason.\n\n' +
             'This can happen due to:\n' +
@@ -1196,7 +996,6 @@ python -m vllm.entrypoints.openai.api_server \\
           'In fallback mode:',
           this.config.isInFallbackMode(),
         );
-
         // Check finish reason to distinguish between different types of failures
         if (lastFinishReason === FinishReason.SAFETY) {
           // Safety blocks should NOT retry - they will fail the same way again
@@ -1208,10 +1007,9 @@ python -m vllm.entrypoints.openai.api_server \\
               '  • Starting a new chat session (/clear)',
             'NO_RESPONSE_TEXT',
             lastFinishReason,
-            false, // Don't retry safety blocks
+            false,
           );
         }
-
         if (lastFinishReason === FinishReason.RECITATION) {
           // Recitation blocks should NOT retry - they will fail the same way again
           throw new InvalidStreamError(
@@ -1222,10 +1020,9 @@ python -m vllm.entrypoints.openai.api_server \\
               '  • Starting a new chat session (/clear)',
             'NO_RESPONSE_TEXT',
             lastFinishReason,
-            false, // Don't retry recitation blocks
+            false,
           );
         }
-
         // For OTHER finish reason or STOP with empty text, check if we're in fallback mode
         // This is more likely to be quota exhaustion or rate limiting if we just switched to Flash
         if (this.config.isInFallbackMode()) {
@@ -1239,7 +1036,7 @@ python -m vllm.entrypoints.openai.api_server \\
                 'Please wait a moment and send your message again manually.',
               'NO_RESPONSE_TEXT',
               lastFinishReason,
-              false, // Don't retry - we already detected a pattern
+              false,
             );
           } else {
             // First empty response in fallback - could be transient rate limiting (429)
@@ -1249,11 +1046,10 @@ python -m vllm.entrypoints.openai.api_server \\
                 'This may be temporary throttling. Retrying with backoff...',
               'NO_RESPONSE_TEXT',
               lastFinishReason,
-              true, // Do retry - might just be transient 429
+              true,
             );
           }
         }
-
         // Default empty response error for non-fallback cases
         throw new InvalidStreamError(
           'Model stream ended with empty response text.\n\n' +
@@ -1267,29 +1063,25 @@ python -m vllm.entrypoints.openai.api_server \\
             '  • Waiting a moment and trying again',
           'NO_RESPONSE_TEXT',
           lastFinishReason,
-          true, // Do retry for other potential transient issues
+          true,
         );
       }
     }
-
     this.history.push({ role: 'model', parts: consolidatedParts });
   }
-
   /**
    * Gets the chat recording service instance.
    */
-  getChatRecordingService(): ChatRecordingService {
+  getChatRecordingService() {
     return this.chatRecordingService;
   }
-
   /**
    * Extracts and records thought from thought content.
    */
-  private recordThoughtFromContent(content: Content): void {
+  recordThoughtFromContent(content) {
     if (!content.parts || content.parts.length === 0) {
       return;
     }
-
     const thoughtPart = content.parts[0];
     if (thoughtPart.text) {
       // Extract subject and description using the same logic as turn.ts
@@ -1299,14 +1091,12 @@ python -m vllm.entrypoints.openai.api_server \\
         ? subjectStringMatches[1].trim()
         : '';
       const description = rawText.replace(/\*\*(.*?)\*\*/s, '').trim();
-
       this.chatRecordingService.recordThought({
         subject,
         description,
       });
     }
   }
-
   /**
    * Truncates the chunkStream right before the second function call to a
    * function that mutates state. This may involve trimming parts from a chunk
@@ -1315,11 +1105,8 @@ python -m vllm.entrypoints.openai.api_server \\
    * We do this because it improves tool call quality if the model gets
    * feedback from one mutating function call before it makes the next one.
    */
-  private async *stopBeforeSecondMutator(
-    chunkStream: AsyncGenerator<GenerateContentResponse>,
-  ): AsyncGenerator<GenerateContentResponse> {
+  async *stopBeforeSecondMutator(chunkStream) {
     let foundMutatorFunctionCall = false;
-
     try {
       for await (const chunk of chunkStream) {
         const candidate = chunk.candidates?.[0];
@@ -1328,8 +1115,7 @@ python -m vllm.entrypoints.openai.api_server \\
           yield chunk;
           continue;
         }
-
-        const truncatedParts: Part[] = [];
+        const truncatedParts = [];
         for (const part of content.parts) {
           if (this.isMutatorFunctionCall(part)) {
             if (foundMutatorFunctionCall) {
@@ -1348,7 +1134,6 @@ python -m vllm.entrypoints.openai.api_server \\
               ];
               // Don't set text property as it's readonly
               yield newChunk;
-
               // Return early - the finally block will handle cleanup
               return;
             }
@@ -1356,7 +1141,6 @@ python -m vllm.entrypoints.openai.api_server \\
           }
           truncatedParts.push(part);
         }
-
         yield chunk;
       }
     } finally {
@@ -1366,8 +1150,7 @@ python -m vllm.entrypoints.openai.api_server \\
       }
     }
   }
-
-  private isMutatorFunctionCall(part: Part): boolean {
+  isMutatorFunctionCall(part) {
     if (!part?.functionCall?.name) {
       return false;
     }
@@ -1375,12 +1158,11 @@ python -m vllm.entrypoints.openai.api_server \\
     return !!tool && MUTATOR_KINDS.includes(tool.kind);
   }
 }
-
 /** Visible for Testing */
-export function isSchemaDepthError(errorMessage: string): boolean {
+export function isSchemaDepthError(errorMessage) {
   return errorMessage.includes('maximum schema depth exceeded');
 }
-
-export function isInvalidArgumentError(errorMessage: string): boolean {
+export function isInvalidArgumentError(errorMessage) {
   return errorMessage.includes('Request contains an invalid argument');
 }
+//# sourceMappingURL=geminiChat.js.map

@@ -59,7 +59,7 @@ export function resolvePathFromEnv(envVar) {
     isDisabled: false,
   };
 }
-export function getCoreSystemPrompt(config, userMemory) {
+export function getCoreSystemPrompt(config, userMemory, options) {
   // A flag to indicate whether the system prompt override is active.
   let systemMdEnabled = false;
   // The default path for the system prompt file. This can be overridden.
@@ -389,9 +389,9 @@ Your core function is efficient and safe assistance. Balance extreme conciseness
     fs.mkdirSync(path.dirname(writePath), { recursive: true });
     fs.writeFileSync(writePath, basePrompt);
   }
-  // Build custom agents section if any exist
+  // Build custom agents section if any exist (unless explicitly excluded)
   let customAgentsSuffix = '';
-  if (customAgents.length > 0) {
+  if (customAgents.length > 0 && !options?.excludeCustomAgents) {
     customAgentsSuffix =
       "\n\n---\n\n# Available Specialist Agents\n\nYou have access to specialized agents for specific tasks. **When you encounter a user request that matches an agent's specialty, you MUST delegate to that agent immediately** using its tool. Do not attempt to handle the request yourself if a specialist agent exists for it.\n\n";
     for (const agent of customAgents) {
@@ -400,9 +400,8 @@ Your core function is efficient and safe assistance. Balance extreme conciseness
         `Specialist agent: ${agent.displayName || agent.name}`;
       const provider = agent.modelConfig.provider || 'gemini';
       const model = agent.modelConfig.model;
-      // Extract trigger keywords from agent name and description
+      // Extract trigger keywords from agent name
       const agentNameLower = agent.name.toLowerCase();
-      const descriptionLower = description.toLowerCase();
       let triggerHints = '';
       // Common trigger patterns based on agent name
       if (agentNameLower.includes('scaffold')) {

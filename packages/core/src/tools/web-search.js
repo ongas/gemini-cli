@@ -21,9 +21,16 @@ class WebSearchToolInvocation extends BaseToolInvocation {
   async execute(signal) {
     const geminiClient = this.config.getGeminiClient();
     try {
+      // Use a minimal system instruction without custom agents to avoid confusion
+      const systemInstruction =
+        'You are a helpful assistant that performs web searches using Google Search. ' +
+        "Answer the user's query based on the search results provided by Google Search.";
       const response = await geminiClient.generateContent(
         [{ role: 'user', parts: [{ text: this.params.query }] }],
-        { tools: [{ googleSearch: {} }] },
+        {
+          tools: [{ googleSearch: {} }],
+          systemInstruction: { text: systemInstruction },
+        },
         signal,
         DEFAULT_GEMINI_FLASH_MODEL,
       );

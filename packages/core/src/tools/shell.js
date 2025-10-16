@@ -300,8 +300,33 @@ function getShellToolDescription() {
   }
 }
 function getCommandDescription() {
-  const cmd_substitution_warning =
-    '\n*** WARNING: Command substitution using $(), `` ` ``, <(), or >() is not allowed for security reasons.';
+  const cmd_substitution_warning = `
+
+⚠️ CRITICAL SECURITY RESTRICTION ⚠️
+Command substitution using $(), backticks (\`\`), <(), or >() is STRICTLY FORBIDDEN and will cause immediate hard failure.
+
+❌ NEVER use these patterns:
+  - $(command)        # Command substitution
+  - \`command\`          # Backtick substitution
+  - <(command)        # Process substitution
+  - >(command)        # Process substitution
+
+✅ ALWAYS use these alternatives instead:
+  1. Break into multiple shell commands:
+     • First command writes to temp file
+     • Second command reads from temp file
+     • Example: curl ... > /tmp/out.json && cat /tmp/out.json
+
+  2. Use shell operators without substitution:
+     • Pipes: command1 | command2
+     • Redirection: command > file.txt
+     • Chaining: command1 && command2
+
+  3. For complex logic, write a script file then execute it:
+     • Use Write tool to create script.sh
+     • Then run: bash script.sh
+
+This restriction cannot be overridden. Any attempt to use command substitution will result in tool validation failure before execution.`;
   if (os.platform() === 'win32') {
     return (
       'Exact command to execute as `cmd.exe /c <command>`' +

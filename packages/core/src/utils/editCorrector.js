@@ -399,12 +399,16 @@ export async function ensureCorrectEdit(
           }
         }
       }
+      console.log(
+        `[Edit Corrector] Attempting LLM-based old_string correction for ${filePath}`,
+      );
       const llmCorrectedOldString = await correctOldStringMismatch(
         baseLlmClient,
         currentContent,
         unescapedOldStringAttempt,
         abortSignal,
       );
+      console.log(`[Edit Corrector] LLM correction completed for ${filePath}`);
       const llmOldOccurrences = countOccurrences(
         currentContent,
         llmCorrectedOldString,

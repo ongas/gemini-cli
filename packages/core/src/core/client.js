@@ -152,7 +152,21 @@ export class GeminiClient {
   }
   async setTools() {
     const toolRegistry = this.config.getToolRegistry();
-    const toolDeclarations = toolRegistry.getFunctionDeclarations();
+    // Check if agent specified specific tools to use
+    const agentTools = process.env['AGENT_TOOLS'];
+    let toolDeclarations;
+    if (agentTools) {
+      // Filter to only the tools specified by the agent
+      const toolNames = agentTools.split(',').map((t) => t.trim());
+      toolDeclarations =
+        toolRegistry.getFunctionDeclarationsFiltered(toolNames);
+      console.log(
+        `[AGENT TOOLS] Filtered to ${toolDeclarations.length} tools: ${toolNames.join(', ')}`,
+      );
+    } else {
+      // Use all available tools
+      toolDeclarations = toolRegistry.getFunctionDeclarations();
+    }
     const tools = [{ functionDeclarations: toolDeclarations }];
     this.getChat().setTools(tools);
   }
@@ -179,7 +193,21 @@ export class GeminiClient {
     this.hasFailedCompressionAttempt = false;
     const envParts = await getEnvironmentContext(this.config);
     const toolRegistry = this.config.getToolRegistry();
-    const toolDeclarations = toolRegistry.getFunctionDeclarations();
+    // Check if agent specified specific tools to use
+    const agentTools = process.env['AGENT_TOOLS'];
+    let toolDeclarations;
+    if (agentTools) {
+      // Filter to only the tools specified by the agent
+      const toolNames = agentTools.split(',').map((t) => t.trim());
+      toolDeclarations =
+        toolRegistry.getFunctionDeclarationsFiltered(toolNames);
+      console.log(
+        `[AGENT TOOLS] Filtered to ${toolDeclarations.length} tools: ${toolNames.join(', ')}`,
+      );
+    } else {
+      // Use all available tools
+      toolDeclarations = toolRegistry.getFunctionDeclarations();
+    }
     const tools = [{ functionDeclarations: toolDeclarations }];
     const history = [
       {
@@ -499,7 +527,10 @@ export class GeminiClient {
     };
     try {
       const userMemory = this.config.getUserMemory();
-      const systemInstruction = getCoreSystemPrompt(this.config, userMemory);
+      // Only use the default system prompt if one wasn't provided by the caller
+      const systemInstruction = configToUse.systemInstruction
+        ? configToUse.systemInstruction
+        : getCoreSystemPrompt(this.config, userMemory);
       const requestConfig = {
         abortSignal,
         ...configToUse,

@@ -629,7 +629,10 @@ export class GeminiClient {
 
     try {
       const userMemory = this.config.getUserMemory();
-      const systemInstruction = getCoreSystemPrompt(this.config, userMemory);
+      // Only use the default system prompt if one wasn't provided by the caller
+      const systemInstruction = configToUse.systemInstruction
+        ? configToUse.systemInstruction
+        : getCoreSystemPrompt(this.config, userMemory);
 
       const requestConfig: GenerateContentConfig = {
         abortSignal,

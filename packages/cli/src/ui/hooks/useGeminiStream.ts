@@ -110,6 +110,7 @@ export const useGeminiStream = (
   const [initError, setInitError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const turnCancelledRef = useRef(false);
+  const activeRequestIdRef = useRef<string | null>(null);
   const [isResponding, setIsResponding] = useState<boolean>(false);
   const [thought, setThought] = useState<ThoughtSummary | null>(null);
   const [todoChecklist, setTodoChecklist] =
@@ -875,6 +876,20 @@ export const useGeminiStream = (
       if (!prompt_id) {
         prompt_id = config.getSessionId() + '########' + getPromptCount();
       }
+
+      // Prevent duplicate stream submissions for the same request
+      if (
+        activeRequestIdRef.current === prompt_id &&
+        !options?.isContinuation
+      ) {
+        console.warn(
+          '[DEDUP] Ignoring duplicate submission for prompt_id:',
+          prompt_id,
+        );
+        return;
+      }
+
+      activeRequestIdRef.current = prompt_id;
       return promptIdContext.run(prompt_id, async () => {
         const { queryToSend, shouldProceed } = await prepareQueryForGemini(
           query,
@@ -953,6 +968,8 @@ export const useGeminiStream = (
           }
         } finally {
           setIsResponding(false);
+          // Clear the active request ID to allow future requests
+          activeRequestIdRef.current = null;
         }
       });
     },

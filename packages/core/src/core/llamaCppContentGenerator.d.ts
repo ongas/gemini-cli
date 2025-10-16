@@ -28,6 +28,11 @@ export declare class LlamaCppContentGenerator implements ContentGenerator {
    */
   private normalizeContents;
   /**
+   * Recursively remove empty nested objects from schema properties
+   * llama.cpp's JSON schema parser rejects empty objects like {"result": {}}
+   */
+  private cleanEmptyProperties;
+  /**
    * Convert Gemini Tool format to llama.cpp format
    */
   private convertToLlamaCppTools;

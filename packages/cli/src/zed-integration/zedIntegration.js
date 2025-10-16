@@ -374,6 +374,8 @@ class Session {
           case ToolConfirmationOutcome.ProceedAlwaysServer:
           case ToolConfirmationOutcome.ProceedAlwaysTool:
           case ToolConfirmationOutcome.ModifyWithEditor:
+          case ToolConfirmationOutcome.ProceedAlwaysAllSessions:
+          case ToolConfirmationOutcome.ProceedAlwaysAgent:
             break;
           default: {
             const resultOutcome = outcome;

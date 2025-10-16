@@ -33,12 +33,9 @@ import {
   runExitCleanup,
 } from './utils/cleanup.js';
 import { getCliVersion } from './utils/version.js';
-import {
-  sessionId,
-  logUserPrompt,
-  AuthType,
-  getOauthClient,
-} from '@google/gemini-cli-core';
+import { AuthType } from '@google/gemini-cli-core/src/core/contentGenerator';
+import { AgentDefinition } from '@google/gemini-cli-core';
+import { randomUUID } from 'node:crypto';
 import { initializeApp } from './core/initializer.js';
 import { validateAuthMethod } from './config/auth.js';
 import { setMaxSizedBoxDebugging } from './ui/components/shared/MaxSizedBox.js';
@@ -393,23 +390,25 @@ export async function main() {
         const yaml = yamlMatch[1];
         const providerMatch = yaml.match(/^Provider:\s*(.+)$/m);
         const modelMatch = yaml.match(/^Model:\s*(.+)$/m);
+        const toolsMatch = yaml.match(/^Tools:\s*(.+)$/m);
         const provider = providerMatch
           ? providerMatch[1].trim().toLowerCase()
           : 'gemini';
         const model = modelMatch ? modelMatch[1].trim() : undefined;
+        const tools = toolsMatch ? toolsMatch[1].trim() : undefined;
         // Override the model and auth based on provider
         if (provider === 'ollama' && model) {
           process.env['GEMINI_MODEL'] = model;
           // Set environment variable to indicate Ollama provider
           process.env['LOCAL_LLM_PROVIDER'] = 'ollama';
-          // Set auth type for Ollama in merged settings
+          // Set auth type for ollama (use local auth type for local servers)
           if (!settings.merged.security) {
             settings.merged.security = {};
           }
           if (!settings.merged.security.auth) {
             settings.merged.security.auth = {};
           }
-          settings.merged.security.auth.selectedType = 'local';
+          settings.merged.security.auth.selectedType = AuthType.LOCAL;
         } else if (provider === 'llamacpp' && model) {
           process.env['GEMINI_MODEL'] = model;
           // Set environment variable to indicate llama.cpp provider
@@ -421,9 +420,13 @@ export async function main() {
           if (!settings.merged.security.auth) {
             settings.merged.security.auth = {};
           }
-          settings.merged.security.auth.selectedType = 'local';
+          settings.merged.security.auth.selectedType = AuthType.LOCAL;
         } else if (model) {
           process.env['GEMINI_MODEL'] = model;
+        }
+        // Set tools for agent-specific tool filtering
+        if (tools && tools !== 'all') {
+          process.env['AGENT_TOOLS'] = tools;
         }
       }
     } catch (error) {

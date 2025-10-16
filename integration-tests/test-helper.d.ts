@@ -34,7 +34,7 @@ export declare class TestRig {
   _lastRunStdout?: string;
   _interactiveOutput: string;
   constructor();
-  getDefaultTimeout(): 15000 | 60000 | 30000;
+  getDefaultTimeout(): 30000 | 60000 | 15000;
   setup(
     testName: string,
     options?: {

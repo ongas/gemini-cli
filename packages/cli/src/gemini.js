@@ -555,8 +555,7 @@ export async function main() {
     const config = await loadCliConfig(
       settings.merged,
       extensions,
-      extensionEnablementManager,
-      sessionId,
+    continueSession,
       argv,
     );
     // Log available agents for user awareness (non-debug mode)

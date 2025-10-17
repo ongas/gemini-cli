@@ -9,82 +9,37 @@ import {
   BaseDeclarativeTool,
   BaseToolInvocation,
   Kind,
+  type Todo,
   type ToolResult,
 } from './tools.js';
+import { WRITE_TODOS_TOOL_NAME } from './tool-names.js';
 
 // Inspired by langchain/deepagents.
-export const WRITE_TODOS_DESCRIPTION = `⚠️ **CRITICAL TOOL - USE FREQUENTLY** ⚠️
+export const WRITE_TODOS_DESCRIPTION = `This tool can help you list out the current subtasks that are required to be completed for a given user request. The list of subtasks helps you keep track of the current task, organize complex queries and help ensure that you don't miss any steps. With this list, the user can also see the current progress you are making in executing a given task.
 
-This tool is MANDATORY for managing complex multi-step tasks. You MUST create and update a todo list to show the user your progress. Failure to use this tool makes it impossible for users to track what you're doing.
+Depending on the task complexity, you should first divide a given task into subtasks and then use this tool to list out the subtasks that are required to be completed for a given user request.
+Each of the subtasks should be clear and distinct. 
 
-## WHEN TO USE (Read This FIRST Before Every Response!)
+Use this tool for complex queries that require multiple steps. If you find that the request is actually complex after you have started executing the user task, create a todo list and use it. If execution of the user task requires multiple steps, planning and generally is higher complexity than a simple Q&A, use this tool.
 
-**YOU MUST IMMEDIATELY create a todo list if ANY of these apply:**
-- User says "debug", "fix", "troubleshoot", "investigate", "error", "failing"
-- User says "test", "pytest", "run tests", "check tests"
-- User says "implement", "create", "build", "add feature"
-- User says "refactor", "restructure", "reorganize"
-- User says "optimize", "improve", "enhance", "performance"
-- User says "setup", "configure", "install", "initialize"
-- User request requires 3+ steps (even if they don't mention it)
-- You're planning to read multiple files, then make changes
-- You're going to run a command, analyze output, then act on it
-- **ANY debugging task** (this is the #1 use case - always create todos for debugging!)
-- **ANY test-related task** (always create todos when working with tests!)
-
-## DEFAULT TO CREATING TODOS
-
-**When in doubt, CREATE A TODO LIST.** It's better to create a todo list for a simple task than to skip it for a complex one. Users WANT to see your thought process and progress.
-
-## Common Task Templates
-
-### For "Debug failing pytest tests":
-1. Run pytest to capture the exact failures
-2. Read the failing test file(s)
-3. Understand what behavior is being tested
-4. Identify the root cause in the implementation
-5. Make the necessary fix
-6. Re-run pytest to verify all tests pass
-7. Check for any related tests that might be affected
-
-### For "Debug X" or "Fix bug in Y":
-1. Reproduce the issue
-2. Identify the root cause
-3. Implement the fix
-4. Verify the fix works
-5. Check for edge cases or regressions
-
-### For "Implement feature X":
-1. Understand the requirements
-2. Design the solution approach
-3. Implement core functionality
-4. Add error handling
-5. Write tests
-6. Document the changes
-
-## General Guidelines
-
-Use this tool for complex queries requiring multiple steps. If you find a request is more complex than initially expected, create a todo list immediately.
-
-DO NOT use for simple tasks completable in 1-2 steps or single-turn Q&A.
+DO NOT use this tool for simple tasks that can be completed in less than 2 steps. If the user query is simple and straightforward, do not use the tool. If you can respond with an answer in a single turn then this tool is not required.
 
 ## Task state definitions
 
 - pending: Work has not begun on a given subtask.
 - in_progress: Marked just prior to beginning work on a given subtask. You should only have one subtask as in_progress at a time.
-- completed: Subtask was succesfully completed with no errors or issues. If the subtask required more steps to complete, update the todo list with the subtasks. All steps should be identified as completed only when they are completed.
+- completed: Subtask was successfully completed with no errors or issues. If the subtask required more steps to complete, update the todo list with the subtasks. All steps should be identified as completed only when they are completed.
 - cancelled: As you update the todo list, some tasks are not required anymore due to the dynamic nature of the task. In this case, mark the subtasks as cancelled.
 
 
-## Methodology for using this tool (FOLLOW STRICTLY!)
-
-1. **CREATE IMMEDIATELY** - Use this tool in your FIRST response if the task matches the criteria above. Don't wait.
-2. **UPDATE FREQUENTLY** - Call this tool every time you start, complete, or cancel a task. The user needs real-time updates.
-3. **ONE IN-PROGRESS ONLY** - Mark exactly ONE subtask as in_progress before working on it. Never have zero or multiple in-progress tasks.
-4. **BE SPECIFIC** - Tasks like "Fix the bug" are too vague. Use "Read failing test output", "Identify root cause in auth.py", etc.
-5. **EVOLVE THE LIST** - Add new tasks as you discover them. Remove tasks that are no longer needed.
-6. **MARK COMPLETED IMMEDIATELY** - As soon as a task succeeds, update the list. Don't batch updates.
-7. **FOR DEBUGGING: ALWAYS CREATE TODOS** - Debugging tasks are complex by nature. Every debugging request needs a todo list.
+## Methodology for using this tool
+1. Use this todo list list as soon as you receive a user request based on the complexity of the task.
+2. Keep track of every subtask that you update the list with.
+3. Mark a subtask as in_progress before you begin working on it. You should only have one subtask as in_progress at a time.
+4. Update the subtask list as you proceed in executing the task. The subtask list is not static and should reflect your progress and current plans, which may evolve as you acquire new information.
+5. Mark a subtask as completed when you have completed it.
+6. Mark a subtask as cancelled if the subtask is no longer needed.
+7. You must update the todo list as soon as you start, stop or cancel a subtask. Don't batch or wait to update the todo list.
 
 
 ## Examples of When to Use the Todo List
@@ -125,13 +80,6 @@ The agent did not use the todo list because this task could be completed by a ti
 </example>
 `;
 
-export type TodoStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
-
-export interface Todo {
-  description: string;
-  status: TodoStatus;
-}
-
 export interface WriteTodosToolParams {
   /**
    * The full list of todos. This will overwrite any existing list.
@@ -169,7 +117,7 @@ class WriteTodosToolInvocation extends BaseToolInvocation<
 
     return {
       llmContent,
-      returnDisplay: llmContent,
+      returnDisplay: { todos },
     };
   }
 }
@@ -178,7 +126,7 @@ export class WriteTodosTool extends BaseDeclarativeTool<
   WriteTodosToolParams,
   ToolResult
 > {
-  static readonly Name: string = 'write_todos_list';
+  static readonly Name: string = WRITE_TODOS_TOOL_NAME;
 
   constructor() {
     super(

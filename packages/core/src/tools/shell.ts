@@ -22,6 +22,7 @@ import {
   ToolConfirmationOutcome,
   Kind,
 } from './tools.js';
+import { ApprovalMode } from '../config/config.js';
 import { getErrorMessage } from '../utils/errors.js';
 import { summarizeToolOutput } from '../utils/summarizer.js';
 import type {
@@ -33,9 +34,12 @@ import { formatMemoryUsage } from '../utils/formatters.js';
 import type { AnsiOutput } from '../utils/terminalSerializer.js';
 import {
   getCommandRoots,
+  initializeShellParsers,
   isCommandAllowed,
+  SHELL_TOOL_NAMES,
   stripShellWrapper,
 } from '../utils/shell-utils.js';
+import { doesToolInvocationMatch } from '../utils/tool-utils.js';
 
 export const OUTPUT_UPDATE_INTERVAL_MS = 1000;
 
@@ -77,24 +81,28 @@ export class ShellToolInvocation extends BaseToolInvocation<
     const command = stripShellWrapper(this.params.command);
     const rootCommands = [...new Set(getCommandRoots(command))];
 
-    // Check persistent approvals first
-    const approvalStorage = this.config.getApprovalStorage();
-    const persistentlyApprovedCommands = new Set<string>();
-    for (const command of rootCommands) {
-      const persistentApproval =
-        await approvalStorage.isCommandApproved(command);
-      if (persistentApproval) {
-        persistentlyApprovedCommands.add(command);
-        // Also add to session allowlist for performance
-        this.allowlist.add(command);
+    // In non-interactive mode, we need to prevent the tool from hanging while
+    // waiting for user input. If a tool is not fully allowed (e.g. via
+    // --allowed-tools="ShellTool(wc)"), we should throw an error instead of
+    // prompting for confirmation. This check is skipped in YOLO mode.
+    if (
+      !this.config.isInteractive() &&
+      this.config.getApprovalMode() !== ApprovalMode.YOLO
+    ) {
+      const allowedTools = this.config.getAllowedTools() || [];
+      const [SHELL_TOOL_NAME] = SHELL_TOOL_NAMES;
+      if (doesToolInvocationMatch(SHELL_TOOL_NAME, command, allowedTools)) {
+        // If it's an allowed shell command, we don't need to confirm execution.
+        return false;
       }
+
+      throw new Error(
+        `Command "${command}" is not in the list of allowed tools for non-interactive mode.`,
+      );
     }
 
-    // Filter out both session-approved and persistently-approved commands
     const commandsToConfirm = rootCommands.filter(
-      (command) =>
-        !this.allowlist.has(command) &&
-        !persistentlyApprovedCommands.has(command),
+      (command) => !this.allowlist.has(command),
     );
 
     if (commandsToConfirm.length === 0) {
@@ -109,30 +117,6 @@ export class ShellToolInvocation extends BaseToolInvocation<
       onConfirm: async (outcome: ToolConfirmationOutcome) => {
         if (outcome === ToolConfirmationOutcome.ProceedAlways) {
           commandsToConfirm.forEach((command) => this.allowlist.add(command));
-        } else if (
-          outcome === ToolConfirmationOutcome.ProceedAlwaysAllSessions
-        ) {
-          // Add to persistent storage for all sessions
-          for (const command of commandsToConfirm) {
-            try {
-              await approvalStorage.approveCommand(
-                command,
-                `Shell command: ${command}`,
-              );
-              console.log(
-                `[DEBUG] Persistent approval saved for shell command: ${command}`,
-              );
-              // Also add to session allowlist
-              this.allowlist.add(command);
-            } catch (error) {
-              console.error(
-                `[ERROR] Failed to save persistent approval for ${command}:`,
-                error,
-              );
-              // Still add to session allowlist even if persistent save fails
-              this.allowlist.add(command);
-            }
-          }
         }
       },
     };
@@ -220,7 +204,7 @@ export class ShellToolInvocation extends BaseToolInvocation<
             }
           },
           signal,
-          this.config.getShouldUseNodePtyShell(),
+          this.config.getEnableInteractiveShell(),
           shellExecutionConfig ?? {},
         );
 
@@ -357,51 +341,17 @@ function getShellToolDescription(): string {
       Process Group PGID: Process group started or \`(none)\``;
 
   if (os.platform() === 'win32') {
-    return `This tool executes a given shell command as \`cmd.exe /c <command>\`. Command can start background processes using \`start /b\`.${returnedInfo}`;
+    return `This tool executes a given shell command as \`powershell.exe -NoProfile -Command <command>\`. Command can start background processes using PowerShell constructs such as \`Start-Process -NoNewWindow\` or \`Start-Job\`.${returnedInfo}`;
   } else {
     return `This tool executes a given shell command as \`bash -c <command>\`. Command can start background processes using \`&\`. Command is executed as a subprocess that leads its own process group. Command process group can be terminated as \`kill -- -PGID\` or signaled as \`kill -s SIGNAL -- -PGID\`.${returnedInfo}`;
   }
 }
 
 function getCommandDescription(): string {
-  const cmd_substitution_warning = `
-
-⚠️ CRITICAL SECURITY RESTRICTION ⚠️
-Command substitution using $(), backticks (\`\`), <(), or >() is STRICTLY FORBIDDEN and will cause immediate hard failure.
-
-❌ NEVER use these patterns:
-  - $(command)        # Command substitution
-  - \`command\`          # Backtick substitution
-  - <(command)        # Process substitution
-  - >(command)        # Process substitution
-
-✅ ALWAYS use these alternatives instead:
-  1. Break into multiple shell commands:
-     • First command writes to temp file
-     • Second command reads from temp file
-     • Example: curl ... > /tmp/out.json && cat /tmp/out.json
-
-  2. Use shell operators without substitution:
-     • Pipes: command1 | command2
-     • Redirection: command > file.txt
-     • Chaining: command1 && command2
-
-  3. For complex logic, write a script file then execute it:
-     • Use Write tool to create script.sh
-     • Then run: bash script.sh
-
-This restriction cannot be overridden. Any attempt to use command substitution will result in tool validation failure before execution.`;
-
   if (os.platform() === 'win32') {
-    return (
-      'Exact command to execute as `cmd.exe /c <command>`' +
-      cmd_substitution_warning
-    );
+    return 'Exact command to execute as `powershell.exe -NoProfile -Command <command>`';
   } else {
-    return (
-      'Exact bash command to execute as `bash -c <command>`' +
-      cmd_substitution_warning
-    );
+    return 'Exact bash command to execute as `bash -c <command>`';
   }
 }
 
@@ -413,6 +363,9 @@ export class ShellTool extends BaseDeclarativeTool<
   private allowlist: Set<string> = new Set();
 
   constructor(private readonly config: Config) {
+    void initializeShellParsers().catch(() => {
+      // Errors are surfaced when parsing commands.
+    });
     super(
       ShellTool.Name,
       'Shell',
@@ -446,6 +399,10 @@ export class ShellTool extends BaseDeclarativeTool<
   protected override validateToolParamValues(
     params: ShellToolParams,
   ): string | null {
+    if (!params.command.trim()) {
+      return 'Command cannot be empty.';
+    }
+
     const commandCheck = isCommandAllowed(params.command, this.config);
     if (!commandCheck.allowed) {
       if (!commandCheck.reason) {
@@ -455,9 +412,6 @@ export class ShellTool extends BaseDeclarativeTool<
         return `Command is not allowed: ${params.command}`;
       }
       return commandCheck.reason;
-    }
-    if (!params.command.trim()) {
-      return 'Command cannot be empty.';
     }
     if (getCommandRoots(params.command).length === 0) {
       return 'Could not identify command root to obtain permission from user.';

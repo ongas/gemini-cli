@@ -15,7 +15,6 @@ import type {
   HistoryItemWithoutId,
   StreamingState,
 } from '../types.js';
-import type { TodoChecklistSummary } from '@google/gemini-cli-core';
 import type { CommandContext, SlashCommand } from '../commands/types.js';
 import type { TextBuffer } from '../components/shared/text-buffer.js';
 import type {
@@ -57,7 +56,7 @@ export interface UIState {
   isSettingsDialogOpen: boolean;
   isModelDialogOpen: boolean;
   isPermissionsDialogOpen: boolean;
-  slashCommands: readonly SlashCommand[];
+  slashCommands: readonly SlashCommand[] | undefined;
   pendingSlashCommandHistoryItems: HistoryItemWithoutId[];
   commandContext: CommandContext;
   shellConfirmationRequest: ShellConfirmationRequest | null;
@@ -69,7 +68,6 @@ export interface UIState {
   initError: string | null;
   pendingGeminiHistoryItems: HistoryItemWithoutId[];
   thought: ThoughtSummary | null;
-  todoChecklist: TodoChecklistSummary | null;
   shellModeActive: boolean;
   userMessages: string[];
   buffer: TextBuffer;
@@ -83,7 +81,7 @@ export interface UIState {
   showErrorDetails: boolean;
   filteredConsoleMessages: ConsoleMessageItem[];
   ideContextState: IdeContext | undefined;
-  showToolDescriptions: boolean;
+  renderMarkdown: boolean;
   ctrlCPressedOnce: boolean;
   ctrlDPressedOnce: boolean;
   showEscapePrompt: boolean;
@@ -91,6 +89,7 @@ export interface UIState {
   currentLoadingPhrase: string;
   historyRemountKey: number;
   messageQueue: string[];
+  queueErrorMessage: string | null;
   showAutoAcceptIndicator: ApprovalMode;
   showWorkspaceMigrationDialog: boolean;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -113,6 +112,8 @@ export interface UIState {
   terminalWidth: number;
   terminalHeight: number;
   mainControlsRef: React.MutableRefObject<DOMElement | null>;
+  // NOTE: This is for performance profiling only.
+  rootUiRef: React.MutableRefObject<DOMElement | null>;
   currentIDE: IdeInfo | null;
   updateInfo: UpdateObject | null;
   showIdeRestartPrompt: boolean;
@@ -121,6 +122,7 @@ export interface UIState {
   extensionsUpdateState: Map<string, ExtensionUpdateState>;
   activePtyId: number | undefined;
   embeddedShellFocused: boolean;
+  showDebugProfiler: boolean;
 }
 
 export const UIStateContext = createContext<UIState | null>(null);

@@ -7,15 +7,15 @@
 // DISCLAIMER: This is a copied version of https://github.com/googleapis/js-genai/blob/main/src/chats.ts with the intention of working around a key bug
 // where function responses are not treated as "valid" responses: https://b.corp.google.com/issues/420354090
 
-import {
+import type {
   GenerateContentResponse,
-  type Content,
-  type GenerateContentConfig,
-  type SendMessageParameters,
-  type Part,
-  type Tool,
-  FinishReason,
+  Content,
+  GenerateContentConfig,
+  SendMessageParameters,
+  Part,
+  Tool,
 } from '@google/genai';
+import { FinishReason } from '@google/genai';
 import { toParts } from '../code_assist/converter.js';
 import { createUserContent } from '@google/genai';
 import { retryWithBackoff } from '../utils/retry.js';
@@ -23,6 +23,7 @@ import type { Config } from '../config/config.js';
 import { getEffectiveModel } from '../config/models.js';
 import { hasCycleInSchema, MUTATOR_KINDS } from '../tools/tools.js';
 import type { StructuredError } from './turn.js';
+import type { CompletedToolCall } from './coreToolScheduler.js';
 import {
   logContentRetry,
   logContentRetryFailure,
@@ -516,10 +517,19 @@ export class GeminiChat {
               yield { type: StreamEventType.RETRY, error: errorMessage };
             }
 
+            // If this is a retry, set temperature to 1 to encourage different output.
+            const currentParams = { ...params };
+            if (attempt > 0) {
+              currentParams.config = {
+                ...currentParams.config,
+                temperature: 1,
+              };
+            }
+
             const stream = await self.makeApiCallAndProcessStream(
               model,
               requestContents,
-              params,
+              currentParams,
               prompt_id,
             );
 
@@ -623,10 +633,6 @@ export class GeminiChat {
               ),
             );
           }
-          // If the stream fails, remove the user message that was added.
-          if (self.history[self.history.length - 1] === userContent) {
-            self.history.pop();
-          }
           throw lastError;
         }
       } finally {
@@ -672,6 +678,7 @@ export class GeminiChat {
     const streamResponse = await retryWithBackoff(apiCall, {
       onPersistent429: onPersistent429Callback,
       authType: this.config.getContentGeneratorConfig()?.authType,
+      retryFetchErrors: this.config.getRetryFetchErrors(),
     });
 
     return this.processStreamResponse(model, streamResponse);
@@ -1271,6 +1278,33 @@ python -m vllm.entrypoints.openai.api_server \\
   }
 
   /**
+   * Records completed tool calls with full metadata.
+   * This is called by external components when tool calls complete, before sending responses to Gemini.
+   */
+  recordCompletedToolCalls(
+    model: string,
+    toolCalls: CompletedToolCall[],
+  ): void {
+    const toolCallRecords = toolCalls.map((call) => {
+      const resultDisplayRaw = call.response?.resultDisplay;
+      const resultDisplay =
+        typeof resultDisplayRaw === 'string' ? resultDisplayRaw : undefined;
+
+      return {
+        id: call.request.callId,
+        name: call.request.name,
+        args: call.request.args,
+        result: call.response?.responseParts || null,
+        status: call.status as 'error' | 'success' | 'cancelled',
+        timestamp: new Date().toISOString(),
+        resultDisplay,
+      };
+    });
+
+    this.chatRecordingService.recordToolCalls(model, toolCallRecords);
+  }
+
+  /**
    * Extracts and records thought from thought content.
    */
   private recordThoughtFromContent(content: Content): void {
@@ -1323,19 +1357,22 @@ python -m vllm.entrypoints.openai.api_server \\
             if (foundMutatorFunctionCall) {
               // This is the second mutator call.
               // Truncate and return immediately
-              const newChunk = new GenerateContentResponse();
-              newChunk.candidates = [
-                {
-                  index: 0,
-                  content: {
-                    role: 'model',
-                    parts: truncatedParts,
+              const newChunk: Partial<GenerateContentResponse> & {
+                candidates: GenerateContentResponse['candidates'];
+              } = {
+                candidates: [
+                  {
+                    index: 0,
+                    content: {
+                      role: 'model',
+                      parts: truncatedParts,
+                    },
+                    finishReason: FinishReason.STOP,
                   },
-                  finishReason: FinishReason.STOP,
-                },
-              ];
+                ],
+              };
               // Don't set text property as it's readonly
-              yield newChunk;
+              yield newChunk as GenerateContentResponse;
 
               // Return early - the finally block will handle cleanup
               return;

@@ -14,7 +14,6 @@ import type {
   ServerGeminiFinishedEvent,
   ServerGeminiStreamEvent as GeminiEvent,
   ThoughtSummary,
-  TodoChecklistSummary,
   ToolCallRequestInfo,
   GeminiErrorEventValue,
 } from '@google/gemini-cli-core';
@@ -34,6 +33,8 @@ import {
   parseAndFormatApiError,
   ToolConfirmationOutcome,
   promptIdContext,
+  WRITE_FILE_TOOL_NAME,
+  tokenLimit,
 } from '@google/gemini-cli-core';
 import { type Part, type PartListUnion, FinishReason } from '@google/genai';
 import type {
@@ -70,7 +71,7 @@ enum StreamProcessingStatus {
   Error,
 }
 
-const EDIT_TOOL_NAMES = new Set(['replace', 'write_file']);
+const EDIT_TOOL_NAMES = new Set(['replace', WRITE_FILE_TOOL_NAME]);
 
 function showCitations(settings: LoadedSettings): boolean {
   const enabled = settings?.merged?.ui?.showCitations;
@@ -110,11 +111,8 @@ export const useGeminiStream = (
   const [initError, setInitError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const turnCancelledRef = useRef(false);
-  const activeRequestIdRef = useRef<string | null>(null);
   const [isResponding, setIsResponding] = useState<boolean>(false);
   const [thought, setThought] = useState<ThoughtSummary | null>(null);
-  const [todoChecklist, setTodoChecklist] =
-    useState<TodoChecklistSummary | null>(null);
   const [pendingHistoryItem, pendingHistoryItemRef, setPendingHistoryItem] =
     useStateAndRef<HistoryItemWithoutId | null>(null);
   const processedMemoryToolsRef = useRef<Set<string>>(new Set());
@@ -133,86 +131,6 @@ export const useGeminiStream = (
       async (completedToolCallsFromScheduler) => {
         // This onComplete is called when ALL scheduled tools for a given batch are done.
         if (completedToolCallsFromScheduler.length > 0) {
-          // Check if any WriteTodosTool calls succeeded and update the checklist
-          const writeTodosTools = completedToolCallsFromScheduler.filter(
-            (tc) =>
-              tc.request.name === 'write_todos_list' && tc.status === 'success',
-          );
-
-          if (writeTodosTools.length > 0) {
-            // Get the most recent WriteTodosTool call
-            const latestTodoTool = writeTodosTools[writeTodosTools.length - 1];
-            const todosParam = (
-              latestTodoTool.request.args as {
-                todos?: Array<{ description: string; status: string }>;
-              }
-            )?.todos;
-
-            if (todosParam && Array.isArray(todosParam)) {
-              // Helper function to convert to active/present continuous form
-              const toActiveForm = (description: string): string => {
-                // If already in present continuous (ending with 'ing'), return as is
-                if (description.match(/ing\s*$/i)) {
-                  return description;
-                }
-                // Common patterns for converting imperative to present continuous
-                const lowerDesc = description.toLowerCase();
-
-                // Handle common imperative verbs
-                if (lowerDesc.startsWith('run ')) {
-                  return description.replace(/^run /i, 'Running ');
-                }
-                if (lowerDesc.startsWith('fix ')) {
-                  return description.replace(/^fix /i, 'Fixing ');
-                }
-                if (lowerDesc.startsWith('implement ')) {
-                  return description.replace(/^implement /i, 'Implementing ');
-                }
-                if (lowerDesc.startsWith('add ')) {
-                  return description.replace(/^add /i, 'Adding ');
-                }
-                if (lowerDesc.startsWith('create ')) {
-                  return description.replace(/^create /i, 'Creating ');
-                }
-                if (lowerDesc.startsWith('test ')) {
-                  return description.replace(/^test /i, 'Testing ');
-                }
-                if (lowerDesc.startsWith('build ')) {
-                  return description.replace(/^build /i, 'Building ');
-                }
-                if (lowerDesc.startsWith('update ')) {
-                  return description.replace(/^update /i, 'Updating ');
-                }
-                if (lowerDesc.startsWith('write ')) {
-                  return description.replace(/^write /i, 'Writing ');
-                }
-                if (lowerDesc.startsWith('read ')) {
-                  return description.replace(/^read /i, 'Reading ');
-                }
-
-                // Default: just append 'ing' to the description
-                return description;
-              };
-
-              // Convert the todos to TodoChecklistSummary format
-              const todoItems = todosParam.map((todo, index) => ({
-                id: `todo-${Date.now()}-${index}`,
-                content: todo.description,
-                activeForm: toActiveForm(todo.description),
-                status: todo.status as 'pending' | 'in_progress' | 'completed',
-              }));
-
-              const currentTaskId = todoItems.find(
-                (t) => t.status === 'in_progress',
-              )?.id;
-
-              setTodoChecklist({
-                todos: todoItems,
-                currentTaskId,
-              });
-            }
-          }
-
           // Add the final state of these tools to the history for display.
           addItem(
             mapTrackedToolCallsToDisplay(
@@ -220,6 +138,24 @@ export const useGeminiStream = (
             ),
             Date.now(),
           );
+
+          // Record tool calls with full metadata before sending responses.
+          try {
+            const currentModel =
+              config.getGeminiClient().getCurrentSequenceModel() ??
+              config.getModel();
+            config
+              .getGeminiClient()
+              .getChat()
+              .recordCompletedToolCalls(
+                currentModel,
+                completedToolCallsFromScheduler,
+              );
+          } catch (error) {
+            console.error(
+              `Error recording completed tool call information: ${error}`,
+            );
+          }
 
           // Handle tool response submission immediately when tools complete
           await handleCompletedTools(
@@ -391,41 +327,43 @@ export const useGeminiStream = (
         onDebugMessage(`User query: '${trimmedQuery}'`);
         await logger?.logMessage(MessageSenderType.USER, trimmedQuery);
 
-        // Handle UI-only commands first
-        const slashCommandResult = isSlashCommand(trimmedQuery)
-          ? await handleSlashCommand(trimmedQuery)
-          : false;
+        if (!shellModeActive) {
+          // Handle UI-only commands first
+          const slashCommandResult = isSlashCommand(trimmedQuery)
+            ? await handleSlashCommand(trimmedQuery)
+            : false;
 
-        if (slashCommandResult) {
-          switch (slashCommandResult.type) {
-            case 'schedule_tool': {
-              const { toolName, toolArgs } = slashCommandResult;
-              const toolCallRequest: ToolCallRequestInfo = {
-                callId: `${toolName}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-                name: toolName,
-                args: toolArgs,
-                isClientInitiated: true,
-                prompt_id,
-              };
-              scheduleToolCalls([toolCallRequest], abortSignal);
-              return { queryToSend: null, shouldProceed: false };
-            }
-            case 'submit_prompt': {
-              localQueryToSendToGemini = slashCommandResult.content;
+          if (slashCommandResult) {
+            switch (slashCommandResult.type) {
+              case 'schedule_tool': {
+                const { toolName, toolArgs } = slashCommandResult;
+                const toolCallRequest: ToolCallRequestInfo = {
+                  callId: `${toolName}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+                  name: toolName,
+                  args: toolArgs,
+                  isClientInitiated: true,
+                  prompt_id,
+                };
+                scheduleToolCalls([toolCallRequest], abortSignal);
+                return { queryToSend: null, shouldProceed: false };
+              }
+              case 'submit_prompt': {
+                localQueryToSendToGemini = slashCommandResult.content;
 
-              return {
-                queryToSend: localQueryToSendToGemini,
-                shouldProceed: true,
-              };
-            }
-            case 'handled': {
-              return { queryToSend: null, shouldProceed: false };
-            }
-            default: {
-              const unreachable: never = slashCommandResult;
-              throw new Error(
-                `Unhandled slash command result type: ${unreachable}`,
-              );
+                return {
+                  queryToSend: localQueryToSendToGemini,
+                  shouldProceed: true,
+                };
+              }
+              case 'handled': {
+                return { queryToSend: null, shouldProceed: false };
+              }
+              default: {
+                const unreachable: never = slashCommandResult;
+                throw new Error(
+                  `Unhandled slash command result type: ${unreachable}`,
+                );
+              }
             }
           }
         }
@@ -579,7 +517,6 @@ export const useGeminiStream = (
       );
       setIsResponding(false);
       setThought(null); // Reset thought when user cancels
-      setTodoChecklist(null); // Reset todo checklist when user cancels
     },
     [addItem, pendingHistoryItemRef, setPendingHistoryItem, setThought],
   );
@@ -604,7 +541,6 @@ export const useGeminiStream = (
         userMessageTimestamp,
       );
       setThought(null); // Reset thought when there's an error
-      setTodoChecklist(null); // Reset todo checklist when there's an error
     },
     [addItem, pendingHistoryItemRef, setPendingHistoryItem, config, setThought],
   );
@@ -705,6 +641,33 @@ export const useGeminiStream = (
     [addItem, config],
   );
 
+  const handleContextWindowWillOverflowEvent = useCallback(
+    (estimatedRequestTokenCount: number, remainingTokenCount: number) => {
+      onCancelSubmit();
+
+      const limit = tokenLimit(config.getModel());
+
+      const isLessThan75Percent =
+        limit > 0 && remainingTokenCount < limit * 0.75;
+
+      let text = `Sending this message (${estimatedRequestTokenCount} tokens) might exceed the remaining context window limit (${remainingTokenCount} tokens).`;
+
+      if (isLessThan75Percent) {
+        text +=
+          ' Please try reducing the size of your message or use the `/compress` command to compress the chat history.';
+      }
+
+      addItem(
+        {
+          type: 'info',
+          text,
+        },
+        Date.now(),
+      );
+    },
+    [addItem, onCancelSubmit, config],
+  );
+
   const handleLoopDetectionConfirmation = useCallback(
     (result: { userSelection: 'disable' | 'keep' }) => {
       setLoopDetectionConfirmationRequest(null);
@@ -751,9 +714,6 @@ export const useGeminiStream = (
           case ServerGeminiEventType.Thought:
             setThought(event.value);
             break;
-          case ServerGeminiEventType.TodoUpdate:
-            setTodoChecklist(event.value);
-            break;
           case ServerGeminiEventType.Content:
             geminiMessageBuffer = handleContentEvent(
               event.value,
@@ -780,6 +740,12 @@ export const useGeminiStream = (
           case ServerGeminiEventType.MaxSessionTurns:
             handleMaxSessionTurnsEvent();
             break;
+          case ServerGeminiEventType.ContextWindowWillOverflow:
+            handleContextWindowWillOverflowEvent(
+              event.value.estimatedRequestTokenCount,
+              event.value.remainingTokenCount,
+            );
+            break;
           case ServerGeminiEventType.Finished:
             handleFinishedEvent(
               event as ServerGeminiFinishedEvent,
@@ -794,32 +760,13 @@ export const useGeminiStream = (
             // before we add loop detected message to history
             loopDetectedRef.current = true;
             break;
-          case ServerGeminiEventType.Retry: {
-            // Show retry progress to user with context
-            if (pendingHistoryItemRef.current) {
-              addItem(pendingHistoryItemRef.current, userMessageTimestamp);
-              setPendingHistoryItem(null);
-            }
-            // Include the actual error message if available
-            let retryMessage: string;
-            if (config.isInFallbackMode()) {
-              retryMessage =
-                'Quota limit reached. Switching to Flash model and retrying...';
-            } else if (event.value) {
-              // Show the actual error message from the retry event
-              retryMessage = `${event.value}\n\nRetrying...`;
-            } else {
-              retryMessage = 'Request encountered an issue. Retrying...';
-            }
-            addItem(
-              {
-                type: MessageType.INFO,
-                text: retryMessage,
-              },
-              userMessageTimestamp,
-            );
+          case ServerGeminiEventType.TodoUpdate:
+            // Handle todo updates - currently not displayed in UI
             break;
-          }
+          case ServerGeminiEventType.Retry:
+          case ServerGeminiEventType.InvalidStream:
+            // Will add the missing logic later
+            break;
           default: {
             // enforces exhaustive switch-case
             const unreachable: never = event;
@@ -833,18 +780,15 @@ export const useGeminiStream = (
       return StreamProcessingStatus.Completed;
     },
     [
-      addItem,
-      config,
-      handleChatCompressionEvent,
-      handleCitationEvent,
       handleContentEvent,
+      handleUserCancelledEvent,
       handleErrorEvent,
+      scheduleToolCalls,
+      handleChatCompressionEvent,
       handleFinishedEvent,
       handleMaxSessionTurnsEvent,
-      handleUserCancelledEvent,
-      pendingHistoryItemRef,
-      scheduleToolCalls,
-      setPendingHistoryItem,
+      handleContextWindowWillOverflowEvent,
+      handleCitationEvent,
     ],
   );
 
@@ -876,20 +820,6 @@ export const useGeminiStream = (
       if (!prompt_id) {
         prompt_id = config.getSessionId() + '########' + getPromptCount();
       }
-
-      // Prevent duplicate stream submissions for the same request
-      if (
-        activeRequestIdRef.current === prompt_id &&
-        !options?.isContinuation
-      ) {
-        console.warn(
-          '[DEDUP] Ignoring duplicate submission for prompt_id:',
-          prompt_id,
-        );
-        return;
-      }
-
-      activeRequestIdRef.current = prompt_id;
       return promptIdContext.run(prompt_id, async () => {
         const { queryToSend, shouldProceed } = await prepareQueryForGemini(
           query,
@@ -918,7 +848,6 @@ export const useGeminiStream = (
           }
           startNewPrompt();
           setThought(null); // Reset thought when starting a new prompt
-          setTodoChecklist(null); // Reset todo checklist when starting a new prompt
         }
 
         setIsResponding(true);
@@ -968,8 +897,6 @@ export const useGeminiStream = (
           }
         } finally {
           setIsResponding(false);
-          // Clear the active request ID to allow future requests
-          activeRequestIdRef.current = null;
         }
       });
     },
@@ -1129,13 +1056,8 @@ export const useGeminiStream = (
 
       markToolsAsSubmitted(callIdsToMarkAsSubmitted);
 
-      // Don't continue if model was switched due to quota error during the FIRST turn
-      // After the initial fallback, we want to continue normally for subsequent turns
-      // This check is only relevant for the turn where quota error actually occurred
-      // Note: The flag is reset at the start of each new user question (non-continuation)
-      // so this should only block immediate tool response submission after a quota error,
-      // not tool responses in subsequent turns
-      if (modelSwitchedFromQuotaError && config.getQuotaErrorOccurred()) {
+      // Don't continue if model was switched due to quota error
+      if (modelSwitchedFromQuotaError) {
         return;
       }
 
@@ -1290,7 +1212,6 @@ export const useGeminiStream = (
     initError,
     pendingHistoryItems,
     thought,
-    todoChecklist,
     cancelOngoingRequest,
     pendingToolCalls: toolCalls,
     handleApprovalModeChange,

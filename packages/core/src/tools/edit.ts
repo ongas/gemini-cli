@@ -34,6 +34,7 @@ import type {
 } from './modifiable-tool.js';
 import { IdeClient } from '../ide/ide-client.js';
 import { safeLiteralReplace } from '../utils/textUtils.js';
+import { EDIT_TOOL_NAME } from './tool-names.js';
 
 export function applyReplacement(
   currentContent: string | null,
@@ -581,7 +582,7 @@ export class EditTool
   extends BaseDeclarativeTool<EditToolParams, ToolResult>
   implements ModifiableDeclarativeTool<EditToolParams>
 {
-  static readonly Name = 'replace';
+  static readonly Name = EDIT_TOOL_NAME;
   constructor(private readonly config: Config) {
     super(
       EditTool.Name,

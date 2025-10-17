@@ -18,9 +18,6 @@ function getAuthTypeFromEnv(): AuthType | undefined {
   if (process.env['GOOGLE_GENAI_USE_VERTEXAI'] === 'true') {
     return AuthType.USE_VERTEX_AI;
   }
-  if (process.env['OLLAMA_BASE_URL'] || process.env['USE_OLLAMA'] === 'true') {
-    return AuthType.LOCAL;
-  }
   if (process.env['GEMINI_API_KEY']) {
     return AuthType.USE_GEMINI;
   }
@@ -34,30 +31,15 @@ export async function validateNonInteractiveAuth(
   settings: LoadedSettings,
 ) {
   try {
+    const effectiveAuthType = configuredAuthType || getAuthTypeFromEnv();
+
     const enforcedType = settings.merged.security?.auth?.enforcedType;
-    if (enforcedType) {
-      const currentAuthType = getAuthTypeFromEnv();
-      if (currentAuthType !== enforcedType) {
-        const message = `The configured auth type is ${enforcedType}, but the current auth type is ${currentAuthType}. Please re-authenticate with the correct type.`;
-        throw new Error(message);
-      }
+    if (enforcedType && effectiveAuthType !== enforcedType) {
+      const message = effectiveAuthType
+        ? `The enforced authentication type is '${enforcedType}', but the current type is '${effectiveAuthType}'. Please re-authenticate with the correct type.`
+        : `The auth type '${enforcedType}' is enforced, but no authentication is configured.`;
+      throw new Error(message);
     }
-
-    // Priority: enforcedType > configuredAuthType > environment variables
-    // This ensures that when auth is explicitly set (e.g., via --agent flag),
-    // it takes precedence over environment variables like GEMINI_API_KEY
-    const effectiveAuthType =
-      enforcedType || configuredAuthType || getAuthTypeFromEnv();
-
-    console.log(
-      `[DEBUG validateNonInteractiveAuth] configuredAuthType: ${configuredAuthType}`,
-    );
-    console.log(
-      `[DEBUG validateNonInteractiveAuth] getAuthTypeFromEnv(): ${getAuthTypeFromEnv()}`,
-    );
-    console.log(
-      `[DEBUG validateNonInteractiveAuth] effectiveAuthType: ${effectiveAuthType}`,
-    );
 
     if (!effectiveAuthType) {
       const message = `Please set an Auth method in your ${USER_SETTINGS_PATH} or specify one of the following environment variables before running: GEMINI_API_KEY, GOOGLE_GENAI_USE_VERTEXAI, GOOGLE_GENAI_USE_GCA`;

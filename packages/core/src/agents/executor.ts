@@ -20,17 +20,16 @@ import { executeToolCall } from '../core/nonInteractiveToolExecutor.js';
 import { ToolRegistry } from '../tools/tool-registry.js';
 import type { ToolCallRequestInfo } from '../core/turn.js';
 import { getDirectoryContextString } from '../utils/environmentContext.js';
-import { GlobTool as _GlobTool } from '../tools/glob.js';
-import { GrepTool as _GrepTool } from '../tools/grep.js';
-import { RipGrepTool as _RipGrepTool } from '../tools/ripGrep.js';
-import { LSTool as _LSTool } from '../tools/ls.js';
-import { MemoryTool as _MemoryTool } from '../tools/memoryTool.js';
-import { ReadFileTool as _ReadFileTool } from '../tools/read-file.js';
-import { ReadManyFilesTool as _ReadManyFilesTool } from '../tools/read-many-files.js';
-import { WebSearchTool as _WebSearchTool } from '../tools/web-search.js';
-import { WriteFileTool as _WriteFileTool } from '../tools/write-file.js';
-import { EditTool as _EditTool } from '../tools/edit.js';
-import { ShellTool as _ShellTool } from '../tools/shell.js';
+import { GrepTool } from '../tools/grep.js';
+import { RipGrepTool } from '../tools/ripGrep.js';
+import { LSTool } from '../tools/ls.js';
+import { MemoryTool } from '../tools/memoryTool.js';
+import { ReadFileTool } from '../tools/read-file.js';
+import { ReadManyFilesTool } from '../tools/read-many-files.js';
+import { GLOB_TOOL_NAME, WEB_SEARCH_TOOL_NAME } from '../tools/tool-names.js';
+import { promptIdContext } from '../utils/promptIdContext.js';
+import { logAgentStart, logAgentFinish } from '../telemetry/loggers.js';
+import { AgentStartEvent, AgentFinishEvent } from '../telemetry/types.js';
 import type {
   AgentDefinition,
   AgentInputs,
@@ -42,10 +41,6 @@ import { templateString } from './utils.js';
 import { parseThought } from '../utils/thoughtUtils.js';
 import { type z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
-import { AuthType } from '../core/contentGenerator.js';
-import { OllamaContentGenerator } from '../core/ollamaContentGenerator.js';
-import { LlamaCppContentGenerator } from '../core/llamaCppContentGenerator.js';
-import { LoggingContentGenerator } from '../core/loggingContentGenerator.js';
 
 /** A callback function to report on agent activity. */
 export type ActivityCallback = (activity: SubagentActivityEvent) => void;
@@ -87,32 +82,13 @@ export class AgentExecutor<TOutput extends z.ZodTypeAny> {
     const parentToolRegistry = await runtimeContext.getToolRegistry();
 
     if (definition.toolConfig) {
-      console.log(
-        '[EXECUTOR DEBUG] Agent tools config:',
-        definition.toolConfig.tools,
-      );
-      console.log(
-        '[EXECUTOR DEBUG] Available tools in parent registry:',
-        parentToolRegistry.getAllToolNames(),
-      );
-
       for (const toolRef of definition.toolConfig.tools) {
         if (typeof toolRef === 'string') {
           // If the tool is referenced by name, retrieve it from the parent
           // registry and register it with the agent's isolated registry.
-          console.log('[EXECUTOR DEBUG] Looking up tool by name:', toolRef);
           const toolFromParent = parentToolRegistry.getTool(toolRef);
           if (toolFromParent) {
-            console.log(
-              '[EXECUTOR DEBUG] Found tool in parent registry:',
-              toolRef,
-            );
             agentToolRegistry.registerTool(toolFromParent);
-          } else {
-            console.log(
-              '[EXECUTOR DEBUG] Tool not found in parent registry:',
-              toolRef,
-            );
           }
         } else if (
           typeof toolRef === 'object' &&
@@ -125,20 +101,19 @@ export class AgentExecutor<TOutput extends z.ZodTypeAny> {
         // registered; their schemas are passed directly to the model later.
       }
 
-      console.log(
-        '[EXECUTOR DEBUG] Registered tools in agent registry:',
-        agentToolRegistry.getAllToolNames(),
-      );
-
       // Validate that all registered tools are safe for non-interactive
       // execution.
       await AgentExecutor.validateTools(agentToolRegistry, definition.name);
     }
 
+    // Get the parent prompt ID from context
+    const parentPromptId = promptIdContext.getStore();
+
     return new AgentExecutor(
       definition,
       runtimeContext,
       agentToolRegistry,
+      parentPromptId,
       onActivity,
     );
   }
@@ -153,6 +128,7 @@ export class AgentExecutor<TOutput extends z.ZodTypeAny> {
     definition: AgentDefinition<TOutput>,
     runtimeContext: Config,
     toolRegistry: ToolRegistry,
+    parentPromptId: string | undefined,
     onActivity?: ActivityCallback,
   ) {
     this.definition = definition;
@@ -161,7 +137,10 @@ export class AgentExecutor<TOutput extends z.ZodTypeAny> {
     this.onActivity = onActivity;
 
     const randomIdPart = Math.random().toString(36).slice(2, 8);
-    this.agentId = `${this.definition.name}-${randomIdPart}`;
+    // parentPromptId will be undefined if this agent is invoked directly
+    // (top-level), rather than as a sub-agent.
+    const parentPrefix = parentPromptId ? `${parentPromptId}-` : '';
+    this.agentId = `${parentPrefix}${this.definition.name}-${randomIdPart}`;
   }
 
   /**
@@ -174,12 +153,17 @@ export class AgentExecutor<TOutput extends z.ZodTypeAny> {
   async run(inputs: AgentInputs, signal: AbortSignal): Promise<OutputObject> {
     const startTime = Date.now();
     let turnCounter = 0;
+    let terminateReason: AgentTerminateMode = AgentTerminateMode.ERROR;
+    let finalResult: string | null = null;
+
+    logAgentStart(
+      this.runtimeContext,
+      new AgentStartEvent(this.agentId, this.definition.name),
+    );
 
     try {
       const chat = await this.createChatObject(inputs);
       const tools = this.prepareToolsList();
-      let terminateReason = AgentTerminateMode.ERROR;
-      let finalResult: string | null = null;
 
       const query = this.definition.promptConfig.query
         ? templateString(this.definition.promptConfig.query, inputs)
@@ -198,14 +182,12 @@ export class AgentExecutor<TOutput extends z.ZodTypeAny> {
           break;
         }
 
-        // Call model
-        const promptId = `${this.runtimeContext.getSessionId()}#${this.agentId}#${turnCounter++}`;
-        const { functionCalls } = await this.callModel(
-          chat,
-          currentMessage,
-          tools,
-          signal,
+        const promptId = `${this.agentId}#${turnCounter++}`;
+
+        const { functionCalls } = await promptIdContext.run(
           promptId,
+          async () =>
+            this.callModel(chat, currentMessage, tools, signal, promptId),
         );
 
         if (signal.aborted) {
@@ -251,6 +233,17 @@ export class AgentExecutor<TOutput extends z.ZodTypeAny> {
     } catch (error) {
       this.emitActivity('ERROR', { error: String(error) });
       throw error; // Re-throw the error for the parent context to handle.
+    } finally {
+      logAgentFinish(
+        this.runtimeContext,
+        new AgentFinishEvent(
+          this.agentId,
+          this.definition.name,
+          Date.now() - startTime,
+          turnCounter,
+          terminateReason,
+        ),
+      );
     }
   }
 
@@ -319,64 +312,6 @@ export class AgentExecutor<TOutput extends z.ZodTypeAny> {
     return { functionCalls, textResponse };
   }
 
-  /**
-   * Creates a provider-specific Config object for agents that specify a custom provider.
-   * This creates a new Config with a ContentGenerator configured for the specified provider.
-   */
-  private async createProviderSpecificConfig(
-    provider: string,
-    _model: string,
-  ): Promise<Config> {
-    // Clone the runtime context to avoid modifying the original
-    const providerConfig = Object.create(this.runtimeContext);
-
-    if (provider === 'ollama') {
-      // Get Ollama base URL from environment or use default
-      const ollamaBaseUrl =
-        process.env['OLLAMA_BASE_URL'] || 'http://localhost:11434';
-
-      // Create Ollama content generator
-      const ollamaGenerator = new LoggingContentGenerator(
-        new OllamaContentGenerator(ollamaBaseUrl, this.runtimeContext),
-        this.runtimeContext,
-      );
-
-      // Override getContentGenerator to return Ollama generator
-      providerConfig.getContentGenerator = () => ollamaGenerator;
-
-      // Override getContentGeneratorConfig to return Ollama config
-      providerConfig.getContentGeneratorConfig = () => ({
-        authType: AuthType.LOCAL,
-        ollamaBaseUrl,
-      });
-    } else if (provider === 'llamacpp') {
-      // Get llama.cpp base URL from environment or use default
-      const llamaCppBaseUrl =
-        process.env['LLAMACPP_BASE_URL'] || 'http://localhost:8000';
-
-      // Create llama.cpp content generator
-      const llamaCppGenerator = new LoggingContentGenerator(
-        new LlamaCppContentGenerator(llamaCppBaseUrl, this.runtimeContext),
-        this.runtimeContext,
-      );
-
-      // Override getContentGenerator to return llama.cpp generator
-      providerConfig.getContentGenerator = () => llamaCppGenerator;
-
-      // Override getContentGeneratorConfig to return llama.cpp config
-      providerConfig.getContentGeneratorConfig = () => ({
-        authType: AuthType.LOCAL, // Use LOCAL auth type for local server
-        llamaCppBaseUrl: llamaCppBaseUrl,
-      });
-    } else {
-      throw new Error(
-        `Unsupported provider: ${provider}. Supported providers: 'ollama', 'llamacpp'.`,
-      );
-    }
-
-    return providerConfig;
-  }
-
   /** Initializes a `GeminiChat` instance for the agent run. */
   private async createChatObject(inputs: AgentInputs): Promise<GeminiChat> {
     const { promptConfig, modelConfig } = this.definition;
@@ -411,16 +346,11 @@ export class AgentExecutor<TOutput extends z.ZodTypeAny> {
         generationConfig.systemInstruction = systemInstruction;
       }
 
-      // If agent specifies a provider, create agent-specific config
-      let runtimeConfig = this.runtimeContext;
-      if (modelConfig.provider) {
-        runtimeConfig = await this.createProviderSpecificConfig(
-          modelConfig.provider,
-          modelConfig.model,
-        );
-      }
-
-      return new GeminiChat(runtimeConfig, generationConfig, startHistory);
+      return new GeminiChat(
+        this.runtimeContext,
+        generationConfig,
+        startHistory,
+      );
     } catch (error) {
       await reportError(
         error,
@@ -604,7 +534,7 @@ export class AgentExecutor<TOutput extends z.ZodTypeAny> {
 
       // Create a promise for the tool execution
       const executionPromise = (async () => {
-        const toolResponse = await executeToolCall(
+        const { response: toolResponse } = await executeToolCall(
           this.runtimeContext,
           requestInfo,
           signal,
@@ -729,10 +659,17 @@ export class AgentExecutor<TOutput extends z.ZodTypeAny> {
     const dirContext = await getDirectoryContextString(this.runtimeContext);
     finalPrompt += `\n\n# Environment Context\n${dirContext}`;
 
-    // Append task completion requirement.
+    // Append standard rules for non-interactive execution.
     finalPrompt += `
+Important Rules:
+* You are running in a non-interactive mode. You CANNOT ask the user for input or clarification.
+* Work systematically using available tools to complete your task.
+* Always use absolute paths for file operations. Construct them using the provided "Environment Context".`;
 
-When you have completed your task, you MUST call the \`${TASK_COMPLETE_TOOL_NAME}\` tool. Do not call any other tools in the same turn as \`${TASK_COMPLETE_TOOL_NAME}\`. This is the ONLY way to complete your mission.`;
+    finalPrompt += `
+* When you have completed your task, you MUST call the \`${TASK_COMPLETE_TOOL_NAME}\` tool.
+* Do not call any other tools in the same turn as \`${TASK_COMPLETE_TOOL_NAME}\`.
+* This is the ONLY way to complete your mission. If you stop calling tools without calling this, you have failed.`;
 
     return finalPrompt;
   }
@@ -760,25 +697,35 @@ When you have completed your task, you MUST call the \`${TASK_COMPLETE_TOOL_NAME
   }
 
   /**
-   * Validates that all tools in a registry are safe for subagent use.
+   * Validates that all tools in a registry are safe for non-interactive use.
    *
-   * With message bus support, subagents can request user confirmation for any tool,
-   * so no validation is needed. This method is kept for backwards compatibility.
-   *
-   * @throws An error if a tool is not safe (currently never throws with message bus support)
+   * @throws An error if a tool is not on the allow-list for non-interactive execution.
    */
   private static async validateTools(
-    _toolRegistry: ToolRegistry,
-    _agentName: string,
+    toolRegistry: ToolRegistry,
+    agentName: string,
   ): Promise<void> {
-    // With message bus integration, all tools are safe because they can request
-    // user confirmation when needed. No validation required.
-    //
-    // If message bus were disabled, we would need to restrict to read-only tools:
-    // const readOnlyTools = [LSTool.Name, ReadFileTool.Name, GrepTool.Name, ...];
-
-    // No-op - all tools are allowed with confirmation support
-    return;
+    // Tools that are non-interactive. This is temporary until we have tool
+    // confirmations for subagents.
+    const allowlist = new Set([
+      LSTool.Name,
+      ReadFileTool.Name,
+      GrepTool.Name,
+      RipGrepTool.Name,
+      GLOB_TOOL_NAME,
+      ReadManyFilesTool.Name,
+      MemoryTool.Name,
+      WEB_SEARCH_TOOL_NAME,
+    ]);
+    for (const tool of toolRegistry.getAllTools()) {
+      if (!allowlist.has(tool.name)) {
+        throw new Error(
+          `Tool "${tool.name}" is not on the allow-list for non-interactive ` +
+            `execution in agent "${agentName}". Only tools that do not require user ` +
+            `confirmation can be used in subagents.`,
+        );
+      }
+    }
   }
 
   /**

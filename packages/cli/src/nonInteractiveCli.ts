@@ -4,7 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { Config, ToolCallRequestInfo } from '@google/gemini-cli-core';
+import type {
+  Config,
+  ToolCallRequestInfo,
+  CompletedToolCall,
+} from '@google/gemini-cli-core';
 import { isSlashCommand } from './ui/utils/commandUtils.js';
 import type { LoadedSettings } from './config/settings.js';
 import {
@@ -16,8 +20,9 @@ import {
   promptIdContext,
   OutputFormat,
   JsonFormatter,
+  StreamJsonFormatter,
+  JsonStreamEventType,
   uiTelemetryService,
-  Logger,
 } from '@google/gemini-cli-core';
 
 import type { Content, Part } from '@google/genai';
@@ -37,13 +42,18 @@ export async function runNonInteractive(
   settings: LoadedSettings,
   input: string,
   prompt_id: string,
-  continueSession?: string,
 ): Promise<void> {
   return promptIdContext.run(prompt_id, async () => {
     const consolePatcher = new ConsolePatcher({
       stderr: true,
       debugMode: config.getDebugMode(),
     });
+
+    const startTime = Date.now();
+    const streamFormatter =
+      config.getOutputFormat() === OutputFormat.STREAM_JSON
+        ? new StreamJsonFormatter()
+        : null;
 
     try {
       consolePatcher.patch();
@@ -56,6 +66,16 @@ export async function runNonInteractive(
       });
 
       const geminiClient = config.getGeminiClient();
+
+      // Emit init event for streaming JSON
+      if (streamFormatter) {
+        streamFormatter.emitEvent({
+          type: JsonStreamEventType.INIT,
+          timestamp: new Date().toISOString(),
+          session_id: config.getSessionId(),
+          model: config.getModel(),
+        });
+      }
 
       const abortController = new AbortController();
 
@@ -96,30 +116,14 @@ export async function runNonInteractive(
         query = processedQuery as Part[];
       }
 
-      // Load previous conversation history if continuing a session
-      const sessionTag = continueSession || 'gemini-non-interactive-session';
-      const logger = new Logger(config.getSessionId(), config.storage);
-
-      if (continueSession) {
-        try {
-          const loadedHistory = await logger.loadCheckpoint(continueSession);
-          if (loadedHistory && loadedHistory.length > 0) {
-            // Set the loaded history on the Gemini client
-            geminiClient.setHistory(loadedHistory);
-            if (config.getDebugMode()) {
-              console.log(
-                `[DEBUG] Loaded ${loadedHistory.length} messages from session '${continueSession}'`,
-              );
-            }
-          }
-        } catch (error) {
-          if (config.getDebugMode()) {
-            console.warn(
-              `[DEBUG] Could not load session '${continueSession}':`,
-              error,
-            );
-          }
-        }
+      // Emit user message event for streaming JSON
+      if (streamFormatter) {
+        streamFormatter.emitEvent({
+          type: JsonStreamEventType.MESSAGE,
+          timestamp: new Date().toISOString(),
+          role: 'user',
+          content: input,
+        });
       }
 
       let currentMessages: Content[] = [{ role: 'user', parts: query }];
@@ -148,33 +152,83 @@ export async function runNonInteractive(
           }
 
           if (event.type === GeminiEventType.Content) {
-            if (config.getOutputFormat() === OutputFormat.JSON) {
+            if (streamFormatter) {
+              streamFormatter.emitEvent({
+                type: JsonStreamEventType.MESSAGE,
+                timestamp: new Date().toISOString(),
+                role: 'assistant',
+                content: event.value,
+                delta: true,
+              });
+            } else if (config.getOutputFormat() === OutputFormat.JSON) {
               responseText += event.value;
             } else {
               process.stdout.write(event.value);
             }
           } else if (event.type === GeminiEventType.ToolCallRequest) {
+            if (streamFormatter) {
+              streamFormatter.emitEvent({
+                type: JsonStreamEventType.TOOL_USE,
+                timestamp: new Date().toISOString(),
+                tool_name: event.value.name,
+                tool_id: event.value.callId,
+                parameters: event.value.args,
+              });
+            }
             toolCallRequests.push(event.value);
-          } else if (event.type === GeminiEventType.Retry) {
-            // Display the error message to the user during retry
-            if (event.value) {
-              process.stderr.write(`\n${event.value}\n\nRetrying...\n\n`);
-            } else {
-              process.stderr.write(
-                '\nRequest encountered an issue. Retrying...\n\n',
-              );
+          } else if (event.type === GeminiEventType.LoopDetected) {
+            if (streamFormatter) {
+              streamFormatter.emitEvent({
+                type: JsonStreamEventType.ERROR,
+                timestamp: new Date().toISOString(),
+                severity: 'warning',
+                message: 'Loop detected, stopping execution',
+              });
+            }
+          } else if (event.type === GeminiEventType.MaxSessionTurns) {
+            if (streamFormatter) {
+              streamFormatter.emitEvent({
+                type: JsonStreamEventType.ERROR,
+                timestamp: new Date().toISOString(),
+                severity: 'error',
+                message: 'Maximum session turns exceeded',
+              });
             }
           }
         }
 
         if (toolCallRequests.length > 0) {
           const toolResponseParts: Part[] = [];
+          const completedToolCalls: CompletedToolCall[] = [];
+
           for (const requestInfo of toolCallRequests) {
-            const toolResponse = await executeToolCall(
+            const completedToolCall = await executeToolCall(
               config,
               requestInfo,
               abortController.signal,
             );
+            const toolResponse = completedToolCall.response;
+
+            completedToolCalls.push(completedToolCall);
+
+            if (streamFormatter) {
+              streamFormatter.emitEvent({
+                type: JsonStreamEventType.TOOL_RESULT,
+                timestamp: new Date().toISOString(),
+                tool_id: requestInfo.callId,
+                status: toolResponse.error ? 'error' : 'success',
+                output:
+                  typeof toolResponse.resultDisplay === 'string'
+                    ? toolResponse.resultDisplay
+                    : undefined,
+                error: toolResponse.error
+                  ? {
+                      type: toolResponse.errorType || 'TOOL_EXECUTION_ERROR',
+                      message: toolResponse.error.message,
+                    }
+                  : undefined,
+              });
+            }
 
             if (toolResponse.error) {
               handleToolError(
@@ -192,27 +246,33 @@ export async function runNonInteractive(
               toolResponseParts.push(...toolResponse.responseParts);
             }
           }
-          currentMessages = [{ role: 'user', parts: toolResponseParts }];
-        } else {
-          // Save conversation history for future continuation
+
+          // Record tool calls with full metadata before sending responses to Gemini
           try {
-            const currentHistory = geminiClient.getHistory();
-            await logger.saveCheckpoint(currentHistory, sessionTag);
-            if (config.getDebugMode()) {
-              console.log(
-                `[DEBUG] Saved ${currentHistory.length} messages to session '${sessionTag}'`,
-              );
-            }
+            const currentModel =
+              geminiClient.getCurrentSequenceModel() ?? config.getModel();
+            geminiClient
+              .getChat()
+              .recordCompletedToolCalls(currentModel, completedToolCalls);
           } catch (error) {
-            if (config.getDebugMode()) {
-              console.warn(
-                `[DEBUG] Could not save session '${sessionTag}':`,
-                error,
-              );
-            }
+            console.error(
+              `Error recording completed tool call information: ${error}`,
+            );
           }
 
-          if (config.getOutputFormat() === OutputFormat.JSON) {
+          currentMessages = [{ role: 'user', parts: toolResponseParts }];
+        } else {
+          // Emit final result event for streaming JSON
+          if (streamFormatter) {
+            const metrics = uiTelemetryService.getMetrics();
+            const durationMs = Date.now() - startTime;
+            streamFormatter.emitEvent({
+              type: JsonStreamEventType.RESULT,
+              timestamp: new Date().toISOString(),
+              status: 'success',
+              stats: streamFormatter.convertToStreamStats(metrics, durationMs),
+            });
+          } else if (config.getOutputFormat() === OutputFormat.JSON) {
             const formatter = new JsonFormatter();
             const stats = uiTelemetryService.getMetrics();
             process.stdout.write(formatter.format(responseText, stats));

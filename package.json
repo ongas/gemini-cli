@@ -1,6 +1,6 @@
 {
   "name": "gemini-ma",
-  "version": "0.8.2-ma",
+  "version": "0.11.0-nightly.20251015.203bad7c-ma",
   "engines": {
     "node": ">=20.0.0"
   },

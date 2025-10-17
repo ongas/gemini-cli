@@ -535,6 +535,27 @@ export class Config {
     logCliConfiguration(this, new StartSessionEvent(this, this.toolRegistry));
   }
 
+  /**
+   * Refreshes the content generator connection without changing auth method.
+   * Useful for clearing connection-level rate limits or stale HTTP connections.
+   */
+  async refreshConnection() {
+    const currentAuthType = this.contentGeneratorConfig?.authType;
+    if (!currentAuthType) {
+      throw new Error('Cannot refresh connection: no auth type configured');
+    }
+
+    // Recreate content generator with same auth to get fresh connection
+    this.contentGenerator = await createContentGenerator(
+      this.contentGeneratorConfig,
+      this,
+      this.getSessionId(),
+    );
+
+    // Reinitialize BaseLlmClient with new generator
+    this.baseLlmClient = new BaseLlmClient(this.contentGenerator, this);
+  }
+
   getUserTier(): UserTierId | undefined {
     return this.contentGenerator?.userTier;
   }

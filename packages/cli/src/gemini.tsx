@@ -34,16 +34,15 @@ import {
   runExitCleanup,
 } from './utils/cleanup.js';
 import { getCliVersion } from './utils/version.js';
-import type { Config } from '@google/gemini-cli-core';
-import { AuthType } from '../../core/src/core/contentGenerator.js';
-import type { AgentDefinition } from '@google/gemini-cli-core';
+import type { Config, AgentDefinition } from '@google/gemini-cli-core';
+import { AuthType } from '@google/gemini-cli-core';
 import { randomUUID } from 'node:crypto';
 import {
   initializeApp,
   type InitializationResult,
 } from './core/initializer.js';
-import { getOauthClient } from '../../core/src/code_assist/oauth2.js';
-import { logUserPrompt } from '../../core/src/telemetry/loggers.js';
+import { getOauthClient } from '@google/gemini-cli-core';
+import { logUserPrompt } from '@google/gemini-cli-core';
 import { validateAuthMethod } from './config/auth.js';
 import { setMaxSizedBoxDebugging } from './ui/components/shared/MaxSizedBox.js';
 import { validateNonInteractiveAuth } from './validateNonInterActiveAuth.js';

@@ -41,6 +41,10 @@ esbuild
     format: 'esm',
     external,
     alias: {
+      '@google/gemini-cli-core': path.resolve(
+        __dirname,
+        'packages/core',
+      ),
       'is-in-ci': path.resolve(
         __dirname,
         'packages/cli/src/patches/is-in-ci.ts',

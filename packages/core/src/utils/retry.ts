@@ -33,9 +33,9 @@ export interface RetryOptions {
 
 const DEFAULT_RETRY_OPTIONS: RetryOptions = {
   maxAttempts: 10,
-  maxQuotaRetries: 2, // Limit quota error retries to prevent regenerating same text repeatedly
+  maxQuotaRetries: 3, // Wait full reset period (90-120s) each time - 3 attempts should be sufficient
   initialDelayMs: 5000,
-  maxDelayMs: 30000, // 30 seconds
+  maxDelayMs: 120000, // 2 minutes - aligns with Flash quota reset window
   shouldRetryOnError: defaultShouldRetry,
 };
 
@@ -194,13 +194,41 @@ export async function retryWithBackoff<T>(
           throw classifiedError;
         }
 
-        // Cap retry delay at 60 seconds even if API requests longer
-        // Excessive delays (e.g., 90s+) hurt UX more than helping with throttling
-        const cappedDelay = Math.min(classifiedError.retryDelayMs, 60000);
-        console.warn(
-          `Quota retry ${quotaRetryCount}/${maxQuotaRetries}: ${classifiedError.message}. Retrying after ${cappedDelay}ms...`,
+        // Flash quota: 20 RPM = 1 request every 3 seconds, resets every 60s
+        // Strategy: Wait full reset period (60s) on first retry, then 90s for subsequent
+        // This ensures quota has fully reset before retrying, preventing endless retry loops
+        const quotaResetDelay = quotaRetryCount === 1 ? 60000 : 90000;
+        const retryDelay = Math.max(
+          classifiedError.retryDelayMs,
+          quotaResetDelay,
         );
-        await delay(cappedDelay);
+
+        const delaySeconds = Math.round(retryDelay / 1000);
+        console.warn(
+          `⏳ Quota exhausted (retry ${quotaRetryCount}/${maxQuotaRetries}). Waiting ${delaySeconds}s for quota recovery...`,
+        );
+        console.warn(
+          `   ${classifiedError.message}`,
+        );
+
+        // Show countdown progress - update every 5s for 60s wait, every 10s for longer waits
+        if (retryDelay > 10000) {
+          let remaining = delaySeconds;
+          const updateInterval = delaySeconds <= 60 ? 5 : 10;
+
+          while (remaining > 0) {
+            const waitTime = Math.min(updateInterval, remaining);
+            await delay(waitTime * 1000);
+            remaining -= waitTime;
+            if (remaining > 0) {
+              console.warn(`   Still waiting... ${remaining}s remaining`);
+            }
+          }
+        } else {
+          await delay(retryDelay);
+        }
+
+        console.warn(`🔄 Retrying now (attempt ${quotaRetryCount}/${maxQuotaRetries})...\n`);
         continue;
       }
 

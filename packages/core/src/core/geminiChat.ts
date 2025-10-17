@@ -62,8 +62,8 @@ interface ContentRetryOptions {
 }
 
 const INVALID_CONTENT_RETRY_OPTIONS: ContentRetryOptions = {
-  maxAttempts: 3, // 1 initial call + 2 retries (especially for Flash throttling)
-  initialDelayMs: 500,
+  maxAttempts: 5, // 1 initial call + 4 retries for quota recovery
+  initialDelayMs: 20000, // Start at 20s (5 requests refilled @ 4s/request)
 };
 
 /**
@@ -502,8 +502,8 @@ export class GeminiChat {
         let lastError: unknown = new Error('Request failed after all retries.');
 
         // Start with Pro retry limits, but will adjust dynamically if we fall back to Flash
-        const MAX_FLASH_ATTEMPTS = 4; // Flash: 1 initial + 3 retries
-        const MAX_PRO_ATTEMPTS = INVALID_CONTENT_RETRY_OPTIONS.maxAttempts; // Pro: 1 initial + 2 retries
+        const MAX_FLASH_ATTEMPTS = 2; // Flash: 1 initial + 1 retry (connection issues often resolve with fresh request)
+        const MAX_PRO_ATTEMPTS = INVALID_CONTENT_RETRY_OPTIONS.maxAttempts; // Pro: 1 initial + 4 retries
 
         for (let attempt = 0; attempt < MAX_FLASH_ATTEMPTS; attempt++) {
           try {
@@ -550,18 +550,9 @@ export class GeminiChat {
                 `[RETRY DEBUG] Consecutive empty responses: ${self.consecutiveEmptyResponses}`,
               );
 
-              // If we've seen 2+ consecutive empty responses in fallback mode,
-              // fail faster instead of waiting through all retries
-              if (self.consecutiveEmptyResponses >= 2) {
-                console.log(
-                  '[RETRY DEBUG] Detected pattern of persistent empty responses, stopping retries early',
-                );
-                console.log(
-                  '[RETRY DEBUG] This suggests the model cannot handle this request in fallback mode',
-                );
-                // Don't continue retrying - break out and throw the error
-                break;
-              }
+              // Only give up after many attempts (allow full retry sequence)
+              // The longer delays with exponential backoff should give quota time to recover
+              // Don't fail fast - quota exhaustion needs time, not quick failures
             }
 
             // Check dynamically: use Flash limits if in fallback mode, otherwise Pro limits
@@ -572,14 +563,14 @@ export class GeminiChat {
             if (shouldRetryError) {
               // Check if we have more attempts left.
               if (attempt < maxAttempts - 1) {
-                // Retry delays: Flash gets slightly longer delays but not excessive
-                // Most Flash issues are transient throttling, not hard quota limits
+                // Retry delays - short delay to allow connection state to clear
                 let retryDelay;
                 if (self.config.isInFallbackMode()) {
-                  // Flash: 5s, 10s, 15s (transient throttling clears quickly)
-                  retryDelay = 5000 * (attempt + 1);
+                  // Flash: 5s delay to allow any transient connection issues to clear
+                  // Longer waits don't help as the issue is often connection-level, not quota
+                  retryDelay = 5000;
                 } else {
-                  // Pro: 500ms, 1s, 1.5s (shorter delays for non-fallback)
+                  // Pro: Linear backoff is fine
                   retryDelay =
                     INVALID_CONTENT_RETRY_OPTIONS.initialDelayMs *
                     (attempt + 1);
@@ -591,7 +582,7 @@ export class GeminiChat {
                   : 'Pro';
 
                 console.log(
-                  `\n[RETRY] ${modelName} returned empty response. (attempt ${attempt + 1}/${maxAttempts})`,
+                  `\n⏳ [RETRY ${attempt + 1}/${maxAttempts}] ${modelName} returned empty response. Waiting ${totalSeconds}s before retry...`,
                 );
 
                 logContentRetry(
@@ -604,22 +595,16 @@ export class GeminiChat {
                   ),
                 );
 
-                // Show countdown every 5 seconds
-                let remaining = totalSeconds;
-                console.log(`⏳ Waiting ${remaining}s before retry...`);
-
-                while (remaining > 0) {
-                  // Wait 5 seconds or remaining time, whichever is less
-                  const waitTime = Math.min(5, remaining);
-                  await new Promise((res) => setTimeout(res, waitTime * 1000));
-                  remaining -= waitTime;
-
-                  if (remaining > 0) {
-                    console.log(`⏳ Waiting ${remaining}s before retry...`);
-                  }
+                // Refresh connection to clear any connection-level rate limiting
+                try {
+                  await self.config.refreshConnection();
+                  console.log('🔌 Refreshed connection, retrying now...\n');
+                } catch (refreshError) {
+                  console.warn('⚠️  Could not refresh connection:', refreshError);
+                  // Still try to retry with existing connection
+                  await new Promise((res) => setTimeout(res, retryDelay));
+                  console.log('🔄 Retrying now...\n');
                 }
-
-                console.log('🔄 Retrying now...\n');
                 continue;
               }
             }
@@ -1232,15 +1217,17 @@ python -m vllm.entrypoints.openai.api_server \\
           // Check if we've seen multiple consecutive empty responses
           // If so, it's likely quota exhaustion - retry with longer backoff
           if (this.consecutiveEmptyResponses >= 1) {
-            // Second+ empty response in fallback - likely quota exhaustion
-            // Keep retrying with exponential backoff to gracefully resume when quota resets
+            // Second+ empty response in fallback - likely connection/rate limit issue
             throw new InvalidStreamError(
-              'Flash model returned empty response (likely quota exhausted).\n\n' +
-                'Quota may be temporarily exhausted. Retrying with longer backoff...\n' +
-                'The system will automatically resume when quota becomes available.',
+              'Flash model returned empty response repeatedly.\n\n' +
+                'This suggests a connection or rate limiting issue.\n' +
+                'Please try:\n' +
+                '  • Manually retrying your request (stop with Ctrl+C and run again)\n' +
+                '  • Waiting 30-60 seconds before retrying\n' +
+                '  • Starting a new chat session (/clear)',
               'NO_RESPONSE_TEXT',
               lastFinishReason,
-              true, // Do retry - gracefully wait for quota to reset
+              true, // Do retry once more
             );
           } else {
             // First empty response in fallback - could be transient rate limiting (429)

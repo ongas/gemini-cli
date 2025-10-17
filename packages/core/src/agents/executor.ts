@@ -366,7 +366,7 @@ export class AgentExecutor<TOutput extends z.ZodTypeAny> {
       // Override getContentGeneratorConfig to return llama.cpp config
       providerConfig.getContentGeneratorConfig = () => ({
         authType: AuthType.LOCAL, // Use LOCAL auth type for local server
-        ollamaBaseUrl: llamaCppBaseUrl, // Reuse ollamaBaseUrl field for llama.cpp URL
+        llamaCppBaseUrl: llamaCppBaseUrl,
       });
     } else {
       throw new Error(

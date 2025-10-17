@@ -1224,17 +1224,15 @@ python -m vllm.entrypoints.openai.api_server \\
           // Check if we've seen multiple consecutive empty responses
           // If so, it's likely quota exhaustion - retry with longer backoff
           if (this.consecutiveEmptyResponses >= 1) {
-            // Second+ empty response in fallback - likely connection/rate limit issue
+            // Second+ empty response in fallback - likely quota exhaustion
+            // Keep retrying with exponential backoff to gracefully resume when quota resets
             throw new InvalidStreamError(
-              'Flash model returned empty response repeatedly.\n\n' +
-                'This suggests a connection or rate limiting issue.\n' +
-                'Please try:\n' +
-                '  • Manually retrying your request (stop with Ctrl+C and run again)\n' +
-                '  • Waiting 30-60 seconds before retrying\n' +
-                '  • Starting a new chat session (/clear)',
+              'Flash model returned empty response (likely quota exhausted).\n\n' +
+                'Quota may be temporarily exhausted. Retrying with longer backoff...\n' +
+                'The system will automatically resume when quota becomes available.',
               'NO_RESPONSE_TEXT',
               lastFinishReason,
-              true, // Do retry once more
+              true, // Do retry - gracefully wait for quota to reset
             );
           } else {
             // First empty response in fallback - could be transient rate limiting (429)

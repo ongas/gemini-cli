@@ -176,6 +176,16 @@ export function convertToFunctionResponse(
   }
 
   if (Array.isArray(contentToProcess)) {
+    // Handle empty array case - just return the function response
+    if (contentToProcess.length === 0) {
+      return [
+        createFunctionResponsePart(
+          callId,
+          toolName,
+          'Tool execution succeeded.',
+        ),
+      ];
+    }
     const functionResponse = createFunctionResponsePart(
       callId,
       toolName,

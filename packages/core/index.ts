@@ -44,3 +44,5 @@ export { makeFakeConfig } from './src/test-utils/config.js';
 export * from './src/utils/pathReader.js';
 export { ClearcutLogger } from './src/telemetry/clearcut-logger/clearcut-logger.js';
 export { logModelSlashCommand } from './src/telemetry/loggers.js';
+export { SESSION_FILE_PREFIX } from './src/services/chatRecordingService.js';
+export { GEMINI_DIR as GEMINI_CONFIG_DIR } from './src/utils/paths.js';

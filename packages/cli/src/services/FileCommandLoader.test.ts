@@ -1242,4 +1242,16 @@ describe('FileCommandLoader', () => {
       expect(commands).toHaveLength(0);
     });
   });
+
+  it('handles missing folder-trust methods gracefully', async () => {
+    const mockConfig = {
+      isTrustedFolder: () => true,
+      getProjectRoot: () => '/mock/project/root',
+    };
+
+    const loader = new FileCommandLoader(mockConfig as any);
+    expect(loader.getFolderTrustEnabled()).toBe(true); // Default to enabled
+    expect(loader.getIsTrustedFolder()).toBe(true);
+    expect(loader.getProjectRoot()).toBe('/mock/project/root');
+  });
 });

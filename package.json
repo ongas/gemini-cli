@@ -65,10 +65,11 @@
     }
   },
   "bin": {
-    "gemini-ma": "bundle/gemini.js"
+    "gemini-ma": "bin/gemini-ma.cjs"
   },
   "files": [
     "bundle/",
+    "bin/",
     "README.md",
     "LICENSE"
   ],

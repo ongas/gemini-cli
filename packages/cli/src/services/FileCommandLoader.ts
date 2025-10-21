@@ -5,8 +5,8 @@
  */
 
 import { promises as fs } from 'node:fs';
-import path from 'node:path';
-import toml from '@iarna/toml';
+import * as path from 'node:path';
+import * as toml from '@iarna/toml';
 import { glob } from 'glob';
 import { z } from 'zod';
 import type { Config } from '@google/gemini-cli-core';
@@ -67,9 +67,27 @@ export class FileCommandLoader implements ICommandLoader {
   private readonly isTrustedFolder: boolean;
 
   constructor(private readonly config: Config | null) {
-    this.folderTrustEnabled = !!config?.getFolderTrust();
-    this.isTrustedFolder = !!config?.isTrustedFolder();
-    this.projectRoot = config?.getProjectRoot() || process.cwd();
+    // Defensive: only call config methods if they exist to avoid runtime
+    // errors when a partial/mock config object is provided.
+    // Prefer the newer feature toggle API `getFolderTrustFeature()` when
+    // available; fall back to `getFolderTrust()` for older configs.
+    const cfgAny = config as any;
+    if (cfgAny && typeof cfgAny.getFolderTrustFeature === 'function') {
+      this.folderTrustEnabled = !!cfgAny.getFolderTrustFeature();
+    } else if (cfgAny && typeof cfgAny.getFolderTrust === 'function') {
+      this.folderTrustEnabled = !!cfgAny.getFolderTrust();
+    } else {
+      // default to enabled so we don't block command loading unexpectedly
+      this.folderTrustEnabled = true;
+    }
+    this.isTrustedFolder =
+      config && typeof config.isTrustedFolder === 'function'
+        ? !!config.isTrustedFolder()
+        : true;
+    this.projectRoot =
+      config && typeof config.getProjectRoot === 'function'
+        ? config.getProjectRoot()
+        : process.cwd();
   }
 
   /**
@@ -249,7 +267,11 @@ export class FileCommandLoader implements ICommandLoader {
         return null;
       }
 
-      validDef = validationResult.data;
+      // Adjusting the type assignment for validDef
+      validDef = {
+        prompt: validationResult.data.prompt || '', // Ensure prompt is always defined
+        description: validationResult.data.description,
+      };
     }
 
     const relativePathWithExt = path.relative(baseDir, filePath);
@@ -352,5 +374,18 @@ export class FileCommandLoader implements ICommandLoader {
         }
       },
     };
+  }
+
+  // Add public getters for testing purposes
+  public getFolderTrustEnabled(): boolean {
+    return this.folderTrustEnabled;
+  }
+
+  public getIsTrustedFolder(): boolean {
+    return this.isTrustedFolder;
+  }
+
+  public getProjectRoot(): string {
+    return this.projectRoot;
   }
 }

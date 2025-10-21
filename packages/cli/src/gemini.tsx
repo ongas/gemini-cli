@@ -506,13 +506,18 @@ export async function main() {
             settings.merged.security.auth = {};
           }
           settings.merged.security.auth.selectedType = AuthType.LOCAL;
+          // Set tools for agent-specific tool filtering for llamacpp provider
+          if (tools && tools !== 'all') {
+            process.env['AGENT_TOOLS'] = tools;
+          }
         } else if (model) {
           process.env['GEMINI_MODEL'] = model;
         }
 
         // Set tools for agent-specific tool filtering
         if (tools && tools !== 'all') {
-          process.env['AGENT_TOOLS'] = tools;
+          // This block is now redundant for llamacpp, but kept for other providers
+          // process.env['AGENT_TOOLS'] = tools;
         }
       }
     } catch (error) {

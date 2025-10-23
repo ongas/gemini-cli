@@ -32,8 +32,28 @@ export class ApprovalStorage {
    * Load all approval rules from storage
    */
   async loadRules(): Promise<ApprovalRule[]> {
+    const fs = await import('node:fs');
+    const logPath = '/tmp/gemini-approval-debug.log';
+    const timestamp = new Date().toISOString();
+
+    fs.appendFileSync(
+      logPath,
+      `${timestamp} - loadRules called\n`,
+    );
+
     const data = await this.storage.get<ApprovalRules>(APPROVAL_RULES_KEY);
-    return data?.rules ?? [];
+    const rules = data?.rules ?? [];
+
+    fs.appendFileSync(
+      logPath,
+      `${timestamp} - loadRules returning ${rules.length} rules\n`,
+    );
+    fs.appendFileSync(
+      logPath,
+      `${timestamp} - rules: ${JSON.stringify(rules, null, 2)}\n`,
+    );
+
+    return rules;
   }
 
   /**

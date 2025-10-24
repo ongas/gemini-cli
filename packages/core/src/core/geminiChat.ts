@@ -636,7 +636,15 @@ export class GeminiChat {
               ),
             );
           }
-          throw lastError;
+          // Don't throw - emit error event and let conversation continue
+          const errorMessage = lastError instanceof Error
+            ? lastError.message
+            : String(lastError);
+          yield {
+            type: StreamEventType.RETRY,
+            error: `Request failed after retries: ${errorMessage}\n\nYou can try sending your message again.`
+          };
+          return; // Exit gracefully instead of throwing
         }
       } finally {
         streamDoneResolver!();

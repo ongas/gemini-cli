@@ -763,7 +763,32 @@ export const useGeminiStream = (
           case ServerGeminiEventType.TodoUpdate:
             // Handle todo updates - currently not displayed in UI
             break;
-          case ServerGeminiEventType.Retry:
+          case ServerGeminiEventType.Retry: {
+            // Show retry progress to user with context
+            if (pendingHistoryItemRef.current) {
+              addItem(pendingHistoryItemRef.current, userMessageTimestamp);
+              setPendingHistoryItem(null);
+            }
+            // Include the actual error message if available
+            let retryMessage: string;
+            if (config.isInFallbackMode()) {
+              retryMessage =
+                'Quota limit reached. Switching to Flash model and retrying...';
+            } else if (event.value) {
+              // Show the actual error message from the retry event
+              retryMessage = `${event.value}\n\nRetrying...`;
+            } else {
+              retryMessage = 'Request encountered an issue. Retrying...';
+            }
+            addItem(
+              {
+                type: MessageType.INFO,
+                text: retryMessage,
+              },
+              userMessageTimestamp,
+            );
+            break;
+          }
           case ServerGeminiEventType.InvalidStream:
             // Will add the missing logic later
             break;

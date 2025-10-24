@@ -47,6 +47,7 @@ export enum AuthType {
   USE_GEMINI = 'gemini-api-key',
   USE_VERTEX_AI = 'vertex-ai',
   CLOUD_SHELL = 'cloud-shell',
+  LOCAL = 'local',
 }
 
 export type ContentGeneratorConfig = {

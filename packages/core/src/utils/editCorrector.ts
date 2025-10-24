@@ -75,10 +75,7 @@ const failedEditAttempts = new LruCache<string, FailedEditAttempt[]>(
 /**
  * Records a failed edit attempt for tracking purposes.
  */
-function recordFailedEditAttempt(
-  filePath: string,
-  oldString: string,
-): number {
+function recordFailedEditAttempt(filePath: string, oldString: string): number {
   const now = Date.now();
   const key = filePath;
 
@@ -92,9 +89,10 @@ function recordFailedEditAttempt(
 
   // Count attempts with similar old_string (using first 100 chars as approximation)
   const oldStringPrefix = oldString.substring(0, 100);
-  const similarAttempts = attempts.filter((attempt) =>
-    attempt.oldString.substring(0, 100).includes(oldStringPrefix) ||
-    oldStringPrefix.includes(attempt.oldString.substring(0, 100)),
+  const similarAttempts = attempts.filter(
+    (attempt) =>
+      attempt.oldString.substring(0, 100).includes(oldStringPrefix) ||
+      oldStringPrefix.includes(attempt.oldString.substring(0, 100)),
   );
 
   const attemptNumber = similarAttempts.length + 1;
@@ -116,7 +114,10 @@ function recordFailedEditAttempt(
 /**
  * Gets information about recent failed attempts for a file.
  */
-function getFailedAttemptInfo(filePath: string, oldString: string): {
+function getFailedAttemptInfo(
+  filePath: string,
+  oldString: string,
+): {
   recentAttempts: number;
   shouldStop: boolean;
   errorMessage: string | null;
@@ -135,9 +136,10 @@ function getFailedAttemptInfo(filePath: string, oldString: string): {
 
   // Check for similar attempts
   const oldStringPrefix = oldString.substring(0, 100);
-  const similarAttempts = recentAttempts.filter((attempt) =>
-    attempt.oldString.substring(0, 100).includes(oldStringPrefix) ||
-    oldStringPrefix.includes(attempt.oldString.substring(0, 100)),
+  const similarAttempts = recentAttempts.filter(
+    (attempt) =>
+      attempt.oldString.substring(0, 100).includes(oldStringPrefix) ||
+      oldStringPrefix.includes(attempt.oldString.substring(0, 100)),
   );
 
   const count = similarAttempts.length;
@@ -482,7 +484,10 @@ export async function ensureCorrectEdit(
             // This file was edited sooner
             recordFailedEditAttempt(filePath, originalParams.old_string);
 
-            const failureWarning = getFailedAttemptInfo(filePath, originalParams.old_string);
+            const failureWarning = getFailedAttemptInfo(
+              filePath,
+              originalParams.old_string,
+            );
             const result: CorrectedEditResult = {
               params: { ...originalParams },
               occurrences: 0, // Explicitly 0 as LLM failed
@@ -503,9 +508,7 @@ export async function ensureCorrectEdit(
         unescapedOldStringAttempt,
         abortSignal,
       );
-      console.log(
-        `[Edit Corrector] LLM correction completed for ${filePath}`,
-      );
+      console.log(`[Edit Corrector] LLM correction completed for ${filePath}`);
       const llmOldOccurrences = countOccurrences(
         currentContent,
         llmCorrectedOldString,
@@ -531,7 +534,10 @@ export async function ensureCorrectEdit(
         // LLM correction also failed for old_string
         recordFailedEditAttempt(filePath, originalParams.old_string);
 
-        const failureWarning = getFailedAttemptInfo(filePath, originalParams.old_string);
+        const failureWarning = getFailedAttemptInfo(
+          filePath,
+          originalParams.old_string,
+        );
         const result: CorrectedEditResult = {
           params: { ...originalParams },
           occurrences: 0, // Explicitly 0 as LLM failed

@@ -129,7 +129,8 @@ export class ShellToolInvocation extends BaseToolInvocation<
         logPath,
         `${timestamp} - Checking persistent storage for pattern: ${pattern}\n`,
       );
-      const persistentApproval = await approvalStorage.isCommandApproved(pattern);
+      const persistentApproval =
+        await approvalStorage.isCommandApproved(pattern);
       fs.appendFileSync(
         logPath,
         `${timestamp} - Persistent approval result for "${pattern}": ${persistentApproval ? 'FOUND' : 'NOT FOUND'}\n`,
@@ -182,7 +183,9 @@ export class ShellToolInvocation extends BaseToolInvocation<
             `${timestamp} - ProceedAlways: adding to session allowlist\n`,
           );
           commandsToConfirm.forEach((pattern) => this.allowlist.add(pattern));
-        } else if (outcome === ToolConfirmationOutcome.ProceedAlwaysAllSessions) {
+        } else if (
+          outcome === ToolConfirmationOutcome.ProceedAlwaysAllSessions
+        ) {
           fs.appendFileSync(
             logPath,
             `${timestamp} - ProceedAlwaysAllSessions: saving to persistent storage\n`,

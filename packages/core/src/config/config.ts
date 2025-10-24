@@ -69,7 +69,8 @@ export type { MCPOAuthConfig, AnyToolInvocation };
 import type { AnyToolInvocation } from '../tools/tools.js';
 import { WorkspaceContext } from '../utils/workspaceContext.js';
 import { Storage } from './storage.js';
-import type { ShellExecutionConfig } from '../services/shellExecutionService.js';
+import { ApprovalStorage } from './approvalStorage.js';
+import type { ShellExecutionConfig} from '../services/shellExecutionService.js';
 import { FileExclusions } from '../utils/ignorePatterns.js';
 import type { EventEmitter } from 'node:events';
 import { MessageBus } from '../confirmation-bus/message-bus.js';
@@ -369,6 +370,7 @@ export class Config {
   private readonly enableToolOutputTruncation: boolean;
   private initialized: boolean = false;
   readonly storage: Storage;
+  private readonly approvalStorage: ApprovalStorage;
   private readonly fileExclusions: FileExclusions;
   private readonly eventEmitter?: EventEmitter;
   private readonly useSmartEdit: boolean;
@@ -491,6 +493,7 @@ export class Config {
       params.enableShellOutputEfficiency ?? true;
     this.extensionManagement = params.extensionManagement ?? true;
     this.storage = new Storage(this.targetDir);
+    this.approvalStorage = new ApprovalStorage(this.storage);
     this.fakeResponses = params.fakeResponses;
     this.enablePromptCompletion = params.enablePromptCompletion ?? false;
     this.fileExclusions = new FileExclusions(this);
@@ -577,6 +580,23 @@ export class Config {
 
     // Logging the cli configuration here as the auth related configuration params would have been loaded by this point
     logCliConfiguration(this, new StartSessionEvent(this, this.toolRegistry));
+  }
+
+  async refreshConnection() {
+    const currentAuthType = this.contentGeneratorConfig?.authType;
+    if (!currentAuthType) {
+      throw new Error('Cannot refresh connection: no auth type configured');
+    }
+
+    // Recreate content generator with same auth to get fresh connection
+    this.contentGenerator = await createContentGenerator(
+      this.contentGeneratorConfig,
+      this,
+      this.getSessionId(),
+    );
+
+    // Reinitialize BaseLlmClient with new generator
+    this.baseLlmClient = new BaseLlmClient(this.contentGenerator, this);
   }
 
   getUserTier(): UserTierId | undefined {
@@ -756,6 +776,10 @@ export class Config {
 
   getApprovalMode(): ApprovalMode {
     return this.approvalMode;
+  }
+
+  getApprovalStorage(): ApprovalStorage {
+    return this.approvalStorage;
   }
 
   setApprovalMode(mode: ApprovalMode): void {

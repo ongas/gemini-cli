@@ -610,7 +610,10 @@ export class GeminiChat {
                   await self.config.refreshConnection();
                   console.log('🔌 Refreshed connection, retrying now...\n');
                 } catch (refreshError) {
-                  console.warn('⚠️  Could not refresh connection:', refreshError);
+                  console.warn(
+                    '⚠️  Could not refresh connection:',
+                    refreshError,
+                  );
                   // Still try to retry with existing connection
                   await new Promise((res) => setTimeout(res, retryDelay));
                   console.log('🔄 Retrying now...\n');
@@ -861,8 +864,7 @@ export class GeminiChat {
     let lastFinishReason: FinishReason | undefined;
 
     // Detect local LLM server for longer first-chunk timeout (model loading)
-    const authType = this.config.getContentGeneratorConfig()?.authType;
-    const isOllama = authType === 'local';
+    const isOllama = false; // Local LLM support disabled in upstream merge
 
     // Timeout strategy:
     // - Ollama: 90s for first chunk (model loading), then 30s for subsequent chunks

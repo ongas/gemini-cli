@@ -56,8 +56,7 @@ ${folderStructure}`;
  */
 export async function getEnvironmentContext(config: Config): Promise<Part[]> {
   // Check if using local LLM - if so, provide minimal context
-  const authType = config.getContentGeneratorConfig()?.authType;
-  const isLocalLLM = authType === 'local';
+  const isLocalLLM = false; // Local LLM support disabled in upstream merge
 
   if (isLocalLLM) {
     // For local LLMs, provide only essential context to avoid overwhelming the model

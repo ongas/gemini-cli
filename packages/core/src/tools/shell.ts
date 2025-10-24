@@ -34,6 +34,7 @@ import { formatMemoryUsage } from '../utils/formatters.js';
 import type { AnsiOutput } from '../utils/terminalSerializer.js';
 import {
   getCommandRoots,
+  getCommandPatterns,
   initializeShellParsers,
   isCommandAllowed,
   SHELL_TOOL_NAMES,
@@ -79,7 +80,7 @@ export class ShellToolInvocation extends BaseToolInvocation<
     _abortSignal: AbortSignal,
   ): Promise<ToolCallConfirmationDetails | false> {
     const command = stripShellWrapper(this.params.command);
-    const rootCommands = [...new Set(getCommandRoots(command))];
+    const commandPatterns = [...new Set(getCommandPatterns(command))];
 
     // In non-interactive mode, we need to prevent the tool from hanging while
     // waiting for user input. If a tool is not fully allowed (e.g. via
@@ -108,18 +109,18 @@ export class ShellToolInvocation extends BaseToolInvocation<
 
     fs.appendFileSync(
       logPath,
-      `${timestamp} - Checking approvals for root commands: ${JSON.stringify(rootCommands)}\n`,
+      `${timestamp} - Checking approvals for command patterns: ${JSON.stringify(commandPatterns)}\n`,
     );
 
     const approvalStorage = this.config.getApprovalStorage();
     const commandsToConfirm: string[] = [];
 
-    for (const command of rootCommands) {
+    for (const pattern of commandPatterns) {
       // Skip if already in session allowlist
-      if (this.allowlist.has(command)) {
+      if (this.allowlist.has(pattern)) {
         fs.appendFileSync(
           logPath,
-          `${timestamp} - Command "${command}" already in session allowlist\n`,
+          `${timestamp} - Pattern "${pattern}" already in session allowlist\n`,
         );
         continue;
       }
@@ -127,29 +128,29 @@ export class ShellToolInvocation extends BaseToolInvocation<
       // Check persistent storage
       fs.appendFileSync(
         logPath,
-        `${timestamp} - Checking persistent storage for command: ${command}\n`,
+        `${timestamp} - Checking persistent storage for pattern: ${pattern}\n`,
       );
-      const persistentApproval = await approvalStorage.isCommandApproved(command);
+      const persistentApproval = await approvalStorage.isCommandApproved(pattern);
       fs.appendFileSync(
         logPath,
-        `${timestamp} - Persistent approval result for "${command}": ${persistentApproval ? 'FOUND' : 'NOT FOUND'}\n`,
+        `${timestamp} - Persistent approval result for "${pattern}": ${persistentApproval ? 'FOUND' : 'NOT FOUND'}\n`,
       );
 
       if (persistentApproval) {
         // Add to session allowlist for performance
-        this.allowlist.add(command);
+        this.allowlist.add(pattern);
         fs.appendFileSync(
           logPath,
-          `${timestamp} - Added "${command}" to session allowlist from persistent storage\n`,
+          `${timestamp} - Added "${pattern}" to session allowlist from persistent storage\n`,
         );
         continue;
       }
 
       // Needs confirmation
-      commandsToConfirm.push(command);
+      commandsToConfirm.push(pattern);
       fs.appendFileSync(
         logPath,
-        `${timestamp} - Command "${command}" needs confirmation\n`,
+        `${timestamp} - Pattern "${pattern}" needs confirmation\n`,
       );
     }
 
@@ -173,7 +174,7 @@ export class ShellToolInvocation extends BaseToolInvocation<
         );
         fs.appendFileSync(
           logPath,
-          `${timestamp} - Commands to confirm: ${JSON.stringify(commandsToConfirm)}\n`,
+          `${timestamp} - Patterns to confirm: ${JSON.stringify(commandsToConfirm)}\n`,
         );
 
         if (outcome === ToolConfirmationOutcome.ProceedAlways) {
@@ -181,7 +182,7 @@ export class ShellToolInvocation extends BaseToolInvocation<
             logPath,
             `${timestamp} - ProceedAlways: adding to session allowlist\n`,
           );
-          commandsToConfirm.forEach((command) => this.allowlist.add(command));
+          commandsToConfirm.forEach((pattern) => this.allowlist.add(pattern));
         } else if (outcome === ToolConfirmationOutcome.ProceedAlwaysAllSessions) {
           fs.appendFileSync(
             logPath,
@@ -189,25 +190,25 @@ export class ShellToolInvocation extends BaseToolInvocation<
           );
           // Add to persistent storage for all sessions
           const approvalStorage = this.config.getApprovalStorage();
-          for (const command of commandsToConfirm) {
+          for (const pattern of commandsToConfirm) {
             fs.appendFileSync(
               logPath,
-              `${timestamp} - Calling approveCommand for: ${command}\n`,
+              `${timestamp} - Calling approveCommand for: ${pattern}\n`,
             );
             await approvalStorage.approveCommand(
-              command,
-              `Shell command: ${command}`,
+              pattern,
+              `Shell command: ${pattern}`,
             );
             fs.appendFileSync(
               logPath,
-              `${timestamp} - approveCommand completed for: ${command}\n`,
+              `${timestamp} - approveCommand completed for: ${pattern}\n`,
             );
           }
           // Also add to session allowlist for immediate use
-          commandsToConfirm.forEach((command) => this.allowlist.add(command));
+          commandsToConfirm.forEach((pattern) => this.allowlist.add(pattern));
           fs.appendFileSync(
             logPath,
-            `${timestamp} - Added all commands to session allowlist\n`,
+            `${timestamp} - Added all patterns to session allowlist\n`,
           );
         }
       },

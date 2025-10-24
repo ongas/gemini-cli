@@ -490,6 +490,84 @@ export function getCommandRoots(command: string): string[] {
   return parsed.details.map((detail) => detail.name).filter(Boolean);
 }
 
+/**
+ * Extracts command patterns (command + first subcommand) for granular approval control.
+ * For example:
+ * - "git diff" → ["git diff"]
+ * - "git remote add upstream https://..." → ["git remote add"]
+ * - "npm test" → ["npm test"]
+ * - "ls -la" → ["ls"]
+ *
+ * This allows users to approve specific subcommands (e.g., "git diff") without
+ * approving all commands for that tool (e.g., "git push").
+ *
+ * @param command The shell command string to parse
+ * @returns Array of command patterns with first subcommand where applicable
+ */
+export function getCommandPatterns(command: string): string[] {
+  if (!command) {
+    return [];
+  }
+
+  const parsed = parseCommandDetails(command);
+  if (!parsed || parsed.hasError) {
+    return [];
+  }
+
+  return parsed.details
+    .map((detail) => {
+      const fullText = detail.text.trim();
+      const tokens = fullText.split(/\s+/);
+
+      if (tokens.length === 0) {
+        return null;
+      }
+
+      const rootCommand = detail.name;
+
+      // For single-word commands, just return the root
+      if (tokens.length === 1) {
+        return rootCommand;
+      }
+
+      // Extract first argument (potential subcommand)
+      const firstArg = tokens[1];
+
+      // Check if first argument looks like a subcommand (not a flag or path)
+      // Subcommands typically:
+      // - Don't start with - or --
+      // - Don't start with / (absolute path)
+      // - Don't contain / (relative path)
+      // - Don't start with . (relative path or file)
+      if (
+        !firstArg.startsWith('-') &&
+        !firstArg.startsWith('/') &&
+        !firstArg.startsWith('.') &&
+        !firstArg.includes('/')
+      ) {
+        // This looks like a subcommand
+        // Check if there's a second argument that's also a subcommand
+        if (tokens.length > 2) {
+          const secondArg = tokens[2];
+          if (
+            !secondArg.startsWith('-') &&
+            !secondArg.startsWith('/') &&
+            !secondArg.startsWith('.') &&
+            !secondArg.includes('/')
+          ) {
+            // Include up to 2 subcommand levels (e.g., "git remote add")
+            return `${rootCommand} ${firstArg} ${secondArg}`;
+          }
+        }
+        return `${rootCommand} ${firstArg}`;
+      }
+
+      // First argument is a flag or path, just return root command
+      return rootCommand;
+    })
+    .filter(Boolean) as string[];
+}
+
 export function stripShellWrapper(command: string): string {
   const pattern =
     /^\s*(?:(?:sh|bash|zsh)\s+-c|cmd\.exe\s+\/c|powershell(?:\.exe)?\s+(?:-NoProfile\s+)?-Command|pwsh(?:\.exe)?\s+(?:-NoProfile\s+)?-Command)\s+/i;

@@ -8,15 +8,16 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { isSubpath } from './paths.js';
 import { marked, type Token } from 'marked';
-import { maybeConvertClaudeCodeInstructions } from './claudeCodeInstructionParser.js';
+import { debugLogger } from './debugLogger.js';
 
 // Simple console logger for import processing
 const logger = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   debug: (...args: any[]) =>
-    console.debug('[DEBUG] [ImportProcessor]', ...args),
+    debugLogger.debug('[DEBUG] [ImportProcessor]', ...args),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  warn: (...args: any[]) => console.warn('[WARN] [ImportProcessor]', ...args),
+  warn: (...args: any[]) =>
+    debugLogger.warn('[WARN] [ImportProcessor]', ...args),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   error: (...args: any[]) =>
     console.error('[ERROR] [ImportProcessor]', ...args),
@@ -283,13 +284,7 @@ export async function processImports(
 
         try {
           await fs.access(fullPath);
-          let importedContent = await fs.readFile(fullPath, 'utf-8');
-
-          // Convert workflow instructions if needed
-          importedContent = maybeConvertClaudeCodeInstructions(
-            importedContent,
-            fullPath,
-          );
+          const importedContent = await fs.readFile(fullPath, 'utf-8');
 
           // Process the imported file
           await processFlat(
@@ -358,11 +353,7 @@ export async function processImports(
     }
     try {
       await fs.access(fullPath);
-      let fileContent = await fs.readFile(fullPath, 'utf-8');
-
-      // Convert workflow instructions if needed
-      fileContent = maybeConvertClaudeCodeInstructions(fileContent, fullPath);
-
+      const fileContent = await fs.readFile(fullPath, 'utf-8');
       // Mark this file as processed for this import chain
       const newImportState: ImportState = {
         ...importState,

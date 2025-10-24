@@ -30,7 +30,6 @@ import { WebFetchTool } from '../tools/web-fetch.js';
 import { ReadManyFilesTool } from '../tools/read-many-files.js';
 import { MemoryTool, setGeminiMdFilename } from '../tools/memoryTool.js';
 import { WebSearchTool } from '../tools/web-search.js';
-import { BrowserActionTool } from '../tools/browser-action.js';
 import { GeminiClient } from '../core/client.js';
 import { BaseLlmClient } from '../core/baseLlmClient.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
@@ -77,11 +76,9 @@ import { MessageBus } from '../confirmation-bus/message-bus.js';
 import { PolicyEngine } from '../policy/policy-engine.js';
 import type { PolicyEngineConfig } from '../policy/types.js';
 import type { UserTierId } from '../code_assist/types.js';
-import { ProxyAgent, setGlobalDispatcher } from 'undici';
-
 import { AgentRegistry } from '../agents/registry.js';
+import { setGlobalProxy } from '../utils/fetch.js';
 import { SubagentToolWrapper } from '../agents/subagent-tool-wrapper.js';
-import { ApprovalStorage } from './approvalStorage.js';
 
 export enum ApprovalMode {
   DEFAULT = 'default',
@@ -143,7 +140,7 @@ export interface GeminiCLIExtension {
   mcpServers?: Record<string, MCPServerConfig>;
   contextFiles: string[];
   excludeTools?: string[];
-  id?: string;
+  id: string;
 }
 
 export interface ExtensionInstallMetadata {
@@ -160,6 +157,7 @@ import {
   DEFAULT_FILE_FILTERING_OPTIONS,
   DEFAULT_MEMORY_FILE_FILTERING_OPTIONS,
 } from './constants.js';
+import { debugLogger } from '../utils/debugLogger.js';
 
 export type { FileFilteringOptions };
 export {
@@ -191,7 +189,7 @@ export class MCPServerConfig {
     readonly description?: string,
     readonly includeTools?: string[],
     readonly excludeTools?: string[],
-    readonly extensionName?: string,
+    readonly extension?: GeminiCLIExtension,
     // OAuth configuration
     readonly oauth?: MCPOAuthConfig,
     readonly authProviderType?: AuthProviderType,
@@ -251,11 +249,11 @@ export interface ConfigParameters {
   includeDirectories?: string[];
   bugCommand?: BugCommandSettings;
   model: string;
-  extensionContextFilePaths?: string[];
   maxSessionTurns?: number;
   experimentalZedIntegration?: boolean;
   listExtensions?: boolean;
   extensions?: GeminiCLIExtension[];
+  enabledExtensions?: string[];
   blockedMcpServers?: Array<{ name: string; extensionName: string }>;
   noBrowser?: boolean;
   summarizeToolOutput?: Record<string, SummarizeToolOutputSettings>;
@@ -285,7 +283,9 @@ export interface ConfigParameters {
   continueOnFailedApiCall?: boolean;
   retryFetchErrors?: boolean;
   enableShellOutputEfficiency?: boolean;
+  fakeResponses?: string;
   ptyInfo?: string;
+  disableYoloMode?: boolean;
 }
 
 export class Config {
@@ -334,7 +334,6 @@ export class Config {
   private readonly cwd: string;
   private readonly bugCommand: BugCommandSettings | undefined;
   private model: string;
-  private readonly extensionContextFilePaths: string[];
   private readonly noBrowser: boolean;
   private readonly folderTrust: boolean;
   private ideMode: boolean;
@@ -343,6 +342,7 @@ export class Config {
   private readonly maxSessionTurns: number;
   private readonly listExtensions: boolean;
   private readonly _extensions: GeminiCLIExtension[];
+  private readonly _enabledExtensions: string[];
   private readonly _blockedMcpServers: Array<{
     name: string;
     extensionName: string;
@@ -369,7 +369,6 @@ export class Config {
   private readonly enableToolOutputTruncation: boolean;
   private initialized: boolean = false;
   readonly storage: Storage;
-  private readonly approvalStorage: ApprovalStorage;
   private readonly fileExclusions: FileExclusions;
   private readonly eventEmitter?: EventEmitter;
   private readonly useSmartEdit: boolean;
@@ -383,6 +382,8 @@ export class Config {
   private readonly continueOnFailedApiCall: boolean;
   private readonly retryFetchErrors: boolean;
   private readonly enableShellOutputEfficiency: boolean;
+  readonly fakeResponses?: string;
+  private readonly disableYoloMode: boolean;
 
   constructor(params: ConfigParameters) {
     this.sessionId = params.sessionId;
@@ -439,12 +440,12 @@ export class Config {
     this.fileDiscoveryService = params.fileDiscoveryService ?? null;
     this.bugCommand = params.bugCommand;
     this.model = params.model;
-    this.extensionContextFilePaths = params.extensionContextFilePaths ?? [];
     this.maxSessionTurns = params.maxSessionTurns ?? -1;
     this.experimentalZedIntegration =
       params.experimentalZedIntegration ?? false;
     this.listExtensions = params.listExtensions ?? false;
     this._extensions = params.extensions ?? [];
+    this._enabledExtensions = params.enabledExtensions ?? [];
     this._blockedMcpServers = params.blockedMcpServers ?? [];
     this.noBrowser = params.noBrowser ?? false;
     this.summarizeToolOutput = params.summarizeToolOutput;
@@ -472,12 +473,12 @@ export class Config {
       params.truncateToolOutputLines ?? DEFAULT_TRUNCATE_TOOL_OUTPUT_LINES;
     this.enableToolOutputTruncation = params.enableToolOutputTruncation ?? true;
     this.useSmartEdit = params.useSmartEdit ?? true;
-    this.useWriteTodos = params.useWriteTodos ?? true;
+    this.useWriteTodos = params.useWriteTodos ?? false;
     this.useModelRouter = params.useModelRouter ?? false;
     this.enableMessageBusIntegration =
       params.enableMessageBusIntegration ?? false;
     this.codebaseInvestigatorSettings = {
-      enabled: params.codebaseInvestigatorSettings?.enabled ?? true,
+      enabled: params.codebaseInvestigatorSettings?.enabled ?? false,
       maxNumTurns: params.codebaseInvestigatorSettings?.maxNumTurns ?? 15,
       maxTimeMinutes: params.codebaseInvestigatorSettings?.maxTimeMinutes ?? 5,
       thinkingBudget:
@@ -490,16 +491,17 @@ export class Config {
       params.enableShellOutputEfficiency ?? true;
     this.extensionManagement = params.extensionManagement ?? true;
     this.storage = new Storage(this.targetDir);
-    this.approvalStorage = new ApprovalStorage(this.storage);
+    this.fakeResponses = params.fakeResponses;
     this.enablePromptCompletion = params.enablePromptCompletion ?? false;
     this.fileExclusions = new FileExclusions(this);
     this.eventEmitter = params.eventEmitter;
     this.policyEngine = new PolicyEngine(params.policyEngineConfig);
-    this.messageBus = new MessageBus(this.policyEngine);
+    this.messageBus = new MessageBus(this.policyEngine, this.debugMode);
     this.outputSettings = {
       format: params.output?.format ?? OutputFormat.TEXT,
     };
     this.retryFetchErrors = params.retryFetchErrors ?? false;
+    this.disableYoloMode = params.disableYoloMode ?? false;
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -510,7 +512,7 @@ export class Config {
     }
 
     if (this.getProxy()) {
-      setGlobalDispatcher(new ProxyAgent(this.getProxy() as string));
+      setGlobalProxy(this.getProxy() as string);
     }
     this.geminiClient = new GeminiClient(this);
     this.modelRouterService = new ModelRouterService(this);
@@ -546,7 +548,7 @@ export class Config {
 
   async refreshAuth(authMethod: AuthType) {
     // Vertex and Genai have incompatible encryption and sending history with
-    // throughtSignature from Genai to Vertex will fail, we need to strip them
+    // thoughtSignature from Genai to Vertex will fail, we need to strip them
     if (
       this.contentGeneratorConfig?.authType === AuthType.USE_GEMINI &&
       authMethod === AuthType.LOGIN_WITH_GOOGLE
@@ -575,27 +577,6 @@ export class Config {
 
     // Logging the cli configuration here as the auth related configuration params would have been loaded by this point
     logCliConfiguration(this, new StartSessionEvent(this, this.toolRegistry));
-  }
-
-  /**
-   * Refreshes the content generator connection without changing auth method.
-   * Useful for clearing connection-level rate limits or stale HTTP connections.
-   */
-  async refreshConnection() {
-    const currentAuthType = this.contentGeneratorConfig?.authType;
-    if (!currentAuthType) {
-      throw new Error('Cannot refresh connection: no auth type configured');
-    }
-
-    // Recreate content generator with same auth to get fresh connection
-    this.contentGenerator = await createContentGenerator(
-      this.contentGeneratorConfig,
-      this,
-      this.getSessionId(),
-    );
-
-    // Reinitialize BaseLlmClient with new generator
-    this.baseLlmClient = new BaseLlmClient(this.contentGenerator, this);
   }
 
   getUserTier(): UserTierId | undefined {
@@ -786,6 +767,10 @@ export class Config {
     this.approvalMode = mode;
   }
 
+  isYoloModeDisabled(): boolean {
+    return this.disableYoloMode || !this.isTrustedFolder();
+  }
+
   getShowMemoryUsage(): boolean {
     return this.showMemoryUsage;
   }
@@ -894,10 +879,6 @@ export class Config {
     return this.usageStatisticsEnabled;
   }
 
-  getExtensionContextFilePaths(): string[] {
-    return this.extensionContextFilePaths;
-  }
-
   getExperimentalZedIntegration(): boolean {
     return this.experimentalZedIntegration;
   }
@@ -912,6 +893,12 @@ export class Config {
 
   getExtensions(): GeminiCLIExtension[] {
     return this._extensions;
+  }
+
+  // The list of explicitly enabled extensions, if any were given, may contain
+  // the string "none".
+  getEnabledExtensions(): string[] {
+    return this._enabledExtensions;
   }
 
   getBlockedMcpServers(): Array<{ name: string; extensionName: string }> {
@@ -1109,10 +1096,6 @@ export class Config {
     return this.codebaseInvestigatorSettings;
   }
 
-  getApprovalStorage(): ApprovalStorage {
-    return this.approvalStorage;
-  }
-
   async createToolRegistry(): Promise<ToolRegistry> {
     const registry = new ToolRegistry(this, this.eventEmitter);
 
@@ -1126,23 +1109,8 @@ export class Config {
       // On some platforms, the className can be minified to _ClassName.
       const normalizedClassName = className.replace(/^_+/, '');
 
-      // Check if agent tools are specified via environment variable
-      const agentToolsEnv = process.env['AGENT_TOOLS'];
-      const agentTools = agentToolsEnv
-        ? agentToolsEnv.split(',').map((t) => t.trim())
-        : null;
-
       let isEnabled = true; // Enabled by default if coreTools is not set.
-
-      // If agent tools are specified, ONLY enable those tools
-      if (agentTools) {
-        isEnabled = agentTools.some(
-          (tool) => tool === toolName || tool === normalizedClassName,
-        );
-        console.log(
-          `[AGENT TOOLS DEBUG] Checking ${toolName}: agentTools=[${agentTools.join(',')}], isEnabled=${isEnabled}`,
-        );
-      } else if (coreTools) {
+      if (coreTools) {
         isEnabled = coreTools.some(
           (tool) =>
             tool === toolName ||
@@ -1166,7 +1134,7 @@ export class Config {
         // the tool registry.
         const messageBusEnabled = this.getEnableMessageBusIntegration();
         if (this.debugMode && messageBusEnabled) {
-          console.log(
+          debugLogger.log(
             `[DEBUG] enableMessageBusIntegration setting: ${messageBusEnabled}`,
           );
         }
@@ -1174,7 +1142,7 @@ export class Config {
           ? [...args, this.getMessageBus()]
           : args;
         if (this.debugMode && messageBusEnabled) {
-          console.log(
+          debugLogger.log(
             `[DEBUG] Registering ${className} with messageBus: ${messageBusEnabled ? 'YES' : 'NO'}`,
           );
         }
@@ -1215,7 +1183,6 @@ export class Config {
     registerCoreTool(ShellTool, this);
     registerCoreTool(MemoryTool);
     registerCoreTool(WebSearchTool, this);
-    registerCoreTool(BrowserActionTool, this);
     if (this.getUseWriteTodos()) {
       registerCoreTool(WriteTodosTool, this);
     }
@@ -1234,41 +1201,16 @@ export class Config {
         const isAllowed =
           !allowedTools || allowedTools.includes(definition.name);
 
-        if (this.getDebugMode()) {
-          console.log(
-            `[Config] Agent '${definition.name}': isAllowed=${isAllowed}, isExcluded=${isExcluded}, allowedTools=${allowedTools?.join(',')}`,
-          );
-        }
-
         if (isAllowed && !isExcluded) {
-          try {
-            // Always pass message bus to subagents for tool confirmation support
-            // This allows subagents to request user approval for file writes, shell commands, etc.
-            const wrapper = new SubagentToolWrapper(
-              definition,
-              this,
-              this.getMessageBus(),
-            );
-            registry.registerTool(wrapper);
-            if (this.getDebugMode()) {
-              console.log(
-                `[Config] Successfully registered agent '${definition.name}' as tool`,
-              );
-            }
-          } catch (error) {
-            console.error(
-              `Failed to wrap agent '${definition.name}' as a tool:`,
-              error,
-            );
-          }
-        } else {
-          console.log(
-            `[Config] Skipping registration of agent '${definition.name}' due to allow/exclude configuration.`,
+          const messageBusEnabled = this.getEnableMessageBusIntegration();
+          const wrapper = new SubagentToolWrapper(
+            definition,
+            this,
+            messageBusEnabled ? this.getMessageBus() : undefined,
           );
+          registry.registerTool(wrapper);
         }
       }
-    } else if (this.getDebugMode()) {
-      console.log('[Config] Subagents are DISABLED');
     }
 
     await registry.discoverAllTools();

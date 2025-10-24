@@ -26,22 +26,21 @@ import { getStartupWarnings } from './utils/startupWarnings.js';
 import { getUserStartupWarnings } from './utils/userStartupWarnings.js';
 import { ConsolePatcher } from './ui/utils/ConsolePatcher.js';
 import { runNonInteractive } from './nonInteractiveCli.js';
-import { runAgentNonInteractive } from './runAgentNonInteractive.js';
-import { ExtensionStorage, loadExtensions } from './config/extension.js';
 import {
   cleanupCheckpoints,
   registerCleanup,
   runExitCleanup,
 } from './utils/cleanup.js';
 import { getCliVersion } from './utils/version.js';
-import type { Config, AgentDefinition } from '@google/gemini-cli-core';
+import type { Config } from '@google/gemini-cli-core';
 import {
+  sessionId,
   logUserPrompt,
   AuthType,
   getOauthClient,
   UserPromptEvent,
+  debugLogger,
 } from '@google/gemini-cli-core';
-import { randomUUID } from 'node:crypto';
 import {
   initializeApp,
   type InitializationResult,
@@ -67,7 +66,9 @@ import {
   relaunchOnExitCode,
 } from './utils/relaunch.js';
 import { loadSandboxConfig } from './config/sandboxConfig.js';
-import { ExtensionEnablementManager } from './config/extensions/extensionEnablement.js';
+import { ExtensionManager } from './config/extension-manager.js';
+import { requestConsentNonInteractive } from './config/extensions/consent.js';
+import { createPolicyUpdater } from './config/policy.js';
 
 export function validateDnsResolutionOrder(
   order: string | undefined,
@@ -80,7 +81,7 @@ export function validateDnsResolutionOrder(
     return order;
   }
   // We don't want to throw here, just warn and use the default.
-  console.warn(
+  debugLogger.warn(
     `Invalid value for dnsResolutionOrder in settings: "${order}". Using default "${defaultValue}".`,
   );
   return defaultValue;
@@ -96,7 +97,7 @@ function getNodeMemoryArgs(isDebugMode: boolean): string[] {
   // Set target to 50% of total memory
   const targetMaxOldSpaceSizeInMB = Math.floor(totalMemoryMB * 0.5);
   if (isDebugMode) {
-    console.debug(
+    debugLogger.debug(
       `Current heap size ${currentMaxOldSpaceSizeMb.toFixed(2)} MB`,
     );
   }
@@ -107,7 +108,7 @@ function getNodeMemoryArgs(isDebugMode: boolean): string[] {
 
   if (targetMaxOldSpaceSizeInMB > currentMaxOldSpaceSizeMb) {
     if (isDebugMode) {
-      console.debug(
+      debugLogger.debug(
         `Need to relaunch with more memory: ${targetMaxOldSpaceSizeInMB.toFixed(2)} MB`,
       );
     }
@@ -214,7 +215,7 @@ export async function startInteractiveUI(
     .catch((err) => {
       // Silently ignore update check errors.
       if (config.getDebugMode()) {
-        console.error('Update check failed:', err);
+        debugLogger.warn('Update check failed:', err);
       }
     });
 
@@ -224,311 +225,24 @@ export async function startInteractiveUI(
 export async function main() {
   setupUnhandledRejectionHandler();
   const settings = loadSettings();
-  migrateDeprecatedSettings(settings);
+  migrateDeprecatedSettings(
+    settings,
+    // Temporary extension manager only used during this non-interactive UI phase.
+    new ExtensionManager({
+      workspaceDir: process.cwd(),
+      loadedSettings: settings,
+      enabledExtensionOverrides: [],
+      requestConsent: requestConsentNonInteractive,
+      requestSetting: null,
+    }),
+  );
   await cleanupCheckpoints();
 
   const argv = await parseArguments(settings.merged);
 
-  // Handle --init flag
-  if (argv.init) {
-    const fs = await import('node:fs');
-    const path = await import('node:path');
-
-    const cwd = process.cwd();
-    const geminiDir = path.join(cwd, '.gemini');
-    const standardsDir = path.join(geminiDir, 'standards');
-    const agentsDir = path.join(geminiDir, 'agents');
-    const commandsDir = path.join(geminiDir, 'commands');
-
-    // Find the template directory (bundled with package)
-    // Resolve the real path to handle npm link symlinks
-    const scriptPath = fs.realpathSync(process.argv[1]);
-    const packageRoot = path.dirname(scriptPath); // This is the bundle directory
-    const templateDir = path.join(packageRoot, '.gemini-template');
-
-    try {
-      let initialized = false;
-
-      // Create .gemini/standards from template
-      if (fs.existsSync(standardsDir)) {
-        console.log('✓ .gemini/standards/ already exists');
-      } else {
-        if (!fs.existsSync(templateDir)) {
-          console.error(`Error: Template not found at ${templateDir}`);
-          process.exit(1);
-        }
-        await fs.promises.cp(templateDir, standardsDir, { recursive: true });
-        console.log(
-          '✓ Created .gemini/standards/ with coding standards templates',
-        );
-        initialized = true;
-      }
-
-      // Create .gemini/agents directory
-      if (fs.existsSync(agentsDir)) {
-        console.log('✓ .gemini/agents/ already exists');
-      } else {
-        await fs.promises.mkdir(agentsDir, { recursive: true });
-        console.log('✓ Created .gemini/agents/ for custom agent definitions');
-        initialized = true;
-      }
-
-      // Create .gemini/commands directory
-      if (fs.existsSync(commandsDir)) {
-        console.log('✓ .gemini/commands/ already exists');
-      } else {
-        await fs.promises.mkdir(commandsDir, { recursive: true });
-        console.log('✓ Created .gemini/commands/ for custom slash commands');
-        initialized = true;
-      }
-
-      if (initialized) {
-        console.log('\n✨ Project initialized successfully!');
-        console.log('\nNext steps:');
-        console.log('  • Customize coding standards in .gemini/standards/');
-        console.log('  • Add custom agents to .gemini/agents/');
-        console.log('  • Add custom slash commands to .gemini/commands/');
-        console.log('  • Standards are auto-injected into prompts');
-        console.log('  • Use agents with: gemini-ma --agent <agent-name>');
-        console.log('  • Use commands with: /command-name');
-      } else {
-        console.log('\n✓ All directories already exist');
-      }
-      process.exit(0);
-    } catch (error) {
-      console.error('Error initializing project:', error);
-      process.exit(1);
-    }
-  }
-
-  // Handle --list-agents flag
-  if (argv.listAgents) {
-    try {
-      const path = await import('node:path');
-      const fs = await import('node:fs');
-      const { CodebaseInvestigatorAgent } = await import(
-        '@google/gemini-cli-core'
-      );
-
-      const cwd = process.cwd();
-      const geminiAgentsDir = path.join(cwd, '.gemini', 'agents');
-
-      // Start with built-in agents
-      const agents: unknown[] = [CodebaseInvestigatorAgent];
-
-      // Load custom agents from .gemini/agents/
-      if (fs.existsSync(geminiAgentsDir)) {
-        try {
-          const files = await fs.promises.readdir(geminiAgentsDir);
-          const mdFiles = files.filter((f: string) => f.endsWith('.md'));
-
-          for (const file of mdFiles) {
-            const filePath = path.join(geminiAgentsDir, file);
-            const content = await fs.promises.readFile(filePath, 'utf-8');
-
-            // Parse YAML front matter if present
-            let provider: string | undefined;
-            let model: string | undefined;
-            let temperature: number | undefined;
-            let tools: string | undefined;
-
-            const yamlMatch = content.match(/^---\n([\s\S]*?)\n---/);
-            if (yamlMatch) {
-              const yaml = yamlMatch[1];
-              const providerMatch = yaml.match(/^Provider:\s*(.+)$/m);
-              const modelMatch = yaml.match(/^Model:\s*(.+)$/m);
-              const tempMatch = yaml.match(/^Temperature:\s*([0-9.]+)$/m);
-              const toolsMatch = yaml.match(/^Tools:\s*(.+)$/m);
-
-              provider = providerMatch
-                ? providerMatch[1].trim().toLowerCase()
-                : undefined;
-              model = modelMatch ? modelMatch[1].trim() : undefined;
-              temperature = tempMatch ? parseFloat(tempMatch[1]) : undefined;
-              tools = toolsMatch ? toolsMatch[1].trim() : undefined;
-            }
-
-            // Parse basic agent info from markdown
-            const lines = content.split('\n');
-            let displayName = file.replace('.md', '');
-            let description = '';
-
-            // Find first heading and description (skip YAML front matter)
-            let skipYaml = false;
-            for (let i = 0; i < lines.length; i++) {
-              const line = lines[i].trim();
-
-              if (i === 0 && line === '---') {
-                skipYaml = true;
-                continue;
-              }
-              if (skipYaml && line === '---') {
-                skipYaml = false;
-                continue;
-              }
-              if (skipYaml) continue;
-
-              if (line.startsWith('#') && !displayName) {
-                displayName = line.replace(/^#+\s*/, '');
-              } else if (
-                line &&
-                !line.startsWith('**') &&
-                !line.startsWith('#') &&
-                !description
-              ) {
-                description = line;
-                break;
-              }
-            }
-
-            const agentName = file.replace('.md', '').replace(/-/g, '_');
-
-            agents.push({
-              name: agentName,
-              displayName,
-              description: description || `Custom agent: ${displayName}`,
-              modelConfig: {
-                provider: provider || 'gemini',
-                model: model || 'gemini-2.0-flash-exp',
-                temp: temperature !== undefined ? temperature : 0.2,
-              },
-              toolConfig: tools
-                ? {
-                    tools:
-                      tools === 'all'
-                        ? ['all']
-                        : tools.split(',').map((t: string) => t.trim()),
-                  }
-                : undefined,
-            });
-          }
-        } catch (error) {
-          console.warn('Warning: Could not load custom agents:', error);
-        }
-      }
-
-      if (agents.length === 0) {
-        console.log('No agents found.');
-        console.log('\nTo add agents:');
-        console.log('  1. Run: gemini-ma --init');
-        console.log('  2. Create agent definitions in .gemini/agents/');
-        process.exit(0);
-      }
-
-      console.log('\n📋 Available Agents:\n');
-
-      for (const agent of agents as AgentDefinition[]) {
-        const provider = agent.modelConfig.provider || 'gemini';
-        const model = agent.modelConfig.model;
-        const temp = agent.modelConfig.temp;
-        const toolCount = agent.toolConfig?.tools?.length || 'all';
-
-        console.log(`  ${agent.displayName || agent.name}`);
-        console.log(`    Name: ${agent.name}`);
-        console.log(`    Provider: ${provider}`);
-        console.log(`    Model: ${model}`);
-        console.log(`    Temperature: ${temp}`);
-        console.log(`    Tools: ${toolCount}`);
-        console.log(`    Description: ${agent.description}`);
-        console.log('');
-      }
-
-      console.log('Usage:');
-      console.log('  gemini-ma --agent <agent-name> "<your task>"');
-      console.log('\nExample:');
-      console.log(
-        '  gemini-ma --agent code_investigator "Find error handling code"\n',
-      );
-
-      process.exit(0);
-    } catch (error) {
-      console.error('Error listing agents:', error);
-      process.exit(1);
-    }
-  }
-
-  // Handle --agent flag
-  let agentFilePath: string | undefined;
-  if (argv.agent) {
-    const path = await import('node:path');
-    const fs = await import('node:fs');
-
-    const cwd = process.cwd();
-    const agentFileName = argv.agent.replace(/_/g, '-') + '.md';
-    agentFilePath = path.join(cwd, '.gemini', 'agents', agentFileName);
-
-    if (!fs.existsSync(agentFilePath)) {
-      console.error(`Error: Agent file not found: ${agentFilePath}`);
-      console.error(`\nAvailable agents:`);
-      console.error(`  Run: gemini-ma --list-agents`);
-      process.exit(1);
-    }
-
-    try {
-      const content = await fs.promises.readFile(agentFilePath, 'utf-8');
-
-      // Parse YAML front matter for provider config
-      const yamlMatch = content.match(/^---\n([\s\S]*?)\n---/);
-      if (yamlMatch) {
-        const yaml = yamlMatch[1];
-        const providerMatch = yaml.match(/^Provider:\s*(.+)$/m);
-        const modelMatch = yaml.match(/^Model:\s*(.+)$/m);
-        const toolsMatch = yaml.match(/^Tools:\s*(.+)$/m);
-
-        const provider = providerMatch
-          ? providerMatch[1].trim().toLowerCase()
-          : 'gemini';
-        const model = modelMatch ? modelMatch[1].trim() : undefined;
-        const tools = toolsMatch ? toolsMatch[1].trim() : undefined;
-
-        // Override the model and auth based on provider
-        if (provider === 'ollama' && model) {
-          process.env['GEMINI_MODEL'] = model;
-          // Set environment variable to indicate Ollama provider
-          process.env['LOCAL_LLM_PROVIDER'] = 'ollama';
-          // Set auth type for ollama (use local auth type for local servers)
-          if (!settings.merged.security) {
-            settings.merged.security = {};
-          }
-          if (!settings.merged.security.auth) {
-            settings.merged.security.auth = {};
-          }
-          settings.merged.security.auth.selectedType = AuthType.LOCAL;
-        } else if (provider === 'llamacpp' && model) {
-          process.env['GEMINI_MODEL'] = model;
-          // Set environment variable to indicate llama.cpp provider
-          process.env['LOCAL_LLM_PROVIDER'] = 'llamacpp';
-          // Set auth type for llama.cpp (use local auth type for local servers)
-          if (!settings.merged.security) {
-            settings.merged.security = {};
-          }
-          if (!settings.merged.security.auth) {
-            settings.merged.security.auth = {};
-          }
-          settings.merged.security.auth.selectedType = AuthType.LOCAL;
-          // Set tools for agent-specific tool filtering for llamacpp provider
-          if (tools && tools !== 'all') {
-            process.env['AGENT_TOOLS'] = tools;
-          }
-        } else if (model) {
-          process.env['GEMINI_MODEL'] = model;
-        }
-
-        // Set tools for agent-specific tool filtering
-        if (tools && tools !== 'all') {
-          // This block is now redundant for llamacpp, but kept for other providers
-          // process.env['AGENT_TOOLS'] = tools;
-        }
-      }
-    } catch (error) {
-      console.error(`Error loading agent ${argv.agent}:`, error);
-      process.exit(1);
-    }
-  }
-
   // Check for invalid input combinations early to prevent crashes
   if (argv.promptInteractive && !process.stdin.isTTY) {
-    console.error(
+    debugLogger.error(
       'Error: The --prompt-interactive flag cannot be used when input is piped from stdin.',
     );
     process.exit(1);
@@ -564,7 +278,9 @@ export async function main() {
     if (!themeManager.setActiveTheme(settings.merged.ui?.theme)) {
       // If the theme is not found during initial load, log a warning and continue.
       // The useThemeCommand hook in AppContainer.tsx will handle opening the dialog.
-      console.warn(`Warning: Theme "${settings.merged.ui?.theme}" not found.`);
+      debugLogger.warn(
+        `Warning: Theme "${settings.merged.ui?.theme}" not found.`,
+      );
     }
   }
 
@@ -574,18 +290,16 @@ export async function main() {
       ? getNodeMemoryArgs(isDebugMode)
       : [];
     const sandboxConfig = await loadSandboxConfig(settings.merged, argv);
-    // We intentially omit the list of extensions here because extensions
+    // We intentionally omit the list of extensions here because extensions
     // should not impact auth or setting up the sandbox.
     // TODO(jacobr): refactor loadCliConfig so there is a minimal version
     // that only initializes enough config to enable refreshAuth or find
     // another way to decouple refreshAuth from requiring a config.
 
     if (sandboxConfig) {
-      const sessionId = randomUUID();
       const partialConfig = await loadCliConfig(
         settings.merged,
         [],
-        new ExtensionEnablementManager(ExtensionStorage.getUserExtensionsDir()),
         sessionId,
         argv,
       );
@@ -607,7 +321,7 @@ export async function main() {
             settings.merged.security.auth.selectedType,
           );
         } catch (err) {
-          console.error('Error authenticating:', err);
+          debugLogger.error('Error authenticating:', err);
           process.exit(1);
         }
       }
@@ -656,46 +370,35 @@ export async function main() {
   // to run Gemini CLI. It is now safe to perform expensive initialization that
   // may have side effects.
   {
-    const sessionId = randomUUID();
-    const extensionEnablementManager = new ExtensionEnablementManager(
-      ExtensionStorage.getUserExtensionsDir(),
-      argv.extensions,
-    );
-    const extensions = loadExtensions(extensionEnablementManager);
+    // Eventually, `extensions` should move off of `config` entirely and into
+    // the UI state instead.
+    const extensionManager = new ExtensionManager({
+      loadedSettings: settings,
+      workspaceDir: process.cwd(),
+      // At this stage, we still don't have an interactive UI.
+      requestConsent: requestConsentNonInteractive,
+      requestSetting: null,
+      enabledExtensionOverrides: argv.extensions,
+    });
+    const extensions = extensionManager.loadExtensions();
     const config = await loadCliConfig(
       settings.merged,
       extensions,
-      extensionEnablementManager,
       sessionId,
       argv,
     );
 
-    // Log available agents for user awareness (non-debug mode)
-    if (!argv.listExtensions && config.isInteractive()) {
-      const agentRegistry = config.getAgentRegistry();
-      if (agentRegistry) {
-        const agents = agentRegistry.getAllDefinitions();
-        if (agents.length > 1) {
-          // More than just the default agent
-          const customAgents = agents.filter(
-            (a) => a.name !== 'codebase_investigator',
-          );
-          if (customAgents.length > 0) {
-            console.log(
-              `\n🤖 ${agents.length} specialized agents available (use --list-agents to see all)\n`,
-            );
-          }
-        }
-      }
-    }
+    const policyEngine = config.getPolicyEngine();
+    const messageBus = config.getMessageBus();
+    createPolicyUpdater(policyEngine, messageBus);
 
     // Cleanup sessions after config initialization
     await cleanupExpiredSessions(config, settings.merged);
 
     if (config.getListExtensions()) {
-      console.log('Installed extensions:');
+      debugLogger.log('Installed extensions:');
       for (const extension of extensions) {
-        console.log(`- ${extension.name}`);
+        debugLogger.log(`- ${extension.name}`);
       }
       process.exit(0);
     }
@@ -727,11 +430,7 @@ export async function main() {
       config.isBrowserLaunchSuppressed()
     ) {
       // Do oauth before app renders to make copying the link possible.
-      const selectedAuthType = settings.merged.security.auth.selectedType;
-      if (!selectedAuthType) {
-        throw new Error('Selected authentication type is not defined.');
-      }
-      await getOauthClient(selectedAuthType as AuthType, config); // Workaround for TS2345
+      await getOauthClient(settings.merged.security.auth.selectedType, config);
     }
 
     if (config.getExperimentalZedIntegration()) {
@@ -767,7 +466,7 @@ export async function main() {
       }
     }
     if (!input) {
-      console.error(
+      debugLogger.error(
         `No input provided via stdin. Input can be provided by piping data into gemini or using the --prompt option.`,
       );
       process.exit(1);
@@ -792,28 +491,10 @@ export async function main() {
     );
 
     if (config.getDebugMode()) {
-      console.log('Session ID: %s', sessionId);
+      debugLogger.log('Session ID: %s', sessionId);
     }
 
-    // If --agent was specified, use proper agent execution with AgentExecutor
-    if (agentFilePath) {
-      await runAgentNonInteractive(
-        nonInteractiveConfig,
-        settings,
-        agentFilePath,
-        input,
-      );
-      await runExitCleanup();
-      // runAgentNonInteractive calls process.exit() itself
-      return;
-    }
-
-    await runNonInteractive(
-      nonInteractiveConfig,
-      settings,
-      input,
-      prompt_id,
-    );
+    await runNonInteractive(nonInteractiveConfig, settings, input, prompt_id);
     // Call cleanup before process.exit, which causes cleanup to not run
     await runExitCleanup();
     process.exit(0);

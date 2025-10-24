@@ -22,7 +22,6 @@ import type { Config } from '../config/config.js';
 import { ApprovalMode } from '../config/config.js';
 import { ensureCorrectEdit } from '../utils/editCorrector.js';
 import { DEFAULT_DIFF_OPTIONS, getDiffStat } from './diffOptions.js';
-import { ReadFileTool } from './read-file.js';
 import { logFileOperation } from '../telemetry/loggers.js';
 import { FileOperationEvent } from '../telemetry/types.js';
 import { FileOperation } from '../telemetry/metrics.js';
@@ -34,7 +33,8 @@ import type {
 } from './modifiable-tool.js';
 import { IdeClient } from '../ide/ide-client.js';
 import { safeLiteralReplace } from '../utils/textUtils.js';
-import { EDIT_TOOL_NAME } from './tool-names.js';
+import { EDIT_TOOL_NAME, READ_FILE_TOOL_NAME } from './tool-names.js';
+import { debugLogger } from '../utils/debugLogger.js';
 
 export function applyReplacement(
   currentContent: string | null,
@@ -180,17 +180,9 @@ class EditToolInvocation implements ToolInvocation<EditToolParams, ToolResult> {
           type: ToolErrorType.ATTEMPT_TO_CREATE_EXISTING_FILE,
         };
       } else if (occurrences === 0) {
-        // Check if there's an enhanced error message from the corrector
-        const baseMessage = `Failed to edit, 0 occurrences found for old_string in ${params.file_path}. No edits made. The exact text in old_string was not found. Ensure you're not escaping content incorrectly and check whitespace, indentation, and context. Use ${ReadFileTool.Name} tool to verify.`;
-        const enhancedMessage = correctedEdit.errorMessage
-          ? `${baseMessage}\n\n${correctedEdit.errorMessage}`
-          : baseMessage;
-
         error = {
-          display: correctedEdit.errorMessage
-            ? correctedEdit.errorMessage
-            : `Failed to edit, could not find the string to replace.`,
-          raw: enhancedMessage,
+          display: `Failed to edit, could not find the string to replace.`,
+          raw: `Failed to edit, 0 occurrences found for old_string in ${params.file_path}. No edits made. The exact text in old_string was not found. Ensure you're not escaping content incorrectly and check whitespace, indentation, and context. Use ${READ_FILE_TOOL_NAME} tool to verify.`,
           type: ToolErrorType.EDIT_NO_OCCURRENCE_FOUND,
         };
       } else if (occurrences !== expectedReplacements) {
@@ -252,57 +244,9 @@ class EditToolInvocation implements ToolInvocation<EditToolParams, ToolResult> {
   async shouldConfirmExecute(
     abortSignal: AbortSignal,
   ): Promise<ToolCallConfirmationDetails | false> {
-    const fs = await import('node:fs');
-    const logPath = '/tmp/gemini-edit-shouldconfirm-debug.log';
-    const timestamp = new Date().toISOString();
-
-    fs.appendFileSync(
-      logPath,
-      `${timestamp} - shouldConfirmExecute START for ${this.params.file_path}\n`,
-    );
-
-    const currentMode = this.config.getApprovalMode();
-    fs.appendFileSync(
-      logPath,
-      `${timestamp} - Current approval mode: ${currentMode}\n`,
-    );
-
-    if (currentMode === ApprovalMode.AUTO_EDIT) {
-      fs.appendFileSync(
-        logPath,
-        `${timestamp} - Skipping confirmation (AUTO_EDIT mode)\n`,
-      );
+    if (this.config.getApprovalMode() === ApprovalMode.AUTO_EDIT) {
       return false;
     }
-
-    // Check persistent approvals
-    const approvalStorage = this.config.getApprovalStorage();
-    fs.appendFileSync(
-      logPath,
-      `${timestamp} - Got approvalStorage, calling isKindApproved\n`,
-    );
-
-    const kindApproval = await approvalStorage.isKindApproved(Kind.Edit);
-    fs.appendFileSync(
-      logPath,
-      `${timestamp} - isKindApproved result: ${kindApproval}\n`,
-    );
-
-    if (kindApproval) {
-      // Also set session-level approval for performance
-      fs.appendFileSync(logPath, `${timestamp} - Setting AUTO_EDIT mode\n`);
-      this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
-      fs.appendFileSync(
-        logPath,
-        `${timestamp} - Returning false (no confirmation needed)\n`,
-      );
-      return false;
-    }
-
-    fs.appendFileSync(
-      logPath,
-      `${timestamp} - No persistent approval found, will show confirmation\n`,
-    );
 
     let editData: CalculatedEdit;
     try {
@@ -312,12 +256,12 @@ class EditToolInvocation implements ToolInvocation<EditToolParams, ToolResult> {
         throw error;
       }
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.log(`Error preparing edit: ${errorMsg}`);
+      debugLogger.log(`Error preparing edit: ${errorMsg}`);
       return false;
     }
 
     if (editData.error) {
-      console.log(`Error: ${editData.error.display}`);
+      debugLogger.log(`Error: ${editData.error.display}`);
       return false;
     }
 
@@ -345,79 +289,18 @@ class EditToolInvocation implements ToolInvocation<EditToolParams, ToolResult> {
       originalContent: editData.currentContent,
       newContent: editData.newContent,
       onConfirm: async (outcome: ToolConfirmationOutcome) => {
-        const fs = await import('node:fs');
-        const logPath = '/tmp/gemini-edit-callback-debug.log';
-        const timestamp = new Date().toISOString();
+        if (outcome === ToolConfirmationOutcome.ProceedAlways) {
+          this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
+        }
 
-        fs.appendFileSync(
-          logPath,
-          `${timestamp} - onConfirm CALLBACK START, outcome=${outcome}\n`,
-        );
-
-        try {
-          if (outcome === ToolConfirmationOutcome.ProceedAlways) {
-            fs.appendFileSync(
-              logPath,
-              `${timestamp} - Matched ProceedAlways\n`,
-            );
-            this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
-          } else if (
-            outcome === ToolConfirmationOutcome.ProceedAlwaysAllSessions
-          ) {
-            fs.appendFileSync(
-              logPath,
-              `${timestamp} - Matched ProceedAlwaysAllSessions\n`,
-            );
-            // Add to persistent storage for all sessions
-            const approvalStorage = this.config.getApprovalStorage();
-            fs.appendFileSync(
-              logPath,
-              `${timestamp} - Got approvalStorage, about to call approveKind\n`,
-            );
-            await approvalStorage.approveKind(
-              Kind.Edit,
-              'Always allow edit operations',
-            );
-            fs.appendFileSync(
-              logPath,
-              `${timestamp} - approveKind completed\n`,
-            );
-            // Also set session-level approval
-            this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
-            fs.appendFileSync(
-              logPath,
-              `${timestamp} - setApprovalMode completed\n`,
-            );
+        if (ideConfirmation) {
+          const result = await ideConfirmation;
+          if (result.status === 'accepted' && result.content) {
+            // TODO(chrstn): See https://github.com/google-gemini/gemini-cli/pull/5618#discussion_r2255413084
+            // for info on a possible race condition where the file is modified on disk while being edited.
+            this.params.old_string = editData.currentContent ?? '';
+            this.params.new_string = result.content;
           }
-
-          if (ideConfirmation) {
-            fs.appendFileSync(
-              logPath,
-              `${timestamp} - Processing ideConfirmation\n`,
-            );
-            const result = await ideConfirmation;
-            if (result.status === 'accepted' && result.content) {
-              // TODO(chrstn): See https://github.com/google-gemini/gemini-cli/pull/5618#discussion_r2255413084
-              // for info on a possible race condition where the file is modified on disk while being edited.
-              this.params.old_string = editData.currentContent ?? '';
-              this.params.new_string = result.content;
-            }
-          }
-
-          fs.appendFileSync(
-            logPath,
-            `${timestamp} - onConfirm CALLBACK END successfully\n`,
-          );
-        } catch (error) {
-          fs.appendFileSync(
-            logPath,
-            `${timestamp} - onConfirm CALLBACK ERROR: ${error instanceof Error ? error.message : String(error)}\n`,
-          );
-          fs.appendFileSync(
-            logPath,
-            `${timestamp} - onConfirm CALLBACK ERROR stack: ${error instanceof Error ? error.stack : 'no stack'}\n`,
-          );
-          throw error;
         }
       },
       ideConfirmation,
@@ -527,7 +410,7 @@ class EditToolInvocation implements ToolInvocation<EditToolParams, ToolResult> {
       logFileOperation(
         this.config,
         new FileOperationEvent(
-          EditTool.Name,
+          EDIT_TOOL_NAME,
           operation,
           editData.newContent.split('\n').length,
           mimetype,
@@ -583,11 +466,12 @@ export class EditTool
   implements ModifiableDeclarativeTool<EditToolParams>
 {
   static readonly Name = EDIT_TOOL_NAME;
+
   constructor(private readonly config: Config) {
     super(
       EditTool.Name,
       'Edit',
-      `Replaces text within a file. By default, replaces a single occurrence, but can replace multiple occurrences when \`expected_replacements\` is specified. This tool requires providing significant context around the change to ensure precise targeting. Always use the ${ReadFileTool.Name} tool to examine the file's current content before attempting a text replacement.
+      `Replaces text within a file. By default, replaces a single occurrence, but can replace multiple occurrences when \`expected_replacements\` is specified. This tool requires providing significant context around the change to ensure precise targeting. Always use the ${READ_FILE_TOOL_NAME} tool to examine the file's current content before attempting a text replacement.
 
       The user has the ability to modify the \`new_string\` content. If modified, this will be stated in the response.
 

@@ -19,8 +19,7 @@ import type { Config } from '../config/config.js';
 import type { UserTierId } from '../code_assist/types.js';
 import { LoggingContentGenerator } from './loggingContentGenerator.js';
 import { InstallationManager } from '../utils/installationManager.js';
-import { OllamaContentGenerator } from './ollamaContentGenerator.js';
-import { LlamaCppContentGenerator } from './llamaCppContentGenerator.js';
+import { FakeContentGenerator } from './fakeContentGenerator.js';
 
 /**
  * Interface abstracting the core functionalities for generating content and counting tokens.
@@ -48,7 +47,6 @@ export enum AuthType {
   USE_GEMINI = 'gemini-api-key',
   USE_VERTEX_AI = 'vertex-ai',
   CLOUD_SHELL = 'cloud-shell',
-  LOCAL = 'local',
 }
 
 export type ContentGeneratorConfig = {
@@ -56,7 +54,6 @@ export type ContentGeneratorConfig = {
   vertexai?: boolean;
   authType?: AuthType;
   proxy?: string;
-  ollamaBaseUrl?: string;
 };
 
 export function createContentGeneratorConfig(
@@ -109,6 +106,10 @@ export async function createContentGenerator(
   gcConfig: Config,
   sessionId?: string,
 ): Promise<ContentGenerator> {
+  if (gcConfig.fakeResponses) {
+    return FakeContentGenerator.fromFile(gcConfig.fakeResponses);
+  }
+
   const version = process.env['CLI_VERSION'] || process.version;
   const userAgent = `GeminiCLI/${version} (${process.platform}; ${process.arch})`;
   const baseHeaders: Record<string, string> = {
@@ -153,31 +154,6 @@ export async function createContentGenerator(
     });
     return new LoggingContentGenerator(googleGenAI.models, gcConfig);
   }
-
-  if (config.authType === AuthType.LOCAL) {
-    // Check environment variable to determine which local LLM provider to use
-    const localProvider = process.env['LOCAL_LLM_PROVIDER'] || 'ollama';
-
-    if (localProvider === 'llamacpp') {
-      const llamaCppBaseUrl =
-        process.env['LLAMACPP_BASE_URL'] || 'http://localhost:8000';
-      return new LoggingContentGenerator(
-        new LlamaCppContentGenerator(llamaCppBaseUrl, gcConfig),
-        gcConfig,
-      );
-    } else {
-      // Default to Ollama
-      const ollamaBaseUrl =
-        process.env['OLLAMA_BASE_URL'] ||
-        config.ollamaBaseUrl ||
-        'http://localhost:11434';
-      return new LoggingContentGenerator(
-        new OllamaContentGenerator(ollamaBaseUrl, gcConfig),
-        gcConfig,
-      );
-    }
-  }
-
   throw new Error(
     `Error creating contentGenerator: Unsupported authType: ${config.authType}`,
   );

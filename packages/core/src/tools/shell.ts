@@ -102,25 +102,55 @@ export class ShellToolInvocation extends BaseToolInvocation<
     }
 
     // Check persistent approvals first
+    const fs = await import('node:fs');
+    const logPath = '/tmp/gemini-shell-debug.log';
+    const timestamp = new Date().toISOString();
+
+    fs.appendFileSync(
+      logPath,
+      `${timestamp} - Checking approvals for root commands: ${JSON.stringify(rootCommands)}\n`,
+    );
+
     const approvalStorage = this.config.getApprovalStorage();
     const commandsToConfirm: string[] = [];
 
     for (const command of rootCommands) {
       // Skip if already in session allowlist
       if (this.allowlist.has(command)) {
+        fs.appendFileSync(
+          logPath,
+          `${timestamp} - Command "${command}" already in session allowlist\n`,
+        );
         continue;
       }
 
       // Check persistent storage
+      fs.appendFileSync(
+        logPath,
+        `${timestamp} - Checking persistent storage for command: ${command}\n`,
+      );
       const persistentApproval = await approvalStorage.isCommandApproved(command);
+      fs.appendFileSync(
+        logPath,
+        `${timestamp} - Persistent approval result for "${command}": ${persistentApproval ? 'FOUND' : 'NOT FOUND'}\n`,
+      );
+
       if (persistentApproval) {
         // Add to session allowlist for performance
         this.allowlist.add(command);
+        fs.appendFileSync(
+          logPath,
+          `${timestamp} - Added "${command}" to session allowlist from persistent storage\n`,
+        );
         continue;
       }
 
       // Needs confirmation
       commandsToConfirm.push(command);
+      fs.appendFileSync(
+        logPath,
+        `${timestamp} - Command "${command}" needs confirmation\n`,
+      );
     }
 
     if (commandsToConfirm.length === 0) {
@@ -133,19 +163,52 @@ export class ShellToolInvocation extends BaseToolInvocation<
       command: this.params.command,
       rootCommand: commandsToConfirm.join(', '),
       onConfirm: async (outcome: ToolConfirmationOutcome) => {
+        const fs = await import('node:fs');
+        const logPath = '/tmp/gemini-shell-debug.log';
+        const timestamp = new Date().toISOString();
+
+        fs.appendFileSync(
+          logPath,
+          `${timestamp} - Shell onConfirm called with outcome: ${outcome}\n`,
+        );
+        fs.appendFileSync(
+          logPath,
+          `${timestamp} - Commands to confirm: ${JSON.stringify(commandsToConfirm)}\n`,
+        );
+
         if (outcome === ToolConfirmationOutcome.ProceedAlways) {
+          fs.appendFileSync(
+            logPath,
+            `${timestamp} - ProceedAlways: adding to session allowlist\n`,
+          );
           commandsToConfirm.forEach((command) => this.allowlist.add(command));
         } else if (outcome === ToolConfirmationOutcome.ProceedAlwaysAllSessions) {
+          fs.appendFileSync(
+            logPath,
+            `${timestamp} - ProceedAlwaysAllSessions: saving to persistent storage\n`,
+          );
           // Add to persistent storage for all sessions
           const approvalStorage = this.config.getApprovalStorage();
           for (const command of commandsToConfirm) {
+            fs.appendFileSync(
+              logPath,
+              `${timestamp} - Calling approveCommand for: ${command}\n`,
+            );
             await approvalStorage.approveCommand(
               command,
               `Shell command: ${command}`,
             );
+            fs.appendFileSync(
+              logPath,
+              `${timestamp} - approveCommand completed for: ${command}\n`,
+            );
           }
           // Also add to session allowlist for immediate use
           commandsToConfirm.forEach((command) => this.allowlist.add(command));
+          fs.appendFileSync(
+            logPath,
+            `${timestamp} - Added all commands to session allowlist\n`,
+          );
         }
       },
     };

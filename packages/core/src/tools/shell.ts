@@ -101,9 +101,27 @@ export class ShellToolInvocation extends BaseToolInvocation<
       );
     }
 
-    const commandsToConfirm = rootCommands.filter(
-      (command) => !this.allowlist.has(command),
-    );
+    // Check persistent approvals first
+    const approvalStorage = this.config.getApprovalStorage();
+    const commandsToConfirm: string[] = [];
+
+    for (const command of rootCommands) {
+      // Skip if already in session allowlist
+      if (this.allowlist.has(command)) {
+        continue;
+      }
+
+      // Check persistent storage
+      const persistentApproval = await approvalStorage.isCommandApproved(command);
+      if (persistentApproval) {
+        // Add to session allowlist for performance
+        this.allowlist.add(command);
+        continue;
+      }
+
+      // Needs confirmation
+      commandsToConfirm.push(command);
+    }
 
     if (commandsToConfirm.length === 0) {
       return false; // already approved and allowlisted
@@ -116,6 +134,17 @@ export class ShellToolInvocation extends BaseToolInvocation<
       rootCommand: commandsToConfirm.join(', '),
       onConfirm: async (outcome: ToolConfirmationOutcome) => {
         if (outcome === ToolConfirmationOutcome.ProceedAlways) {
+          commandsToConfirm.forEach((command) => this.allowlist.add(command));
+        } else if (outcome === ToolConfirmationOutcome.ProceedAlwaysAllSessions) {
+          // Add to persistent storage for all sessions
+          const approvalStorage = this.config.getApprovalStorage();
+          for (const command of commandsToConfirm) {
+            await approvalStorage.approveCommand(
+              command,
+              `Shell command: ${command}`,
+            );
+          }
+          // Also add to session allowlist for immediate use
           commandsToConfirm.forEach((command) => this.allowlist.add(command));
         }
       },

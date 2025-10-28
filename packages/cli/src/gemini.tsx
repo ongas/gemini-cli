@@ -208,16 +208,17 @@ export async function startInteractiveUI(
     },
   );
 
-  checkForUpdates(settings)
-    .then((info) => {
-      handleAutoUpdate(info, settings, config.getProjectRoot());
-    })
-    .catch((err) => {
-      // Silently ignore update check errors.
-      if (config.getDebugMode()) {
-        debugLogger.warn('Update check failed:', err);
-      }
-    });
+  // Auto-update disabled for local development
+  // checkForUpdates(settings)
+  //   .then((info) => {
+  //     handleAutoUpdate(info, settings, config.getProjectRoot());
+  //   })
+  //   .catch((err) => {
+  //     // Silently ignore update check errors.
+  //     if (config.getDebugMode()) {
+  //       debugLogger.warn('Update check failed:', err);
+  //     }
+  //   });
 
   registerCleanup(() => instance.unmount());
 }

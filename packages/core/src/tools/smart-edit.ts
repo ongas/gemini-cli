@@ -298,6 +298,128 @@ async function calculateNormalizedReplacement(
   return null;
 }
 
+/**
+ * Python indentation-tolerant matching strategy.
+ * When the model provides old_string with incorrect absolute indentation,
+ * this strategy tries various dedent/indent levels to find a match.
+ */
+async function calculatePythonIndentTolerantReplacement(
+  context: ReplacementContext,
+): Promise<ReplacementResult | null> {
+  const { currentContent, params } = context;
+  const { old_string, new_string, file_path } = params;
+
+  // Only apply to Python files
+  if (!file_path.endsWith('.py')) {
+    return null;
+  }
+
+  // Detect file's indentation style
+  const fileIndentStyle = detectIndentationStyle(currentContent);
+  const indentSize = fileIndentStyle.size;
+  const indentChar = fileIndentStyle.char;
+
+  // Try dedenting the old_string by various amounts (0 to 8 levels)
+  for (let dedentLevels = 0; dedentLevels <= 8; dedentLevels++) {
+    const dedentAmount = dedentLevels * indentSize;
+    const dedentedOld = dedentString(old_string, dedentAmount);
+
+    // Try matching with this dedented version
+    const occurrences = currentContent.split(dedentedOld).length - 1;
+    if (occurrences > 0) {
+      // Found a match! Apply the same dedent to new_string
+      const dedentedNew = dedentString(new_string, dedentAmount);
+
+      let modifiedCode = safeLiteralReplace(
+        currentContent,
+        dedentedOld,
+        dedentedNew,
+      );
+      modifiedCode = restoreTrailingNewline(currentContent, modifiedCode);
+
+      return {
+        newContent: modifiedCode,
+        occurrences,
+        finalOldString: dedentedOld,
+        finalNewString: dedentedNew,
+      };
+    }
+  }
+
+  // Also try indenting (model might have provided under-indented string)
+  for (let indentLevels = 1; indentLevels <= 4; indentLevels++) {
+    const indentAmount = indentLevels * indentSize;
+    const indentedOld = indentString(old_string, indentAmount, indentChar);
+
+    const occurrences = currentContent.split(indentedOld).length - 1;
+    if (occurrences > 0) {
+      const indentedNew = indentString(new_string, indentAmount, indentChar);
+
+      let modifiedCode = safeLiteralReplace(
+        currentContent,
+        indentedOld,
+        indentedNew,
+      );
+      modifiedCode = restoreTrailingNewline(currentContent, modifiedCode);
+
+      return {
+        newContent: modifiedCode,
+        occurrences,
+        finalOldString: indentedOld,
+        finalNewString: indentedNew,
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Helper function to dedent a string by removing leading whitespace
+ */
+function dedentString(text: string, amount: number): string {
+  if (amount === 0) return text;
+
+  const lines = text.split('\n');
+  return lines
+    .map((line) => {
+      // Remove up to 'amount' spaces from the beginning
+      let removed = 0;
+      let idx = 0;
+      while (idx < line.length && removed < amount) {
+        if (line[idx] === ' ') {
+          removed++;
+          idx++;
+        } else if (line[idx] === '\t') {
+          // Treat tab as equivalent to indent size spaces
+          removed += 4; // Common convention
+          idx++;
+        } else {
+          break;
+        }
+      }
+      return line.slice(idx);
+    })
+    .join('\n');
+}
+
+/**
+ * Helper function to indent a string by adding leading whitespace
+ */
+function indentString(text: string, amount: number, char: string): string {
+  if (amount === 0) return text;
+
+  const indentPrefix = char.repeat(amount);
+  const lines = text.split('\n');
+  return lines
+    .map((line) => {
+      // Don't indent empty lines
+      if (line.trim() === '') return line;
+      return indentPrefix + line;
+    })
+    .join('\n');
+}
+
 export async function calculateReplacement(
   config: Config,
   context: ReplacementContext,
@@ -329,6 +451,14 @@ export async function calculateReplacement(
     const event = new SmartEditStrategyEvent('normalized');
     logSmartEditStrategy(config, event);
     return normalizedResult;
+  }
+
+  // Try Python indentation-tolerant matching (handles wrong absolute indentation)
+  const pythonIndentResult = await calculatePythonIndentTolerantReplacement(context);
+  if (pythonIndentResult) {
+    const event = new SmartEditStrategyEvent('python-indent-tolerant');
+    logSmartEditStrategy(config, event);
+    return pythonIndentResult;
   }
 
   const flexibleResult = await calculateFlexibleReplacement(context);

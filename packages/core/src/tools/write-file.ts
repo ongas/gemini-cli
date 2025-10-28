@@ -445,9 +445,9 @@ export class WriteFileTool
     const workspaceContext = this.config.getWorkspaceContext();
     if (!workspaceContext.isPathWithinWorkspace(filePath)) {
       const directories = workspaceContext.getDirectories();
-      return `File path must be within one of the workspace directories: ${directories.join(
+      return `File path must be within one of the workspace directories. Attempted path: ${filePath}. Workspace directories: ${directories.join(
         ', ',
-      )}`;
+      )}. Note: If the file path appears to be within the workspace, try using a path relative to the workspace root.`;
     }
 
     try {

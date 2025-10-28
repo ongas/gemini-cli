@@ -97,6 +97,11 @@ class GrepToolInvocation extends BaseToolInvocation<
     try {
       const stats = fs.statSync(targetPath);
       if (!stats.isDirectory()) {
+        // If it's a file, use its parent directory instead
+        if (stats.isFile()) {
+          const parentDir = path.dirname(targetPath);
+          return parentDir;
+        }
         throw new Error(`Path is not a directory: ${targetPath}`);
       }
     } catch (error: unknown) {
@@ -632,6 +637,11 @@ export class GrepTool extends BaseDeclarativeTool<GrepToolParams, ToolResult> {
     try {
       const stats = fs.statSync(targetPath);
       if (!stats.isDirectory()) {
+        // If it's a file, use its parent directory instead
+        if (stats.isFile()) {
+          const parentDir = path.dirname(targetPath);
+          return parentDir;
+        }
         throw new Error(`Path is not a directory: ${targetPath}`);
       }
     } catch (error: unknown) {

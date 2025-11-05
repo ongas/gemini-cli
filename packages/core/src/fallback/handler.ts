@@ -29,6 +29,17 @@ export async function handleFallback(
 
   const fallbackModel = DEFAULT_GEMINI_FLASH_MODEL;
 
+  // If Flash model failed while in fallback mode, toggle back to Pro
+  // (Pro's quota should have reset by now)
+  if (failedModel === fallbackModel && config.isInFallbackMode()) {
+    console.log(
+      '[FALLBACK DEBUG] Flash model quota hit, toggling back to Pro',
+    );
+    // Deactivate fallback mode to switch back to Pro
+    config.setFallbackMode(false);
+    return true; // Signal to retry with Pro model
+  }
+
   if (failedModel === fallbackModel) {
     console.log('[FALLBACK DEBUG] Already using fallback model, returning null');
     return null;

@@ -5,8 +5,6 @@
  */
 import type { CompressionProps } from '../../types.js';
 export interface CompressionDisplayProps {
-  compression: CompressionProps;
+    compression: CompressionProps;
 }
-export declare function CompressionMessage({
-  compression,
-}: CompressionDisplayProps): React.JSX.Element;
+export declare function CompressionMessage({ compression, }: CompressionDisplayProps): React.JSX.Element;

@@ -8,7 +8,7 @@ import type { AnyDeclarativeTool, AnyToolInvocation } from '../index.js';
  * Checks if a tool invocation matches any of a list of patterns.
  *
  * @param toolOrToolName The tool object or the name of the tool being invoked.
- * @param invocation The invocation object for the tool.
+ * @param invocation The invocation object for the tool or the command invoked.
  * @param patterns A list of patterns to match against.
  *   Patterns can be:
  *   - A tool name (e.g., "ReadFileTool") to match any invocation of that tool.
@@ -16,8 +16,4 @@ import type { AnyDeclarativeTool, AnyToolInvocation } from '../index.js';
  *     invocations where the arguments start with that prefix.
  * @returns True if the invocation matches any pattern, false otherwise.
  */
-export declare function doesToolInvocationMatch(
-  toolOrToolName: AnyDeclarativeTool | string,
-  invocation: AnyToolInvocation,
-  patterns: string[],
-): boolean;
+export declare function doesToolInvocationMatch(toolOrToolName: AnyDeclarativeTool | string, invocation: AnyToolInvocation | string, patterns: string[]): boolean;

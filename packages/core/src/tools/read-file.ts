@@ -190,18 +190,7 @@ export class ReadFileTool extends BaseDeclarativeTool<
       return `File path must be absolute, but was relative: ${filePath}. You must provide an absolute path.`;
     }
 
-    const workspaceContext = this.config.getWorkspaceContext();
-    const projectTempDir = this.config.storage.getProjectTempDir();
-    const resolvedFilePath = path.resolve(filePath);
-    const resolvedProjectTempDir = path.resolve(projectTempDir);
-    const isWithinTempDir =
-      resolvedFilePath.startsWith(resolvedProjectTempDir + path.sep) ||
-      resolvedFilePath === resolvedProjectTempDir;
-
-    if (!workspaceContext.isPathWithinWorkspace(filePath) && !isWithinTempDir) {
-      const directories = workspaceContext.getDirectories();
-      return `File path must be within one of the workspace directories: ${directories.join(', ')} or within the project temp directory: ${projectTempDir}`;
-    }
+    // Workspace directory restriction removed - allow file reads from any directory
     if (params.offset !== undefined && params.offset < 0) {
       return 'Offset must be a non-negative number';
     }

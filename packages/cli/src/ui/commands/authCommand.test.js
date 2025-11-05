@@ -8,23 +8,23 @@ import { authCommand } from './authCommand.js';
 import {} from './types.js';
 import { createMockCommandContext } from '../../test-utils/mockCommandContext.js';
 describe('authCommand', () => {
-  let mockContext;
-  beforeEach(() => {
-    mockContext = createMockCommandContext();
-  });
-  it('should return a dialog action to open the auth dialog', () => {
-    if (!authCommand.action) {
-      throw new Error('The auth command must have an action.');
-    }
-    const result = authCommand.action(mockContext, '');
-    expect(result).toEqual({
-      type: 'dialog',
-      dialog: 'auth',
+    let mockContext;
+    beforeEach(() => {
+        mockContext = createMockCommandContext();
     });
-  });
-  it('should have the correct name and description', () => {
-    expect(authCommand.name).toBe('auth');
-    expect(authCommand.description).toBe('change the auth method');
-  });
+    it('should return a dialog action to open the auth dialog', () => {
+        if (!authCommand.action) {
+            throw new Error('The auth command must have an action.');
+        }
+        const result = authCommand.action(mockContext, '');
+        expect(result).toEqual({
+            type: 'dialog',
+            dialog: 'auth',
+        });
+    });
+    it('should have the correct name and description', () => {
+        expect(authCommand.name).toBe('auth');
+        expect(authCommand.description).toBe('Change the auth method');
+    });
 });
 //# sourceMappingURL=authCommand.test.js.map

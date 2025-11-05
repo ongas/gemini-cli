@@ -4,9 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 interface AppHeaderProps {
-  version: string;
+    version: string;
 }
-export declare const AppHeader: ({
-  version,
-}: AppHeaderProps) => import('react/jsx-runtime').JSX.Element;
+export declare const AppHeader: ({ version }: AppHeaderProps) => import("react/jsx-runtime").JSX.Element;
 export {};

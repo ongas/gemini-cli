@@ -40,8 +40,8 @@ export interface RetryOptions {
 const DEFAULT_RETRY_OPTIONS: RetryOptions = {
   maxAttempts: 5,
   maxQuotaRetries: 3, // Maximum retries specifically for quota errors
-  initialDelayMs: 5000,
-  maxDelayMs: 120000, // 2 minutes - aligns with Flash quota reset window
+  initialDelayMs: 15000, // 15 seconds - more conservative for rate limits
+  maxDelayMs: 300000, // 5 minutes - longer wait for quota reset
   shouldRetryOnError: defaultShouldRetry,
 };
 
@@ -165,6 +165,8 @@ export async function retryWithBackoff<T>(
             attempt = 0;
             consecutive429Count = 0;
             currentDelay = initialDelayMs;
+            // Add a small delay before trying the fallback model to avoid immediate rate limit
+            await delay(2000, signal);
             // With the model updated, we continue to the next attempt
             continue;
           } else {
@@ -192,6 +194,8 @@ export async function retryWithBackoff<T>(
             attempt = 0;
             consecutive429Count = 0;
             currentDelay = initialDelayMs;
+            // Add a small delay before trying the fallback model to avoid immediate rate limit
+            await delay(2000, signal);
             // With the model updated, we continue to the next attempt
             continue;
           } else {
@@ -224,6 +228,8 @@ export async function retryWithBackoff<T>(
             attempt = 0;
             consecutive429Count = 0;
             currentDelay = initialDelayMs;
+            // Add a small delay before trying the fallback model to avoid immediate rate limit
+            await delay(2000, signal);
             // With the model updated, we continue to the next attempt
             continue;
           } else {

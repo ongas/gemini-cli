@@ -4,12 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import type { Config } from '../config/config.js';
-import type {
-  AgentDefinition,
-  AgentInputs,
-  OutputObject,
-  SubagentActivityEvent,
-} from './types.js';
+import type { AgentDefinition, AgentInputs, OutputObject, SubagentActivityEvent } from './types.js';
 import { type z } from 'zod';
 /** A callback function to report on agent activity. */
 export type ActivityCallback = (activity: SubagentActivityEvent) => void;
@@ -20,90 +15,78 @@ export type ActivityCallback = (activity: SubagentActivityEvent) => void;
  * mandatory `complete_task` tool to signal completion.
  */
 export declare class AgentExecutor<TOutput extends z.ZodTypeAny> {
-  readonly definition: AgentDefinition<TOutput>;
-  private readonly agentId;
-  private readonly toolRegistry;
-  private readonly runtimeContext;
-  private readonly onActivity?;
-  /**
-   * Creates and validates a new `AgentExecutor` instance.
-   *
-   * This method ensures that all tools specified in the agent's definition are
-   * safe for non-interactive use before creating the executor.
-   *
-   * @param definition The definition object for the agent.
-   * @param runtimeContext The global runtime configuration.
-   * @param onActivity An optional callback to receive activity events.
-   * @returns A promise that resolves to a new `AgentExecutor` instance.
-   */
-  static create<TOutput extends z.ZodTypeAny>(
-    definition: AgentDefinition<TOutput>,
-    runtimeContext: Config,
-    onActivity?: ActivityCallback,
-  ): Promise<AgentExecutor<TOutput>>;
-  /**
-   * Constructs a new AgentExecutor instance.
-   *
-   * @private This constructor is private. Use the static `create` method to
-   * instantiate the class.
-   */
-  private constructor();
-  /**
-   * Runs the agent.
-   *
-   * @param inputs The validated input parameters for this invocation.
-   * @param signal An `AbortSignal` for cancellation.
-   * @returns A promise that resolves to the agent's final output.
-   */
-  run(inputs: AgentInputs, signal: AbortSignal): Promise<OutputObject>;
-  /**
-   * Calls the generative model with the current context and tools.
-   *
-   * @returns The model's response, including any tool calls or text.
-   */
-  private callModel;
-  /**
-   * Creates a provider-specific Config object for agents that specify a custom provider.
-   * This creates a new Config with a ContentGenerator configured for the specified provider.
-   */
-  private createProviderSpecificConfig;
-  /** Initializes a `GeminiChat` instance for the agent run. */
-  private createChatObject;
-  /**
-   * Executes function calls requested by the model and returns the results.
-   *
-   * @returns A new `Content` object for history, any submitted output, and completion status.
-   */
-  private processFunctionCalls;
-  /**
-   * Prepares the list of tool function declarations to be sent to the model.
-   */
-  private prepareToolsList;
-  /** Builds the system prompt from the agent definition and inputs. */
-  private buildSystemPrompt;
-  /**
-   * Applies template strings to initial messages.
-   *
-   * @param initialMessages The initial messages from the prompt config.
-   * @param inputs The validated input parameters for this invocation.
-   * @returns A new array of `Content` with templated strings.
-   */
-  private applyTemplateToInitialMessages;
-  /**
-   * Validates that all tools in a registry are safe for subagent use.
-   *
-   * With message bus support, subagents can request user confirmation for any tool,
-   * so no validation is needed. This method is kept for backwards compatibility.
-   *
-   * @throws An error if a tool is not safe (currently never throws with message bus support)
-   */
-  private static validateTools;
-  /**
-   * Checks if the agent should terminate due to exceeding configured limits.
-   *
-   * @returns The reason for termination, or `null` if execution can continue.
-   */
-  private checkTermination;
-  /** Emits an activity event to the configured callback. */
-  private emitActivity;
+    readonly definition: AgentDefinition<TOutput>;
+    private readonly agentId;
+    private readonly toolRegistry;
+    private readonly runtimeContext;
+    private readonly onActivity?;
+    /**
+     * Creates and validates a new `AgentExecutor` instance.
+     *
+     * This method ensures that all tools specified in the agent's definition are
+     * safe for non-interactive use before creating the executor.
+     *
+     * @param definition The definition object for the agent.
+     * @param runtimeContext The global runtime configuration.
+     * @param onActivity An optional callback to receive activity events.
+     * @returns A promise that resolves to a new `AgentExecutor` instance.
+     */
+    static create<TOutput extends z.ZodTypeAny>(definition: AgentDefinition<TOutput>, runtimeContext: Config, onActivity?: ActivityCallback): Promise<AgentExecutor<TOutput>>;
+    /**
+     * Constructs a new AgentExecutor instance.
+     *
+     * @private This constructor is private. Use the static `create` method to
+     * instantiate the class.
+     */
+    private constructor();
+    /**
+     * Runs the agent.
+     *
+     * @param inputs The validated input parameters for this invocation.
+     * @param signal An `AbortSignal` for cancellation.
+     * @returns A promise that resolves to the agent's final output.
+     */
+    run(inputs: AgentInputs, signal: AbortSignal): Promise<OutputObject>;
+    /**
+     * Calls the generative model with the current context and tools.
+     *
+     * @returns The model's response, including any tool calls or text.
+     */
+    private callModel;
+    /** Initializes a `GeminiChat` instance for the agent run. */
+    private createChatObject;
+    /**
+     * Executes function calls requested by the model and returns the results.
+     *
+     * @returns A new `Content` object for history, any submitted output, and completion status.
+     */
+    private processFunctionCalls;
+    /**
+     * Prepares the list of tool function declarations to be sent to the model.
+     */
+    private prepareToolsList;
+    /** Builds the system prompt from the agent definition and inputs. */
+    private buildSystemPrompt;
+    /**
+     * Applies template strings to initial messages.
+     *
+     * @param initialMessages The initial messages from the prompt config.
+     * @param inputs The validated input parameters for this invocation.
+     * @returns A new array of `Content` with templated strings.
+     */
+    private applyTemplateToInitialMessages;
+    /**
+     * Validates that all tools in a registry are safe for non-interactive use.
+     *
+     * @throws An error if a tool is not on the allow-list for non-interactive execution.
+     */
+    private static validateTools;
+    /**
+     * Checks if the agent should terminate due to exceeding configured limits.
+     *
+     * @returns The reason for termination, or `null` if execution can continue.
+     */
+    private checkTermination;
+    /** Emits an activity event to the configured callback. */
+    private emitActivity;
 }

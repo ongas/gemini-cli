@@ -7,45 +7,42 @@ import { describe, it, expect, vi } from 'vitest';
 import * as os from 'node:os';
 import * as path from 'node:path';
 vi.mock('fs', async (importOriginal) => {
-  const actual = await importOriginal();
-  return {
-    ...actual,
-    mkdirSync: vi.fn(),
-  };
+    const actual = await importOriginal();
+    return {
+        ...actual,
+        mkdirSync: vi.fn(),
+    };
 });
 import { Storage } from './storage.js';
+import { GEMINI_DIR } from '../utils/paths.js';
 describe('Storage – getGlobalSettingsPath', () => {
-  it('returns path to ~/.gemini/settings.json', () => {
-    const expected = path.join(os.homedir(), '.gemini', 'settings.json');
-    expect(Storage.getGlobalSettingsPath()).toBe(expected);
-  });
+    it('returns path to ~/.gemini/settings.json', () => {
+        const expected = path.join(os.homedir(), GEMINI_DIR, 'settings.json');
+        expect(Storage.getGlobalSettingsPath()).toBe(expected);
+    });
 });
 describe('Storage – additional helpers', () => {
-  const projectRoot = '/tmp/project';
-  const storage = new Storage(projectRoot);
-  it('getWorkspaceSettingsPath returns project/.gemini/settings.json', () => {
-    const expected = path.join(projectRoot, '.gemini', 'settings.json');
-    expect(storage.getWorkspaceSettingsPath()).toBe(expected);
-  });
-  it('getUserCommandsDir returns ~/.gemini/commands', () => {
-    const expected = path.join(os.homedir(), '.gemini', 'commands');
-    expect(Storage.getUserCommandsDir()).toBe(expected);
-  });
-  it('getProjectCommandsDir returns project/.gemini/commands', () => {
-    const expected = path.join(projectRoot, '.gemini', 'commands');
-    expect(storage.getProjectCommandsDir()).toBe(expected);
-  });
-  it('getMcpOAuthTokensPath returns ~/.gemini/mcp-oauth-tokens.json', () => {
-    const expected = path.join(
-      os.homedir(),
-      '.gemini',
-      'mcp-oauth-tokens.json',
-    );
-    expect(Storage.getMcpOAuthTokensPath()).toBe(expected);
-  });
-  it('getGlobalBinDir returns ~/.gemini/tmp/bin', () => {
-    const expected = path.join(os.homedir(), '.gemini', 'tmp', 'bin');
-    expect(Storage.getGlobalBinDir()).toBe(expected);
-  });
+    const projectRoot = '/tmp/project';
+    const storage = new Storage(projectRoot);
+    it('getWorkspaceSettingsPath returns project/.gemini/settings.json', () => {
+        const expected = path.join(projectRoot, GEMINI_DIR, 'settings.json');
+        expect(storage.getWorkspaceSettingsPath()).toBe(expected);
+    });
+    it('getUserCommandsDir returns ~/.gemini/commands', () => {
+        const expected = path.join(os.homedir(), GEMINI_DIR, 'commands');
+        expect(Storage.getUserCommandsDir()).toBe(expected);
+    });
+    it('getProjectCommandsDir returns project/.gemini/commands', () => {
+        const expected = path.join(projectRoot, GEMINI_DIR, 'commands');
+        expect(storage.getProjectCommandsDir()).toBe(expected);
+    });
+    it('getMcpOAuthTokensPath returns ~/.gemini/mcp-oauth-tokens.json', () => {
+        const expected = path.join(os.homedir(), GEMINI_DIR, 'mcp-oauth-tokens.json');
+        expect(Storage.getMcpOAuthTokensPath()).toBe(expected);
+    });
+    it('getGlobalBinDir returns ~/.gemini/tmp/bin', () => {
+        const expected = path.join(os.homedir(), GEMINI_DIR, 'tmp', 'bin');
+        expect(Storage.getGlobalBinDir()).toBe(expected);
+    });
 });
 //# sourceMappingURL=storage.test.js.map

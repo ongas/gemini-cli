@@ -6,9 +6,10 @@
 import { EventEmitter } from 'node:events';
 export var AppEvent;
 (function (AppEvent) {
-  AppEvent['OpenDebugConsole'] = 'open-debug-console';
-  AppEvent['LogError'] = 'log-error';
-  AppEvent['OauthDisplayMessage'] = 'oauth-display-message';
+    AppEvent["OpenDebugConsole"] = "open-debug-console";
+    AppEvent["LogError"] = "log-error";
+    AppEvent["OauthDisplayMessage"] = "oauth-display-message";
+    AppEvent["Flicker"] = "flicker";
 })(AppEvent || (AppEvent = {}));
 export const appEvents = new EventEmitter();
 //# sourceMappingURL=events.js.map

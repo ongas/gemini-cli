@@ -1,4 +1,4 @@
-import { jsx as _jsx, jsxs as _jsxs } from 'react/jsx-runtime';
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { Text, Box } from 'ink';
 import { theme } from '../../semantic-colors.js';
 import { BaseSelectionList } from './BaseSelectionList.js';
@@ -7,40 +7,7 @@ import { BaseSelectionList } from './BaseSelectionList.js';
  *
  * @template T The type of the value associated with each descriptive radio item.
  */
-export function DescriptiveRadioButtonSelect({
-  items,
-  initialIndex = 0,
-  onSelect,
-  onHighlight,
-  isFocused = true,
-  showNumbers = false,
-  showScrollArrows = false,
-  maxItemsToShow = 10,
-}) {
-  return _jsx(BaseSelectionList, {
-    items: items,
-    initialIndex: initialIndex,
-    onSelect: onSelect,
-    onHighlight: onHighlight,
-    isFocused: isFocused,
-    showNumbers: showNumbers,
-    showScrollArrows: showScrollArrows,
-    maxItemsToShow: maxItemsToShow,
-    renderItem: (item, { titleColor }) =>
-      _jsxs(
-        Box,
-        {
-          flexDirection: 'column',
-          children: [
-            _jsx(Text, { color: titleColor, children: item.title }),
-            _jsx(Text, {
-              color: theme.text.secondary,
-              children: item.description,
-            }),
-          ],
-        },
-        item.key,
-      ),
-  });
+export function DescriptiveRadioButtonSelect({ items, initialIndex = 0, onSelect, onHighlight, isFocused = true, showNumbers = false, showScrollArrows = false, maxItemsToShow = 10, }) {
+    return (_jsx(BaseSelectionList, { items: items, initialIndex: initialIndex, onSelect: onSelect, onHighlight: onHighlight, isFocused: isFocused, showNumbers: showNumbers, showScrollArrows: showScrollArrows, maxItemsToShow: maxItemsToShow, renderItem: (item, { titleColor }) => (_jsxs(Box, { flexDirection: "column", children: [_jsx(Text, { color: titleColor, children: item.title }), _jsx(Text, { color: theme.text.secondary, children: item.description })] }, item.key)) }));
 }
 //# sourceMappingURL=DescriptiveRadioButtonSelect.js.map

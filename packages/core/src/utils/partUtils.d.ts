@@ -3,24 +3,15 @@
  * Copyright 2025 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
-import type {
-  GenerateContentResponse,
-  PartListUnion,
-  PartUnion,
-} from '@google/genai';
+import type { GenerateContentResponse, PartListUnion, PartUnion } from '@google/genai';
 /**
  * Converts a PartListUnion into a string.
  * If verbose is true, includes summary representations of non-text parts.
  */
-export declare function partToString(
-  value: PartListUnion,
-  options?: {
+export declare function partToString(value: PartListUnion, options?: {
     verbose?: boolean;
-  },
-): string;
-export declare function getResponseText(
-  response: GenerateContentResponse,
-): string | null;
+}): string;
+export declare function getResponseText(response: GenerateContentResponse): string | null;
 /**
  * Asynchronously maps over a PartListUnion, applying a transformation function
  * to the text content of each text-based part.
@@ -31,10 +22,7 @@ export declare function getResponseText(
  * @returns A Promise that resolves to a new array of PartUnions with the
  *   transformations applied.
  */
-export declare function flatMapTextParts(
-  parts: PartListUnion,
-  transform: (text: string) => Promise<PartUnion[]>,
-): Promise<PartUnion[]>;
+export declare function flatMapTextParts(parts: PartListUnion, transform: (text: string) => Promise<PartUnion[]>): Promise<PartUnion[]>;
 /**
  * Appends a string of text to the last text part of a prompt, or adds a new
  * text part if the last part is not a text part.
@@ -44,8 +32,4 @@ export declare function flatMapTextParts(
  * @param separator The separator to add between existing text and the new text.
  * @returns The modified prompt.
  */
-export declare function appendToLastTextPart(
-  prompt: PartUnion[],
-  textToAppend: string,
-  separator?: string,
-): PartUnion[];
+export declare function appendToLastTextPart(prompt: PartUnion[], textToAppend: string, separator?: string): PartUnion[];

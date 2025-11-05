@@ -9,19 +9,19 @@ import type { InputConfig } from './types.js';
  * declarations.
  */
 interface JsonSchemaObject {
-  type: 'object';
-  properties: Record<string, JsonSchemaProperty>;
-  required?: string[];
+    type: 'object';
+    properties: Record<string, JsonSchemaProperty>;
+    required?: string[];
 }
 /**
  * Defines the structure for a property within a {@link JsonSchemaObject}.
  */
 interface JsonSchemaProperty {
-  type: 'string' | 'number' | 'integer' | 'boolean' | 'array';
-  description: string;
-  items?: {
-    type: 'string' | 'number';
-  };
+    type: 'string' | 'number' | 'integer' | 'boolean' | 'array';
+    description: string;
+    items?: {
+        type: 'string' | 'number';
+    };
 }
 /**
  * Converts an internal `InputConfig` definition into a standard JSON Schema
@@ -35,7 +35,5 @@ interface JsonSchemaProperty {
  * @throws An `Error` if an unsupported input type is encountered, ensuring
  * configuration errors are caught early.
  */
-export declare function convertInputConfigToJsonSchema(
-  inputConfig: InputConfig,
-): JsonSchemaObject;
+export declare function convertInputConfigToJsonSchema(inputConfig: InputConfig): JsonSchemaObject;
 export {};

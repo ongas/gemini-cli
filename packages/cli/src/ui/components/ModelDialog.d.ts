@@ -5,9 +5,7 @@
  */
 import type React from 'react';
 interface ModelDialogProps {
-  onClose: () => void;
+    onClose: () => void;
 }
-export declare function ModelDialog({
-  onClose,
-}: ModelDialogProps): React.JSX.Element;
+export declare function ModelDialog({ onClose }: ModelDialogProps): React.JSX.Element;
 export {};

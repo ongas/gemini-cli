@@ -6,9 +6,9 @@
 import type React from 'react';
 import type { ConsoleMessageItem } from '../types.js';
 interface DetailedMessagesDisplayProps {
-  messages: ConsoleMessageItem[];
-  maxHeight: number | undefined;
-  width: number;
+    messages: ConsoleMessageItem[];
+    maxHeight: number | undefined;
+    width: number;
 }
 export declare const DetailedMessagesDisplay: React.FC<DetailedMessagesDisplayProps>;
 export {};

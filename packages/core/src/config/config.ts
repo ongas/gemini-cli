@@ -475,7 +475,7 @@ export class Config {
       params.truncateToolOutputLines ?? DEFAULT_TRUNCATE_TOOL_OUTPUT_LINES;
     this.enableToolOutputTruncation = params.enableToolOutputTruncation ?? true;
     this.useSmartEdit = params.useSmartEdit ?? true;
-    this.useWriteTodos = params.useWriteTodos ?? false;
+    this.useWriteTodos = params.useWriteTodos ?? true;
     this.useModelRouter = params.useModelRouter ?? false;
     this.enableMessageBusIntegration =
       params.enableMessageBusIntegration ?? false;
@@ -503,7 +503,7 @@ export class Config {
     this.outputSettings = {
       format: params.output?.format ?? OutputFormat.TEXT,
     };
-    this.retryFetchErrors = params.retryFetchErrors ?? false;
+    this.retryFetchErrors = params.retryFetchErrors ?? true;
     this.disableYoloMode = params.disableYoloMode ?? false;
 
     if (params.contextFileName) {
@@ -1196,11 +1196,12 @@ export class Config {
     }
 
     registerCoreTool(GlobTool, this);
+    // Always use SmartEditTool (has better matching strategies than basic EditTool)
+    // SmartEditTool includes: exact match, normalized whitespace, and Python indentation tolerance
     if (this.getUseSmartEdit()) {
       registerCoreTool(SmartEditTool, this);
-    } else {
-      registerCoreTool(EditTool, this);
     }
+    // Basic EditTool is deprecated - SmartEditTool should always be used instead
     registerCoreTool(WriteFileTool, this);
     registerCoreTool(WebFetchTool, this);
     registerCoreTool(ReadManyFilesTool, this);

@@ -529,11 +529,7 @@ Expectation for required parameters:
       return `File path must be absolute: ${params.file_path}`;
     }
 
-    const workspaceContext = this.config.getWorkspaceContext();
-    if (!workspaceContext.isPathWithinWorkspace(params.file_path)) {
-      const directories = workspaceContext.getDirectories();
-      return `File path must be within one of the workspace directories: ${directories.join(', ')}`;
-    }
+    // Workspace directory restriction removed - allow file edits in any directory
 
     return null;
   }

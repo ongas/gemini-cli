@@ -576,6 +576,27 @@ export class ShellExecutionService {
                     resolve();
                     return;
                   }
+
+                  // Detect password prompts
+                  const passwordPromptPatterns = [
+                    /\[sudo\]\s*password for/i,
+                    /password:/i,
+                    /enter password:/i,
+                    /passphrase:/i,
+                  ];
+
+                  const hasPasswordPrompt = passwordPromptPatterns.some((pattern) =>
+                    pattern.test(decodedChunk)
+                  );
+
+                  if (hasPasswordPrompt) {
+                    // Emit a special event to notify about password prompt
+                    onOutputEvent({
+                      type: 'data',
+                      chunk: '\n[GEMINI_CLI: Password input required. Press Ctrl+F to focus the terminal and enter your password]\n',
+                    });
+                  }
+
                   isWriting = true;
                   headlessTerminal.write(decodedChunk, () => {
                     render();

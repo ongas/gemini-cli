@@ -5,15 +5,15 @@
  */
 import { type EditorType } from '@google/gemini-cli-core';
 export interface EditorDisplay {
-  name: string;
-  type: EditorType | 'not_set';
-  disabled: boolean;
+    name: string;
+    type: EditorType | 'not_set';
+    disabled: boolean;
 }
 export declare const EDITOR_DISPLAY_NAMES: Record<EditorType, string>;
 declare class EditorSettingsManager {
-  private readonly availableEditors;
-  constructor();
-  getAvailableEditorDisplays(): EditorDisplay[];
+    private readonly availableEditors;
+    constructor();
+    getAvailableEditorDisplays(): EditorDisplay[];
 }
 export declare const editorSettingsManager: EditorSettingsManager;
 export {};

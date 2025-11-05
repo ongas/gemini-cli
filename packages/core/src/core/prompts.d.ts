@@ -5,17 +5,13 @@
  */
 import type { Config } from '../config/config.js';
 export declare function resolvePathFromEnv(envVar?: string): {
-  isSwitch: boolean;
-  value: string | null;
-  isDisabled: boolean;
+    isSwitch: boolean;
+    value: string | null;
+    isDisabled: boolean;
 };
-export declare function getCoreSystemPrompt(
-  config: Config,
-  userMemory?: string,
-  options?: {
+export declare function getCoreSystemPrompt(config: Config, userMemory?: string, options?: {
     excludeCustomAgents?: boolean;
-  },
-): string;
+}): string;
 /**
  * Provides the system prompt for the history compression process.
  * This prompt instructs the model to act as a specialized state manager,

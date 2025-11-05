@@ -6,11 +6,15 @@
 import type { PartUnion } from '@google/genai';
 import type { FileSystemService } from '../services/fileSystemService.js';
 import { ToolErrorType } from '../tools/tool-error.js';
+export declare function readWasmBinaryFromDisk(specifier: string): Promise<Uint8Array>;
+export declare function loadWasmBinary(dynamicImport: () => Promise<{
+    default: Uint8Array;
+}>, fallbackSpecifier: string): Promise<Uint8Array>;
 export declare const DEFAULT_ENCODING: BufferEncoding;
 type UnicodeEncoding = 'utf8' | 'utf16le' | 'utf16be' | 'utf32le' | 'utf32be';
 interface BOMInfo {
-  encoding: UnicodeEncoding;
-  bomLength: number;
+    encoding: UnicodeEncoding;
+    bomLength: number;
 }
 /**
  * Detect a Unicode BOM (Byte Order Mark) if present.
@@ -27,19 +31,14 @@ export declare function readFileWithEncoding(filePath: string): Promise<string>;
  * @param filePath Path to the file.
  * @returns The specific MIME type string (e.g., 'text/python', 'application/javascript') or undefined if not found or ambiguous.
  */
-export declare function getSpecificMimeType(
-  filePath: string,
-): string | undefined;
+export declare function getSpecificMimeType(filePath: string): string | undefined;
 /**
  * Checks if a path is within a given root directory.
  * @param pathToCheck The absolute path to check.
  * @param rootDirectory The absolute root directory.
  * @returns True if the path is within the root directory, false otherwise.
  */
-export declare function isWithinRoot(
-  pathToCheck: string,
-  rootDirectory: string,
-): boolean;
+export declare function isWithinRoot(pathToCheck: string, rootDirectory: string): boolean;
 /**
  * Heuristic: determine if a file is likely binary.
  * Now BOM-aware: if a Unicode BOM is detected, we treat it as text.
@@ -51,17 +50,15 @@ export declare function isBinaryFile(filePath: string): Promise<boolean>;
  * @param filePath Path to the file.
  * @returns Promise that resolves to 'text', 'image', 'pdf', 'audio', 'video', 'binary' or 'svg'.
  */
-export declare function detectFileType(
-  filePath: string,
-): Promise<'text' | 'image' | 'pdf' | 'audio' | 'video' | 'binary' | 'svg'>;
+export declare function detectFileType(filePath: string): Promise<'text' | 'image' | 'pdf' | 'audio' | 'video' | 'binary' | 'svg'>;
 export interface ProcessedFileReadResult {
-  llmContent: PartUnion;
-  returnDisplay: string;
-  error?: string;
-  errorType?: ToolErrorType;
-  isTruncated?: boolean;
-  originalLineCount?: number;
-  linesShown?: [number, number];
+    llmContent: PartUnion;
+    returnDisplay: string;
+    error?: string;
+    errorType?: ToolErrorType;
+    isTruncated?: boolean;
+    originalLineCount?: number;
+    linesShown?: [number, number];
 }
 /**
  * Reads and processes a single file, handling text, images, and PDFs.
@@ -71,12 +68,6 @@ export interface ProcessedFileReadResult {
  * @param limit Optional limit for text files (number of lines to read).
  * @returns ProcessedFileReadResult object.
  */
-export declare function processSingleFileContent(
-  filePath: string,
-  rootDirectory: string,
-  fileSystemService: FileSystemService,
-  offset?: number,
-  limit?: number,
-): Promise<ProcessedFileReadResult>;
+export declare function processSingleFileContent(filePath: string, rootDirectory: string, fileSystemService: FileSystemService, offset?: number, limit?: number): Promise<ProcessedFileReadResult>;
 export declare function fileExists(filePath: string): Promise<boolean>;
 export {};

@@ -4,9 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 interface CloudPaidPrivacyNoticeProps {
-  onExit: () => void;
+    onExit: () => void;
 }
-export declare const CloudPaidPrivacyNotice: ({
-  onExit,
-}: CloudPaidPrivacyNoticeProps) => import('react/jsx-runtime').JSX.Element;
+export declare const CloudPaidPrivacyNotice: ({ onExit, }: CloudPaidPrivacyNoticeProps) => import("react/jsx-runtime").JSX.Element;
 export {};

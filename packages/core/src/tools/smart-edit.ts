@@ -537,9 +537,9 @@ export interface EditToolParams {
   new_string: string;
 
   /**
-   * The instruction for what needs to be done.
+   * The instruction for what needs to be done (optional for backward compatibility).
    */
-  instruction: string;
+  instruction?: string;
 
   /**
    * Whether the edit was modified manually by the user.
@@ -597,7 +597,7 @@ class EditToolInvocation implements ToolInvocation<EditToolParams, ToolResult> {
     }
 
     const fixedEdit = await FixLLMEditWithInstruction(
-      params.instruction,
+      params.instruction || 'Replace the old_string with new_string',
       params.old_string,
       params.new_string,
       errorForLlmEditFixer,
@@ -1105,7 +1105,7 @@ A good instruction should concisely answer:
             type: 'string',
           },
         },
-        required: ['file_path', 'instruction', 'old_string', 'new_string'],
+        required: ['file_path', 'old_string', 'new_string'],
         type: 'object',
       },
     );
@@ -1135,11 +1135,7 @@ A good instruction should concisely answer:
     }
     params.file_path = filePath;
 
-    const workspaceContext = this.config.getWorkspaceContext();
-    if (!workspaceContext.isPathWithinWorkspace(params.file_path)) {
-      const directories = workspaceContext.getDirectories();
-      return `File path must be within one of the workspace directories: ${directories.join(', ')}`;
-    }
+    // Workspace directory restriction removed - allow smart-edit in any directory
 
     return null;
   }

@@ -7,6 +7,5 @@ export * from './types.js';
 export * from './base-token-storage.js';
 export * from './file-token-storage.js';
 export * from './hybrid-token-storage.js';
-export declare const DEFAULT_SERVICE_NAME = 'gemini-cli-oauth';
-export declare const FORCE_ENCRYPTED_FILE_ENV_VAR =
-  'GEMINI_FORCE_ENCRYPTED_FILE_STORAGE';
+export declare const DEFAULT_SERVICE_NAME = "gemini-cli-oauth";
+export declare const FORCE_ENCRYPTED_FILE_ENV_VAR = "GEMINI_FORCE_ENCRYPTED_FILE_STORAGE";

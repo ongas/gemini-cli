@@ -5,15 +5,14 @@
  */
 import * as vscode from 'vscode';
 export function createLogger(context, logger) {
-  return (message) => {
-    const isDevMode =
-      context.extensionMode === vscode.ExtensionMode.Development;
-    const isLoggingEnabled = vscode.workspace
-      .getConfiguration('gemini-cli.debug')
-      .get('logging.enabled');
-    if (isDevMode || isLoggingEnabled) {
-      logger.appendLine(message);
-    }
-  };
+    return (message) => {
+        const isDevMode = context.extensionMode === vscode.ExtensionMode.Development;
+        const isLoggingEnabled = vscode.workspace
+            .getConfiguration('gemini-cli.debug')
+            .get('logging.enabled');
+        if (isDevMode || isLoggingEnabled) {
+            logger.appendLine(message);
+        }
+    };
 }
 //# sourceMappingURL=logger.js.map

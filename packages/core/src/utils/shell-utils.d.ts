@@ -3,8 +3,10 @@
  * Copyright 2025 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
+import type { AnyToolInvocation } from '../index.js';
 import type { Config } from '../config/config.js';
 import { type SpawnOptionsWithoutStdio } from 'node:child_process';
+export declare const SHELL_TOOL_NAMES: string[];
 /**
  * An identifier for the shell type.
  */
@@ -13,15 +15,16 @@ export type ShellType = 'cmd' | 'powershell' | 'bash';
  * Defines the configuration required to execute a command string within a specific shell.
  */
 export interface ShellConfiguration {
-  /** The path or name of the shell executable (e.g., 'bash', 'cmd.exe'). */
-  executable: string;
-  /**
-   * The arguments required by the shell to execute a subsequent string argument.
-   */
-  argsPrefix: string[];
-  /** An identifier for the shell type. */
-  shell: ShellType;
+    /** The path or name of the shell executable (e.g., 'bash', 'powershell.exe'). */
+    executable: string;
+    /**
+     * The arguments required by the shell to execute a subsequent string argument.
+     */
+    argsPrefix: string[];
+    /** An identifier for the shell type. */
+    shell: ShellType;
 }
+export declare function initializeShellParsers(): Promise<void>;
 /**
  * Determines the appropriate shell configuration for the current platform.
  *
@@ -61,6 +64,21 @@ export declare function splitCommands(command: string): string[];
  */
 export declare function getCommandRoot(command: string): string | undefined;
 export declare function getCommandRoots(command: string): string[];
+/**
+ * Extracts command patterns (command + first subcommand) for granular approval control.
+ * For example:
+ * - "git diff" → ["git diff"]
+ * - "git remote add upstream https://..." → ["git remote add"]
+ * - "npm test" → ["npm test"]
+ * - "ls -la" → ["ls"]
+ *
+ * This allows users to approve specific subcommands (e.g., "git diff") without
+ * approving all commands for that tool (e.g., "git push").
+ *
+ * @param command The shell command string to parse
+ * @returns Array of command patterns with first subcommand where applicable
+ */
+export declare function getCommandPatterns(command: string): string[];
 export declare function stripShellWrapper(command: string): string;
 /**
  * Detects command substitution patterns in a shell command, following bash quoting rules:
@@ -70,7 +88,6 @@ export declare function stripShellWrapper(command: string): string;
  * @param command The shell command string to check
  * @returns true if command substitution would be executed by bash
  */
-export declare function detectCommandSubstitution(command: string): boolean;
 /**
  * Checks a shell command against security policies and allowlists.
  *
@@ -95,15 +112,11 @@ export declare function detectCommandSubstitution(command: string): boolean;
  *   presence activates "Default Deny" mode.
  * @returns An object detailing which commands are not allowed.
  */
-export declare function checkCommandPermissions(
-  command: string,
-  config: Config,
-  sessionAllowlist?: Set<string>,
-): {
-  allAllowed: boolean;
-  disallowedCommands: string[];
-  blockReason?: string;
-  isHardDenial?: boolean;
+export declare function checkCommandPermissions(command: string, config: Config, sessionAllowlist?: Set<string>): {
+    allAllowed: boolean;
+    disallowedCommands: string[];
+    blockReason?: string;
+    isHardDenial?: boolean;
 };
 /**
  * Determines whether a given shell command is allowed to execute based on
@@ -116,18 +129,22 @@ export declare function checkCommandPermissions(
  * @param config The application configuration.
  * @returns An object with 'allowed' boolean and optional 'reason' string if not allowed.
  */
-export declare const spawnAsync: (
-  command: string,
-  args: string[],
-  options?: SpawnOptionsWithoutStdio,
-) => Promise<{
-  stdout: string;
-  stderr: string;
+export declare const spawnAsync: (command: string, args: string[], options?: SpawnOptionsWithoutStdio) => Promise<{
+    stdout: string;
+    stderr: string;
 }>;
-export declare function isCommandAllowed(
-  command: string,
-  config: Config,
-): {
-  allowed: boolean;
-  reason?: string;
+export declare function isCommandAllowed(command: string, config: Config): {
+    allowed: boolean;
+    reason?: string;
 };
+/**
+ * Determines whether a shell invocation should be auto-approved based on an allowlist.
+ *
+ * This reuses the same parsing logic as command-permission enforcement so that
+ * chained commands must be individually covered by the allowlist.
+ *
+ * @param invocation The shell tool invocation being evaluated.
+ * @param allowedPatterns The configured allowlist patterns (e.g. `run_shell_command(git)`).
+ * @returns True if every parsed command segment is allowed by the patterns; false otherwise.
+ */
+export declare function isShellInvocationAllowlisted(invocation: AnyToolInvocation, allowedPatterns: string[]): boolean;

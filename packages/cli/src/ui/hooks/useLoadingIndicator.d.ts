@@ -4,10 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import { StreamingState } from '../types.js';
-export declare const useLoadingIndicator: (
-  streamingState: StreamingState,
-  customWittyPhrases?: string[],
-) => {
-  elapsedTime: number;
-  currentLoadingPhrase: string;
+export declare const useLoadingIndicator: (streamingState: StreamingState, customWittyPhrases?: string[]) => {
+    elapsedTime: number;
+    currentLoadingPhrase: string;
 };

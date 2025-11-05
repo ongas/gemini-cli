@@ -9,16 +9,16 @@
  */
 export var IneligibleTierReasonCode;
 (function (IneligibleTierReasonCode) {
-  // go/keep-sorted start
-  IneligibleTierReasonCode['DASHER_USER'] = 'DASHER_USER';
-  IneligibleTierReasonCode['INELIGIBLE_ACCOUNT'] = 'INELIGIBLE_ACCOUNT';
-  IneligibleTierReasonCode['NON_USER_ACCOUNT'] = 'NON_USER_ACCOUNT';
-  IneligibleTierReasonCode['RESTRICTED_AGE'] = 'RESTRICTED_AGE';
-  IneligibleTierReasonCode['RESTRICTED_NETWORK'] = 'RESTRICTED_NETWORK';
-  IneligibleTierReasonCode['UNKNOWN'] = 'UNKNOWN';
-  IneligibleTierReasonCode['UNKNOWN_LOCATION'] = 'UNKNOWN_LOCATION';
-  IneligibleTierReasonCode['UNSUPPORTED_LOCATION'] = 'UNSUPPORTED_LOCATION';
-  // go/keep-sorted end
+    // go/keep-sorted start
+    IneligibleTierReasonCode["DASHER_USER"] = "DASHER_USER";
+    IneligibleTierReasonCode["INELIGIBLE_ACCOUNT"] = "INELIGIBLE_ACCOUNT";
+    IneligibleTierReasonCode["NON_USER_ACCOUNT"] = "NON_USER_ACCOUNT";
+    IneligibleTierReasonCode["RESTRICTED_AGE"] = "RESTRICTED_AGE";
+    IneligibleTierReasonCode["RESTRICTED_NETWORK"] = "RESTRICTED_NETWORK";
+    IneligibleTierReasonCode["UNKNOWN"] = "UNKNOWN";
+    IneligibleTierReasonCode["UNKNOWN_LOCATION"] = "UNKNOWN_LOCATION";
+    IneligibleTierReasonCode["UNSUPPORTED_LOCATION"] = "UNSUPPORTED_LOCATION";
+    // go/keep-sorted end
 })(IneligibleTierReasonCode || (IneligibleTierReasonCode = {}));
 /**
  * UserTierId represents IDs returned from the Cloud Code Private API representing a user's tier
@@ -27,9 +27,9 @@ export var IneligibleTierReasonCode;
  */
 export var UserTierId;
 (function (UserTierId) {
-  UserTierId['FREE'] = 'free-tier';
-  UserTierId['LEGACY'] = 'legacy-tier';
-  UserTierId['STANDARD'] = 'standard-tier';
+    UserTierId["FREE"] = "free-tier";
+    UserTierId["LEGACY"] = "legacy-tier";
+    UserTierId["STANDARD"] = "standard-tier";
 })(UserTierId || (UserTierId = {}));
 /**
  * Status code of user license status
@@ -38,9 +38,9 @@ export var UserTierId;
  */
 export var OnboardUserStatusCode;
 (function (OnboardUserStatusCode) {
-  OnboardUserStatusCode['Default'] = 'DEFAULT';
-  OnboardUserStatusCode['Notice'] = 'NOTICE';
-  OnboardUserStatusCode['Warning'] = 'WARNING';
-  OnboardUserStatusCode['Error'] = 'ERROR';
+    OnboardUserStatusCode["Default"] = "DEFAULT";
+    OnboardUserStatusCode["Notice"] = "NOTICE";
+    OnboardUserStatusCode["Warning"] = "WARNING";
+    OnboardUserStatusCode["Error"] = "ERROR";
 })(OnboardUserStatusCode || (OnboardUserStatusCode = {}));
 //# sourceMappingURL=types.js.map

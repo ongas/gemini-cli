@@ -6,6 +6,6 @@
 import {} from '@google/genai';
 import { partToString } from '../utils/partUtils.js';
 export function partListUnionToString(value) {
-  return partToString(value, { verbose: true });
+    return partToString(value, { verbose: true });
 }
 //# sourceMappingURL=geminiRequest.js.map

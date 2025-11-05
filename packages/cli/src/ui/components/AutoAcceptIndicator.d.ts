@@ -6,7 +6,7 @@
 import type React from 'react';
 import { ApprovalMode } from '@google/gemini-cli-core';
 interface AutoAcceptIndicatorProps {
-  approvalMode: ApprovalMode;
+    approvalMode: ApprovalMode;
 }
 export declare const AutoAcceptIndicator: React.FC<AutoAcceptIndicatorProps>;
 export {};

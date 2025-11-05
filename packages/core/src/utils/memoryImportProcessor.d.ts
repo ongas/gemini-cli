@@ -7,24 +7,24 @@
  * Interface for tracking import processing state to prevent circular imports
  */
 interface ImportState {
-  processedFiles: Set<string>;
-  maxDepth: number;
-  currentDepth: number;
-  currentFile?: string;
+    processedFiles: Set<string>;
+    maxDepth: number;
+    currentDepth: number;
+    currentFile?: string;
 }
 /**
  * Interface representing a file in the import tree
  */
 export interface MemoryFile {
-  path: string;
-  imports?: MemoryFile[];
+    path: string;
+    imports?: MemoryFile[];
 }
 /**
  * Result of processing imports
  */
 export interface ProcessImportsResult {
-  content: string;
-  importTree: MemoryFile;
+    content: string;
+    importTree: MemoryFile;
 }
 /**
  * Processes import statements in GEMINI.md content
@@ -37,17 +37,6 @@ export interface ProcessImportsResult {
  * @param importFormat - The format of the import tree
  * @returns Processed content with imports resolved and import tree
  */
-export declare function processImports(
-  content: string,
-  basePath: string,
-  debugMode?: boolean,
-  importState?: ImportState,
-  projectRoot?: string,
-  importFormat?: 'flat' | 'tree',
-): Promise<ProcessImportsResult>;
-export declare function validateImportPath(
-  importPath: string,
-  basePath: string,
-  allowedDirectories: string[],
-): boolean;
+export declare function processImports(content: string, basePath: string, debugMode?: boolean, importState?: ImportState, projectRoot?: string, importFormat?: 'flat' | 'tree'): Promise<ProcessImportsResult>;
+export declare function validateImportPath(importPath: string, basePath: string, allowedDirectories: string[]): boolean;
 export {};

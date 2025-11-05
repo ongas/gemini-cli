@@ -27,49 +27,37 @@
  * @returns Transformed content compatible with Gemini CLI
  */
 export function convertClaudeCodeInstructions(content) {
-  let converted = content;
-  // Pattern 1: Convert <step subagent="agent-name"> attributes
-  // Example: <step number="2" subagent="context-fetcher" name="context_analysis">
-  // The subagent name is converted to snake_case for the tool name
-  converted = converted.replace(
-    /<step([^>]*?)subagent="([^"]+)"([^>]*?)>/g,
-    (match, before, agentName, after) => {
-      const toolName = agentName.replace(/-/g, '_');
-      // Keep the original step tag but add a comment about the tool
-      return `<step${before}${after}>\n<!-- Gemini: Use the ${toolName} tool to invoke this subagent -->`;
-    },
-  );
-  // Pattern 2: Convert "Use the X subagent" instructions - IMPERATIVE
-  // Example: "Use the context-fetcher subagent to gather..."
-  // -> "You MUST call the context_fetcher tool. Use it to gather..."
-  converted = converted.replace(
-    /Use the ([a-z-]+) subagent\s+to\s+/gi,
-    (match, agentName) => {
-      const toolName = agentName.replace(/-/g, '_');
-      return `You MUST call the ${toolName} tool. Use it to `;
-    },
-  );
-  // Pattern 2b: Handle "Use the X subagent" without "to"
-  converted = converted.replace(
-    /Use the ([a-z-]+) subagent(?!\s+to)/gi,
-    (match, agentName) => {
-      const toolName = agentName.replace(/-/g, '_');
-      return `You MUST call the ${toolName} tool`;
-    },
-  );
-  // Pattern 3: Convert ACTION/REQUEST directives for subagents - IMPERATIVE
-  // Example: "ACTION: Use context-fetcher subagent to:"
-  // -> "ACTION: You MUST call the context_fetcher tool to:"
-  converted = converted.replace(
-    /ACTION:\s*Use\s+([a-z-]+)\s+subagent/gi,
-    (match, agentName) => {
-      const toolName = agentName.replace(/-/g, '_');
-      return `ACTION: You MUST call the ${toolName} tool`;
-    },
-  );
-  // Pattern 4: Add Gemini-specific guidance at the beginning if subagents are mentioned
-  if (converted.includes('subagent') || converted.includes('<!-- Gemini:')) {
-    const geminiGuidance = `
+    let converted = content;
+    // Pattern 1: Convert <step subagent="agent-name"> attributes
+    // Example: <step number="2" subagent="context-fetcher" name="context_analysis">
+    // The subagent name is converted to snake_case for the tool name
+    converted = converted.replace(/<step([^>]*?)subagent="([^"]+)"([^>]*?)>/g, (match, before, agentName, after) => {
+        const toolName = agentName.replace(/-/g, '_');
+        // Keep the original step tag but add a comment about the tool
+        return `<step${before}${after}>\n<!-- Gemini: Use the ${toolName} tool to invoke this subagent -->`;
+    });
+    // Pattern 2: Convert "Use the X subagent" instructions - IMPERATIVE
+    // Example: "Use the context-fetcher subagent to gather..."
+    // -> "You MUST call the context_fetcher tool. Use it to gather..."
+    converted = converted.replace(/Use the ([a-z-]+) subagent\s+to\s+/gi, (match, agentName) => {
+        const toolName = agentName.replace(/-/g, '_');
+        return `You MUST call the ${toolName} tool. Use it to `;
+    });
+    // Pattern 2b: Handle "Use the X subagent" without "to"
+    converted = converted.replace(/Use the ([a-z-]+) subagent(?!\s+to)/gi, (match, agentName) => {
+        const toolName = agentName.replace(/-/g, '_');
+        return `You MUST call the ${toolName} tool`;
+    });
+    // Pattern 3: Convert ACTION/REQUEST directives for subagents - IMPERATIVE
+    // Example: "ACTION: Use context-fetcher subagent to:"
+    // -> "ACTION: You MUST call the context_fetcher tool to:"
+    converted = converted.replace(/ACTION:\s*Use\s+([a-z-]+)\s+subagent/gi, (match, agentName) => {
+        const toolName = agentName.replace(/-/g, '_');
+        return `ACTION: You MUST call the ${toolName} tool`;
+    });
+    // Pattern 4: Add Gemini-specific guidance at the beginning if subagents are mentioned
+    if (converted.includes('subagent') || converted.includes('<!-- Gemini:')) {
+        const geminiGuidance = `
 ## CRITICAL INSTRUCTIONS FOR GEMINI
 
 **TOOL INVOCATION REQUIREMENTS:**
@@ -98,20 +86,21 @@ you should invoke: \`context_fetcher(task: "Get product pitch from mission-lite.
 ---
 
 `;
-    // Insert after the first heading or at the start
-    const firstHeadingMatch = converted.match(/^#[^#]/m);
-    if (firstHeadingMatch && firstHeadingMatch.index !== undefined) {
-      const insertPos = converted.indexOf('\n', firstHeadingMatch.index) + 1;
-      converted =
-        converted.slice(0, insertPos) +
-        '\n' +
-        geminiGuidance +
-        converted.slice(insertPos);
-    } else {
-      converted = geminiGuidance + converted;
+        // Insert after the first heading or at the start
+        const firstHeadingMatch = converted.match(/^#[^#]/m);
+        if (firstHeadingMatch && firstHeadingMatch.index !== undefined) {
+            const insertPos = converted.indexOf('\n', firstHeadingMatch.index) + 1;
+            converted =
+                converted.slice(0, insertPos) +
+                    '\n' +
+                    geminiGuidance +
+                    converted.slice(insertPos);
+        }
+        else {
+            converted = geminiGuidance + converted;
+        }
     }
-  }
-  return converted;
+    return converted;
 }
 /**
  * Checks if content appears to contain Claude Code workflow syntax
@@ -121,7 +110,8 @@ you should invoke: \`context_fetcher(task: "Get product pitch from mission-lite.
  * @returns true if conversion is likely needed
  */
 export function needsClaudeCodeConversion(content) {
-  return content.includes('subagent') || content.includes('<step');
+    return (content.includes('subagent') ||
+        content.includes('<step'));
 }
 /**
  * Converts content from a file if it appears to contain Claude Code workflow syntax.
@@ -132,10 +122,10 @@ export function needsClaudeCodeConversion(content) {
  * @returns Converted or original content
  */
 export function maybeConvertClaudeCodeInstructions(content, filePath) {
-  // Convert if content contains Claude Code workflow syntax
-  if (needsClaudeCodeConversion(content)) {
-    return convertClaudeCodeInstructions(content);
-  }
-  return content;
+    // Convert if content contains Claude Code workflow syntax
+    if (needsClaudeCodeConversion(content)) {
+        return convertClaudeCodeInstructions(content);
+    }
+    return content;
 }
 //# sourceMappingURL=claudeCodeInstructionParser.js.map

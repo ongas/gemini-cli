@@ -5,6 +5,4 @@
  */
 import { type SlashCommand } from './types.js';
 import type { Config } from '@google/gemini-cli-core';
-export declare const restoreCommand: (
-  config: Config | null,
-) => SlashCommand | null;
+export declare const restoreCommand: (config: Config | null) => SlashCommand | null;

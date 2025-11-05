@@ -9,301 +9,296 @@
  */
 import { Theme } from './theme.js';
 const shadesOfPurpleColors = {
-  type: 'dark',
-  // Required colors for ColorsTheme interface
-  Background: '#2d2b57', // Main background
-  Foreground: '#e3dfff', // Default text color (hljs, hljs-subst)
-  LightBlue: '#847ace', // Light blue/purple accent
-  AccentBlue: '#a599e9', // Borders, secondary blue
-  AccentPurple: '#ac65ff', // Comments (main purple)
-  AccentCyan: '#a1feff', // Names
-  AccentGreen: '#A5FF90', // Strings and many others
-  AccentYellow: '#fad000', // Title, main yellow
-  AccentRed: '#ff628c', // Error/deletion accent
-  DiffAdded: '#383E45',
-  DiffRemoved: '#572244',
-  Comment: '#B362FF', // Comment color (same as AccentPurple)
-  Gray: '#726c86', // Gray color
-  GradientColors: ['#4d21fc', '#847ace', '#ff628c'],
+    type: 'dark',
+    // Required colors for ColorsTheme interface
+    Background: '#2d2b57', // Main background
+    Foreground: '#e3dfff', // Default text color (hljs, hljs-subst)
+    LightBlue: '#847ace', // Light blue/purple accent
+    AccentBlue: '#a599e9', // Borders, secondary blue
+    AccentPurple: '#ac65ff', // Comments (main purple)
+    AccentCyan: '#a1feff', // Names
+    AccentGreen: '#A5FF90', // Strings and many others
+    AccentYellow: '#fad000', // Title, main yellow
+    AccentRed: '#ff628c', // Error/deletion accent
+    DiffAdded: '#383E45',
+    DiffRemoved: '#572244',
+    Comment: '#B362FF', // Comment color (same as AccentPurple)
+    Gray: '#726c86', // Gray color
+    GradientColors: ['#4d21fc', '#847ace', '#ff628c'],
 };
 // Additional colors from CSS that don't fit in the ColorsTheme interface
 const additionalColors = {
-  AccentYellowAlt: '#f8d000', // Attr yellow (slightly different)
-  AccentOrange: '#fb9e00', // Keywords, built_in, meta
-  AccentPink: '#fa658d', // Numbers, literals
-  AccentLightPurple: '#c991ff', // For params and properties
-  AccentDarkPurple: '#6943ff', // For operators
-  AccentTeal: '#2ee2fa', // For special constructs
+    AccentYellowAlt: '#f8d000', // Attr yellow (slightly different)
+    AccentOrange: '#fb9e00', // Keywords, built_in, meta
+    AccentPink: '#fa658d', // Numbers, literals
+    AccentLightPurple: '#c991ff', // For params and properties
+    AccentDarkPurple: '#6943ff', // For operators
+    AccentTeal: '#2ee2fa', // For special constructs
 };
-export const ShadesOfPurple = new Theme(
-  'Shades Of Purple',
-  'dark',
-  {
+export const ShadesOfPurple = new Theme('Shades Of Purple', 'dark', {
     // Base styles
     hljs: {
-      display: 'block',
-      overflowX: 'auto',
-      background: shadesOfPurpleColors.Background,
-      color: shadesOfPurpleColors.Foreground,
+        display: 'block',
+        overflowX: 'auto',
+        background: shadesOfPurpleColors.Background,
+        color: shadesOfPurpleColors.Foreground,
     },
     // Title elements
     'hljs-title': {
-      color: shadesOfPurpleColors.AccentYellow,
-      fontWeight: 'normal',
+        color: shadesOfPurpleColors.AccentYellow,
+        fontWeight: 'normal',
     },
     // Names
     'hljs-name': {
-      color: shadesOfPurpleColors.AccentCyan,
-      fontWeight: 'normal',
+        color: shadesOfPurpleColors.AccentCyan,
+        fontWeight: 'normal',
     },
     // Tags
     'hljs-tag': {
-      color: shadesOfPurpleColors.Foreground,
+        color: shadesOfPurpleColors.Foreground,
     },
     // Attributes
     'hljs-attr': {
-      color: additionalColors.AccentYellowAlt,
-      fontStyle: 'italic',
+        color: additionalColors.AccentYellowAlt,
+        fontStyle: 'italic',
     },
     // Built-ins, selector tags, sections
     'hljs-built_in': {
-      color: additionalColors.AccentOrange,
+        color: additionalColors.AccentOrange,
     },
     'hljs-selector-tag': {
-      color: additionalColors.AccentOrange,
-      fontWeight: 'normal',
+        color: additionalColors.AccentOrange,
+        fontWeight: 'normal',
     },
     'hljs-section': {
-      color: additionalColors.AccentOrange,
+        color: additionalColors.AccentOrange,
     },
     // Keywords
     'hljs-keyword': {
-      color: additionalColors.AccentOrange,
-      fontWeight: 'normal',
+        color: additionalColors.AccentOrange,
+        fontWeight: 'normal',
     },
     // Default text and substitutions
     'hljs-subst': {
-      color: shadesOfPurpleColors.Foreground,
+        color: shadesOfPurpleColors.Foreground,
     },
     // Strings and related elements (all green)
     'hljs-string': {
-      color: shadesOfPurpleColors.AccentGreen,
+        color: shadesOfPurpleColors.AccentGreen,
     },
     'hljs-attribute': {
-      color: shadesOfPurpleColors.AccentGreen,
+        color: shadesOfPurpleColors.AccentGreen,
     },
     'hljs-symbol': {
-      color: shadesOfPurpleColors.AccentGreen,
+        color: shadesOfPurpleColors.AccentGreen,
     },
     'hljs-bullet': {
-      color: shadesOfPurpleColors.AccentGreen,
+        color: shadesOfPurpleColors.AccentGreen,
     },
     'hljs-addition': {
-      color: shadesOfPurpleColors.AccentGreen,
+        color: shadesOfPurpleColors.AccentGreen,
     },
     'hljs-code': {
-      color: shadesOfPurpleColors.AccentGreen,
+        color: shadesOfPurpleColors.AccentGreen,
     },
     'hljs-regexp': {
-      color: shadesOfPurpleColors.AccentGreen,
+        color: shadesOfPurpleColors.AccentGreen,
     },
     'hljs-selector-class': {
-      color: shadesOfPurpleColors.AccentGreen,
+        color: shadesOfPurpleColors.AccentGreen,
     },
     'hljs-selector-attr': {
-      color: shadesOfPurpleColors.AccentGreen,
+        color: shadesOfPurpleColors.AccentGreen,
     },
     'hljs-selector-pseudo': {
-      color: shadesOfPurpleColors.AccentGreen,
+        color: shadesOfPurpleColors.AccentGreen,
     },
     'hljs-template-tag': {
-      color: shadesOfPurpleColors.AccentGreen,
+        color: shadesOfPurpleColors.AccentGreen,
     },
     'hljs-quote': {
-      color: shadesOfPurpleColors.AccentGreen,
+        color: shadesOfPurpleColors.AccentGreen,
     },
     'hljs-deletion': {
-      color: shadesOfPurpleColors.AccentRed,
+        color: shadesOfPurpleColors.AccentRed,
     },
     // Meta elements
     'hljs-meta': {
-      color: additionalColors.AccentOrange,
+        color: additionalColors.AccentOrange,
     },
     'hljs-meta-string': {
-      color: additionalColors.AccentOrange,
+        color: additionalColors.AccentOrange,
     },
     // Comments
     'hljs-comment': {
-      color: shadesOfPurpleColors.AccentPurple,
+        color: shadesOfPurpleColors.AccentPurple,
     },
     // Literals and numbers
     'hljs-literal': {
-      color: additionalColors.AccentPink,
-      fontWeight: 'normal',
+        color: additionalColors.AccentPink,
+        fontWeight: 'normal',
     },
     'hljs-number': {
-      color: additionalColors.AccentPink,
+        color: additionalColors.AccentPink,
     },
     // Emphasis and strong
     'hljs-emphasis': {
-      fontStyle: 'italic',
+        fontStyle: 'italic',
     },
     'hljs-strong': {
-      fontWeight: 'bold',
+        fontWeight: 'bold',
     },
     // Diff-specific classes
     'hljs-diff': {
-      color: shadesOfPurpleColors.Foreground,
+        color: shadesOfPurpleColors.Foreground,
     },
     'hljs-meta.hljs-diff': {
-      color: shadesOfPurpleColors.AccentBlue,
+        color: shadesOfPurpleColors.AccentBlue,
     },
     'hljs-ln': {
-      color: shadesOfPurpleColors.Gray,
+        color: shadesOfPurpleColors.Gray,
     },
     // Additional elements that might be needed
     'hljs-type': {
-      color: shadesOfPurpleColors.AccentYellow,
-      fontWeight: 'normal',
+        color: shadesOfPurpleColors.AccentYellow,
+        fontWeight: 'normal',
     },
     'hljs-variable': {
-      color: shadesOfPurpleColors.AccentYellow,
+        color: shadesOfPurpleColors.AccentYellow,
     },
     'hljs-template-variable': {
-      color: shadesOfPurpleColors.AccentGreen,
+        color: shadesOfPurpleColors.AccentGreen,
     },
     'hljs-function .hljs-keyword': {
-      color: additionalColors.AccentOrange,
+        color: additionalColors.AccentOrange,
     },
     'hljs-link': {
-      color: shadesOfPurpleColors.LightBlue,
+        color: shadesOfPurpleColors.LightBlue,
     },
     'hljs-doctag': {
-      fontWeight: 'bold',
+        fontWeight: 'bold',
     },
     // Function parameters
     'hljs-params': {
-      color: additionalColors.AccentLightPurple,
-      fontStyle: 'italic',
+        color: additionalColors.AccentLightPurple,
+        fontStyle: 'italic',
     },
     // Class definitions
     'hljs-class': {
-      color: shadesOfPurpleColors.AccentCyan,
-      fontWeight: 'bold',
+        color: shadesOfPurpleColors.AccentCyan,
+        fontWeight: 'bold',
     },
     // Function definitions
     'hljs-function': {
-      color: shadesOfPurpleColors.AccentCyan,
+        color: shadesOfPurpleColors.AccentCyan,
     },
     // Object properties
     'hljs-property': {
-      color: shadesOfPurpleColors.AccentBlue,
+        color: shadesOfPurpleColors.AccentBlue,
     },
     // Operators
     'hljs-operator': {
-      color: additionalColors.AccentDarkPurple,
+        color: additionalColors.AccentDarkPurple,
     },
     // Punctuation (if supported by the parser)
     'hljs-punctuation': {
-      color: shadesOfPurpleColors.Gray,
+        color: shadesOfPurpleColors.Gray,
     },
     // CSS ID selectors
     'hljs-selector-id': {
-      color: shadesOfPurpleColors.AccentYellow,
-      fontWeight: 'bold',
+        color: shadesOfPurpleColors.AccentYellow,
+        fontWeight: 'bold',
     },
     // Character literals
     'hljs-char': {
-      color: shadesOfPurpleColors.AccentGreen,
+        color: shadesOfPurpleColors.AccentGreen,
     },
     // Escape sequences
     'hljs-escape': {
-      color: additionalColors.AccentPink,
-      fontWeight: 'bold',
+        color: additionalColors.AccentPink,
+        fontWeight: 'bold',
     },
     // Meta keywords
     'hljs-meta-keyword': {
-      color: additionalColors.AccentOrange,
-      fontWeight: 'bold',
+        color: additionalColors.AccentOrange,
+        fontWeight: 'bold',
     },
     // Built-in names
     'hljs-builtin-name': {
-      color: additionalColors.AccentTeal,
+        color: additionalColors.AccentTeal,
     },
     // Modules
     'hljs-module': {
-      color: shadesOfPurpleColors.AccentCyan,
+        color: shadesOfPurpleColors.AccentCyan,
     },
     // Namespaces
     'hljs-namespace': {
-      color: shadesOfPurpleColors.LightBlue,
+        color: shadesOfPurpleColors.LightBlue,
     },
     // Important annotations
     'hljs-important': {
-      color: shadesOfPurpleColors.AccentRed,
-      fontWeight: 'bold',
+        color: shadesOfPurpleColors.AccentRed,
+        fontWeight: 'bold',
     },
     // Formulas (for LaTeX, etc.)
     'hljs-formula': {
-      color: shadesOfPurpleColors.AccentCyan,
-      fontStyle: 'italic',
+        color: shadesOfPurpleColors.AccentCyan,
+        fontStyle: 'italic',
     },
     // Language-specific additions
     // Python decorators
     'hljs-decorator': {
-      color: additionalColors.AccentTeal,
-      fontWeight: 'bold',
+        color: additionalColors.AccentTeal,
+        fontWeight: 'bold',
     },
     // Ruby symbols
     'hljs-symbol.ruby': {
-      color: additionalColors.AccentPink,
+        color: additionalColors.AccentPink,
     },
     // SQL keywords
     'hljs-keyword.sql': {
-      color: additionalColors.AccentOrange,
-      textTransform: 'uppercase',
+        color: additionalColors.AccentOrange,
+        textTransform: 'uppercase',
     },
     // Markdown specific
     'hljs-section.markdown': {
-      color: shadesOfPurpleColors.AccentYellow,
-      fontWeight: 'bold',
+        color: shadesOfPurpleColors.AccentYellow,
+        fontWeight: 'bold',
     },
     // JSON keys
     'hljs-attr.json': {
-      color: shadesOfPurpleColors.AccentCyan,
+        color: shadesOfPurpleColors.AccentCyan,
     },
     // XML/HTML specific
     'hljs-tag .hljs-name': {
-      color: shadesOfPurpleColors.AccentRed,
+        color: shadesOfPurpleColors.AccentRed,
     },
     'hljs-tag .hljs-attr': {
-      color: additionalColors.AccentYellowAlt,
+        color: additionalColors.AccentYellowAlt,
     },
     // Line highlighting (if line numbers are enabled)
     'hljs.hljs-line-numbers': {
-      borderRight: `1px solid ${shadesOfPurpleColors.Gray}`,
+        borderRight: `1px solid ${shadesOfPurpleColors.Gray}`,
     },
     'hljs.hljs-line-numbers .hljs-ln-numbers': {
-      color: shadesOfPurpleColors.Gray,
-      paddingRight: '1em',
+        color: shadesOfPurpleColors.Gray,
+        paddingRight: '1em',
     },
     'hljs.hljs-line-numbers .hljs-ln-code': {
-      paddingLeft: '1em',
+        paddingLeft: '1em',
     },
     // Selection styling
     'hljs::selection': {
-      background: shadesOfPurpleColors.AccentBlue + '40', // 40 = 25% opacity
+        background: shadesOfPurpleColors.AccentBlue + '40', // 40 = 25% opacity
     },
     'hljs ::-moz-selection': {
-      background: shadesOfPurpleColors.AccentBlue + '40',
+        background: shadesOfPurpleColors.AccentBlue + '40',
     },
     // Highlighted lines (for emphasis)
     'hljs .hljs-highlight': {
-      background: shadesOfPurpleColors.AccentPurple + '20', // 20 = 12.5% opacity
-      display: 'block',
-      width: '100%',
+        background: shadesOfPurpleColors.AccentPurple + '20', // 20 = 12.5% opacity
+        display: 'block',
+        width: '100%',
     },
-  },
-  shadesOfPurpleColors,
-);
+}, shadesOfPurpleColors);
 //# sourceMappingURL=shades-of-purple.js.map

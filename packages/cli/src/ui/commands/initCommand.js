@@ -7,39 +7,35 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { CommandKind } from './types.js';
 export const initCommand = {
-  name: 'init',
-  description: 'Analyzes the project and creates a tailored GEMINI.md file.',
-  kind: CommandKind.BUILT_IN,
-  action: async (context, _args) => {
-    if (!context.services.config) {
-      return {
-        type: 'message',
-        messageType: 'error',
-        content: 'Configuration not available.',
-      };
-    }
-    const targetDir = context.services.config.getTargetDir();
-    const geminiMdPath = path.join(targetDir, 'GEMINI.md');
-    if (fs.existsSync(geminiMdPath)) {
-      return {
-        type: 'message',
-        messageType: 'info',
-        content:
-          'A GEMINI.md file already exists in this directory. No changes were made.',
-      };
-    }
-    // Create an empty GEMINI.md file
-    fs.writeFileSync(geminiMdPath, '', 'utf8');
-    context.ui.addItem(
-      {
-        type: 'info',
-        text: 'Empty GEMINI.md created. Now analyzing the project to populate it.',
-      },
-      Date.now(),
-    );
-    return {
-      type: 'submit_prompt',
-      content: `
+    name: 'init',
+    description: 'Analyzes the project and creates a tailored GEMINI.md file',
+    kind: CommandKind.BUILT_IN,
+    action: async (context, _args) => {
+        if (!context.services.config) {
+            return {
+                type: 'message',
+                messageType: 'error',
+                content: 'Configuration not available.',
+            };
+        }
+        const targetDir = context.services.config.getTargetDir();
+        const geminiMdPath = path.join(targetDir, 'GEMINI.md');
+        if (fs.existsSync(geminiMdPath)) {
+            return {
+                type: 'message',
+                messageType: 'info',
+                content: 'A GEMINI.md file already exists in this directory. No changes were made.',
+            };
+        }
+        // Create an empty GEMINI.md file
+        fs.writeFileSync(geminiMdPath, '', 'utf8');
+        context.ui.addItem({
+            type: 'info',
+            text: 'Empty GEMINI.md created. Now analyzing the project to populate it.',
+        }, Date.now());
+        return {
+            type: 'submit_prompt',
+            content: `
 You are an AI agent that brings the power of Gemini directly into the terminal. Your task is to analyze the current directory and generate a comprehensive GEMINI.md file to be used as instructional context for future interactions.
 
 **Analysis Process:**
@@ -74,7 +70,7 @@ You are an AI agent that brings the power of Gemini directly into the terminal. 
 
 Write the complete content to the \`GEMINI.md\` file. The output must be well-formatted Markdown.
 `,
-    };
-  },
+        };
+    },
 };
 //# sourceMappingURL=initCommand.js.map

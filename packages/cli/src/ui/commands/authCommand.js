@@ -5,12 +5,12 @@
  */
 import { CommandKind } from './types.js';
 export const authCommand = {
-  name: 'auth',
-  description: 'change the auth method',
-  kind: CommandKind.BUILT_IN,
-  action: (_context, _args) => ({
-    type: 'dialog',
-    dialog: 'auth',
-  }),
+    name: 'auth',
+    description: 'Change the auth method',
+    kind: CommandKind.BUILT_IN,
+    action: (_context, _args) => ({
+        type: 'dialog',
+        dialog: 'auth',
+    }),
 };
 //# sourceMappingURL=authCommand.js.map

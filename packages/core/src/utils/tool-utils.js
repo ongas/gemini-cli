@@ -4,12 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import { isTool } from '../index.js';
-const SHELL_TOOL_NAMES = ['run_shell_command', 'ShellTool'];
+import { SHELL_TOOL_NAMES } from './shell-utils.js';
 /**
  * Checks if a tool invocation matches any of a list of patterns.
  *
  * @param toolOrToolName The tool object or the name of the tool being invoked.
- * @param invocation The invocation object for the tool.
+ * @param invocation The invocation object for the tool or the command invoked.
  * @param patterns A list of patterns to match against.
  *   Patterns can be:
  *   - A tool name (e.g., "ReadFileTool") to match any invocation of that tool.
@@ -18,42 +18,50 @@ const SHELL_TOOL_NAMES = ['run_shell_command', 'ShellTool'];
  * @returns True if the invocation matches any pattern, false otherwise.
  */
 export function doesToolInvocationMatch(toolOrToolName, invocation, patterns) {
-  let toolNames;
-  if (isTool(toolOrToolName)) {
-    toolNames = [toolOrToolName.name, toolOrToolName.constructor.name];
-  } else {
-    toolNames = [toolOrToolName];
-  }
-  if (toolNames.some((name) => SHELL_TOOL_NAMES.includes(name))) {
-    toolNames = [...new Set([...toolNames, ...SHELL_TOOL_NAMES])];
-  }
-  for (const pattern of patterns) {
-    const openParen = pattern.indexOf('(');
-    if (openParen === -1) {
-      // No arguments, just a tool name
-      if (toolNames.includes(pattern)) {
-        return true;
-      }
-      continue;
+    let toolNames;
+    if (isTool(toolOrToolName)) {
+        toolNames = [toolOrToolName.name, toolOrToolName.constructor.name];
     }
-    const patternToolName = pattern.substring(0, openParen);
-    if (!toolNames.includes(patternToolName)) {
-      continue;
+    else {
+        toolNames = [toolOrToolName];
     }
-    if (!pattern.endsWith(')')) {
-      continue;
+    if (toolNames.some((name) => SHELL_TOOL_NAMES.includes(name))) {
+        toolNames = [...new Set([...toolNames, ...SHELL_TOOL_NAMES])];
     }
-    const argPattern = pattern.substring(openParen + 1, pattern.length - 1);
-    if (
-      'command' in invocation.params &&
-      toolNames.includes('run_shell_command')
-    ) {
-      const argValue = String(invocation.params.command);
-      if (argValue === argPattern || argValue.startsWith(argPattern + ' ')) {
-        return true;
-      }
+    for (const pattern of patterns) {
+        const openParen = pattern.indexOf('(');
+        if (openParen === -1) {
+            // No arguments, just a tool name
+            if (toolNames.includes(pattern)) {
+                return true;
+            }
+            continue;
+        }
+        const patternToolName = pattern.substring(0, openParen);
+        if (!toolNames.includes(patternToolName)) {
+            continue;
+        }
+        if (!pattern.endsWith(')')) {
+            continue;
+        }
+        const argPattern = pattern.substring(openParen + 1, pattern.length - 1);
+        let command;
+        if (typeof invocation === 'string') {
+            command = invocation;
+        }
+        else {
+            if (!('command' in invocation.params)) {
+                // This invocation has no command - nothing to check.
+                continue;
+            }
+            command = String(invocation.params.command);
+        }
+        if (toolNames.some((name) => SHELL_TOOL_NAMES.includes(name))) {
+            if (command === argPattern || command.startsWith(argPattern + ' ')) {
+                return true;
+            }
+        }
     }
-  }
-  return false;
+    return false;
 }
 //# sourceMappingURL=tool-utils.js.map

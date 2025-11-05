@@ -6,7 +6,7 @@
 import type React from 'react';
 import { type Config } from '@google/gemini-cli-core';
 interface TipsProps {
-  config: Config;
+    config: Config;
 }
 export declare const Tips: React.FC<TipsProps>;
 export {};

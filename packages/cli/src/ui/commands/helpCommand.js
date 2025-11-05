@@ -6,16 +6,16 @@
 import { CommandKind } from './types.js';
 import { MessageType } from '../types.js';
 export const helpCommand = {
-  name: 'help',
-  altNames: ['?'],
-  kind: CommandKind.BUILT_IN,
-  description: 'for help on gemini-cli',
-  action: async (context) => {
-    const helpItem = {
-      type: MessageType.HELP,
-      timestamp: new Date(),
-    };
-    context.ui.addItem(helpItem, Date.now());
-  },
+    name: 'help',
+    altNames: ['?'],
+    kind: CommandKind.BUILT_IN,
+    description: 'For help on gemini-cli',
+    action: async (context) => {
+        const helpItem = {
+            type: MessageType.HELP,
+            timestamp: new Date(),
+        };
+        context.ui.addItem(helpItem, Date.now());
+    },
 };
 //# sourceMappingURL=helpCommand.js.map

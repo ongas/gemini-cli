@@ -5,7 +5,7 @@
  */
 import { vi } from 'vitest';
 vi.mock('fs', () => ({
-  ...vi.importActual('fs'),
-  appendFileSync: vi.fn(),
+    ...vi.importActual('fs'),
+    appendFileSync: vi.fn(),
 }));
 //# sourceMappingURL=test-setup.js.map

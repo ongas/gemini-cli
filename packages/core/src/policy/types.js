@@ -5,8 +5,8 @@
  */
 export var PolicyDecision;
 (function (PolicyDecision) {
-  PolicyDecision['ALLOW'] = 'allow';
-  PolicyDecision['DENY'] = 'deny';
-  PolicyDecision['ASK_USER'] = 'ask_user';
+    PolicyDecision["ALLOW"] = "allow";
+    PolicyDecision["DENY"] = "deny";
+    PolicyDecision["ASK_USER"] = "ask_user";
 })(PolicyDecision || (PolicyDecision = {}));
 //# sourceMappingURL=types.js.map

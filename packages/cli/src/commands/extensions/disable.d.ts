@@ -5,8 +5,8 @@
  */
 import { type CommandModule } from 'yargs';
 interface DisableArgs {
-  name: string;
-  scope?: string;
+    name: string;
+    scope?: string;
 }
 export declare function handleDisable(args: DisableArgs): void;
 export declare const disableCommand: CommandModule;

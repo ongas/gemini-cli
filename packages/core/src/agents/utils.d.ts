@@ -12,7 +12,4 @@ import type { AgentInputs } from './types.js';
  * @returns The populated string with all placeholders replaced.
  * @throws {Error} if any placeholder key is not found in the inputs.
  */
-export declare function templateString(
-  template: string,
-  inputs: AgentInputs,
-): string;
+export declare function templateString(template: string, inputs: AgentInputs): string;

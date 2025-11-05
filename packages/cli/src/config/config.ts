@@ -631,7 +631,7 @@ export async function loadCliConfig(
     noBrowser: !!process.env['NO_BROWSER'],
     summarizeToolOutput: settings.model?.summarizeToolOutput,
     ideMode,
-    chatCompression: settings.model?.chatCompression,
+    chatCompression: settings.model?.chatCompression ?? { enabled: true },
     folderTrust,
     interactive,
     trustedFolder,

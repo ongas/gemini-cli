@@ -5,7 +5,7 @@
  */
 import type React from 'react';
 interface UserMessageProps {
-  text: string;
+    text: string;
 }
 export declare const UserMessage: React.FC<UserMessageProps>;
 export {};

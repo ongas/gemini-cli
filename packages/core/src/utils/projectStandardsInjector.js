@@ -12,252 +12,227 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 const logger = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  debug: (...args) => console.debug('[DEBUG] [ProjectStandards]', ...args),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  warn: (...args) => console.warn('[WARN] [ProjectStandards]', ...args),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  error: (...args) => console.error('[ERROR] [ProjectStandards]', ...args),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    debug: (...args) => console.debug('[DEBUG] [ProjectStandards]', ...args),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    warn: (...args) => console.warn('[WARN] [ProjectStandards]', ...args),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    error: (...args) => console.error('[ERROR] [ProjectStandards]', ...args),
 };
 /**
  * Detect task type and relevant languages from user prompt
  */
 export function detectTaskContext(prompt) {
-  const lowerPrompt = prompt.toLowerCase();
-  // Detect languages
-  const languages = [];
-  const languagePatterns = {
-    python: /python|\.py\b|pip\b|django|flask/,
-    javascript: /javascript|\.js\b|node\.?js|npm|typescript|\.ts\b/,
-    java: /\bjava\b|\.java\b|spring|maven/,
-    ruby: /ruby|\.rb\b|rails|gem\b/,
-    go: /\bgo\b|golang|\.go\b/,
-    rust: /rust|\.rs\b|cargo/,
-    php: /php|\.php\b|laravel|composer/,
-    html: /html|\.html\b|markup/,
-    css: /css|\.css\b|stylesheet|tailwind|sass|scss/,
-  };
-  for (const [lang, pattern] of Object.entries(languagePatterns)) {
-    if (pattern.test(lowerPrompt)) {
-      languages.push(lang);
+    const lowerPrompt = prompt.toLowerCase();
+    // Detect languages
+    const languages = [];
+    const languagePatterns = {
+        python: /python|\.py\b|pip\b|django|flask/,
+        javascript: /javascript|\.js\b|node\.?js|npm|typescript|\.ts\b/,
+        java: /\bjava\b|\.java\b|spring|maven/,
+        ruby: /ruby|\.rb\b|rails|gem\b/,
+        go: /\bgo\b|golang|\.go\b/,
+        rust: /rust|\.rs\b|cargo/,
+        php: /php|\.php\b|laravel|composer/,
+        html: /html|\.html\b|markup/,
+        css: /css|\.css\b|stylesheet|tailwind|sass|scss/,
+    };
+    for (const [lang, pattern] of Object.entries(languagePatterns)) {
+        if (pattern.test(lowerPrompt)) {
+            languages.push(lang);
+        }
     }
-  }
-  // Detect task type
-  if (
-    /\b(write|create|implement|add|build|code|function|class|method)\b/.test(
-      lowerPrompt,
-    )
-  ) {
-    return { taskType: 'coding', languages, needsStandards: true };
-  }
-  if (/\b(plan|design|architect|spec|roadmap|feature)\b/.test(lowerPrompt)) {
-    return { taskType: 'planning', languages, needsStandards: true };
-  }
-  if (/\b(test|pytest|jest|mocha|spec|unit test)\b/.test(lowerPrompt)) {
-    return { taskType: 'testing', languages, needsStandards: true };
-  }
-  if (/\b(git|commit|branch|push|pull|merge)\b/.test(lowerPrompt)) {
-    return { taskType: 'git', languages, needsStandards: false };
-  }
-  return { taskType: 'general', languages, needsStandards: false };
+    // Detect task type
+    if (/\b(write|create|implement|add|build|code|function|class|method)\b/.test(lowerPrompt)) {
+        return { taskType: 'coding', languages, needsStandards: true };
+    }
+    if (/\b(plan|design|architect|spec|roadmap|feature)\b/.test(lowerPrompt)) {
+        return { taskType: 'planning', languages, needsStandards: true };
+    }
+    if (/\b(test|pytest|jest|mocha|spec|unit test)\b/.test(lowerPrompt)) {
+        return { taskType: 'testing', languages, needsStandards: true };
+    }
+    if (/\b(git|commit|branch|push|pull|merge)\b/.test(lowerPrompt)) {
+        return { taskType: 'git', languages, needsStandards: false };
+    }
+    return { taskType: 'general', languages, needsStandards: false };
 }
 /**
  * Find .project-standards directory in current working directory or parent directories
  */
 export async function findProjectStandardsDirectory(startDir) {
-  let currentDir = path.resolve(startDir);
-  const root = path.parse(currentDir).root;
-  while (currentDir !== root) {
-    const projectStandardsPath = path.join(currentDir, '.project-standards');
-    try {
-      const stats = await fs.stat(projectStandardsPath);
-      if (stats.isDirectory()) {
-        logger.debug(`Found .project-standards at: ${projectStandardsPath}`);
-        return projectStandardsPath;
-      }
-    } catch {
-      // Directory doesn't exist, continue searching
+    let currentDir = path.resolve(startDir);
+    const root = path.parse(currentDir).root;
+    while (currentDir !== root) {
+        const projectStandardsPath = path.join(currentDir, '.project-standards');
+        try {
+            const stats = await fs.stat(projectStandardsPath);
+            if (stats.isDirectory()) {
+                logger.debug(`Found .project-standards at: ${projectStandardsPath}`);
+                return projectStandardsPath;
+            }
+        }
+        catch {
+            // Directory doesn't exist, continue searching
+        }
+        const parentDir = path.dirname(currentDir);
+        if (parentDir === currentDir)
+            break;
+        currentDir = parentDir;
     }
-    const parentDir = path.dirname(currentDir);
-    if (parentDir === currentDir) break;
-    currentDir = parentDir;
-  }
-  return null;
+    return null;
 }
 /**
  * Load project standards files
  */
 export async function loadProjectStandards(projectStandardsDir) {
-  const standards = {
-    languageSpecific: {},
-  };
-  try {
-    // Load core standards files
-    const codeStylePath = path.join(projectStandardsDir, 'code-style.md');
+    const standards = {
+        languageSpecific: {},
+    };
     try {
-      standards.codeStyle = await fs.readFile(codeStylePath, 'utf-8');
-      logger.debug('Loaded code-style.md');
-    } catch {
-      logger.debug('No code-style.md found');
-    }
-    const bestPracticesPath = path.join(
-      projectStandardsDir,
-      'best-practices.md',
-    );
-    try {
-      standards.bestPractices = await fs.readFile(bestPracticesPath, 'utf-8');
-      logger.debug('Loaded best-practices.md');
-    } catch {
-      logger.debug('No best-practices.md found');
-    }
-    const techStackPath = path.join(projectStandardsDir, 'tech-stack.md');
-    try {
-      standards.techStack = await fs.readFile(techStackPath, 'utf-8');
-      logger.debug('Loaded tech-stack.md');
-    } catch {
-      logger.debug('No tech-stack.md found');
-    }
-    // Load language-specific standards
-    const codeStyleSubdir = path.join(projectStandardsDir, 'code-style');
-    try {
-      const files = await fs.readdir(codeStyleSubdir);
-      for (const file of files) {
-        if (file.endsWith('.md') || file.endsWith('-style.md')) {
-          const langName = file
-            .replace('-style.md', '')
-            .replace('.md', '')
-            .toLowerCase();
-          const filePath = path.join(codeStyleSubdir, file);
-          standards.languageSpecific[langName] = await fs.readFile(
-            filePath,
-            'utf-8',
-          );
-          logger.debug(`Loaded language-specific standard: ${file}`);
+        // Load core standards files
+        const codeStylePath = path.join(projectStandardsDir, 'code-style.md');
+        try {
+            standards.codeStyle = await fs.readFile(codeStylePath, 'utf-8');
+            logger.debug('Loaded code-style.md');
         }
-      }
-    } catch {
-      logger.debug('No code-style subdirectory found');
+        catch {
+            logger.debug('No code-style.md found');
+        }
+        const bestPracticesPath = path.join(projectStandardsDir, 'best-practices.md');
+        try {
+            standards.bestPractices = await fs.readFile(bestPracticesPath, 'utf-8');
+            logger.debug('Loaded best-practices.md');
+        }
+        catch {
+            logger.debug('No best-practices.md found');
+        }
+        const techStackPath = path.join(projectStandardsDir, 'tech-stack.md');
+        try {
+            standards.techStack = await fs.readFile(techStackPath, 'utf-8');
+            logger.debug('Loaded tech-stack.md');
+        }
+        catch {
+            logger.debug('No tech-stack.md found');
+        }
+        // Load language-specific standards
+        const codeStyleSubdir = path.join(projectStandardsDir, 'code-style');
+        try {
+            const files = await fs.readdir(codeStyleSubdir);
+            for (const file of files) {
+                if (file.endsWith('.md') || file.endsWith('-style.md')) {
+                    const langName = file
+                        .replace('-style.md', '')
+                        .replace('.md', '')
+                        .toLowerCase();
+                    const filePath = path.join(codeStyleSubdir, file);
+                    standards.languageSpecific[langName] = await fs.readFile(filePath, 'utf-8');
+                    logger.debug(`Loaded language-specific standard: ${file}`);
+                }
+            }
+        }
+        catch {
+            logger.debug('No code-style subdirectory found');
+        }
     }
-  } catch (error) {
-    logger.warn('Error loading project standards:', error);
-  }
-  return standards;
+    catch (error) {
+        logger.warn('Error loading project standards:', error);
+    }
+    return standards;
 }
 /**
  * Build context string from relevant standards based on task detection
  */
 export function buildContextFromStandards(standards, taskContext) {
-  if (!taskContext.needsStandards) {
-    return '';
-  }
-  const contextParts = [];
-  // Add header
-  contextParts.push('# Project Standards\n');
-  contextParts.push(
-    'The following standards are automatically loaded from the .project-standards/ directory of this project.\n',
-  );
-  contextParts.push('Apply these standards to all work in this project.\n\n');
-  // Add general code style
-  if (standards.codeStyle && taskContext.taskType === 'coding') {
-    contextParts.push('## Code Style Standards\n\n');
-    contextParts.push(standards.codeStyle);
-    contextParts.push('\n\n');
-  }
-  // Add best practices
-  if (standards.bestPractices) {
-    contextParts.push('## Best Practices\n\n');
-    contextParts.push(standards.bestPractices);
-    contextParts.push('\n\n');
-  }
-  // Add language-specific standards
-  if (taskContext.languages.length > 0 && standards.languageSpecific) {
-    for (const lang of taskContext.languages) {
-      const langStandard = standards.languageSpecific[lang];
-      if (langStandard) {
-        contextParts.push(
-          `## ${lang.charAt(0).toUpperCase() + lang.slice(1)} Specific Standards\n\n`,
-        );
-        contextParts.push(langStandard);
-        contextParts.push('\n\n');
-      }
+    if (!taskContext.needsStandards) {
+        return '';
     }
-  }
-  // Add tech stack for planning tasks
-  if (standards.techStack && taskContext.taskType === 'planning') {
-    contextParts.push('## Technology Stack\n\n');
-    contextParts.push(standards.techStack);
-    contextParts.push('\n\n');
-  }
-  if (contextParts.length <= 3) {
-    // Only header was added
-    return '';
-  }
-  return contextParts.join('');
+    const contextParts = [];
+    // Add header
+    contextParts.push('# Project Standards\n');
+    contextParts.push('The following standards are automatically loaded from the .project-standards/ directory of this project.\n');
+    contextParts.push('Apply these standards to all work in this project.\n\n');
+    // Add general code style
+    if (standards.codeStyle && taskContext.taskType === 'coding') {
+        contextParts.push('## Code Style Standards\n\n');
+        contextParts.push(standards.codeStyle);
+        contextParts.push('\n\n');
+    }
+    // Add best practices
+    if (standards.bestPractices) {
+        contextParts.push('## Best Practices\n\n');
+        contextParts.push(standards.bestPractices);
+        contextParts.push('\n\n');
+    }
+    // Add language-specific standards
+    if (taskContext.languages.length > 0 && standards.languageSpecific) {
+        for (const lang of taskContext.languages) {
+            const langStandard = standards.languageSpecific[lang];
+            if (langStandard) {
+                contextParts.push(`## ${lang.charAt(0).toUpperCase() + lang.slice(1)} Specific Standards\n\n`);
+                contextParts.push(langStandard);
+                contextParts.push('\n\n');
+            }
+        }
+    }
+    // Add tech stack for planning tasks
+    if (standards.techStack && taskContext.taskType === 'planning') {
+        contextParts.push('## Technology Stack\n\n');
+        contextParts.push(standards.techStack);
+        contextParts.push('\n\n');
+    }
+    if (contextParts.length <= 3) {
+        // Only header was added
+        return '';
+    }
+    return contextParts.join('');
 }
 /**
  * Main function to inject project standards context into a prompt
  */
 export async function injectProjectStandards(userPrompt, workingDirectory) {
-  console.log('[ProjectStandards] Starting context injection...');
-  console.log('[ProjectStandards] Working directory:', workingDirectory);
-  console.log('[ProjectStandards] User prompt:', userPrompt.substring(0, 100));
-  // Detect task context
-  const taskContext = detectTaskContext(userPrompt);
-  console.log('[ProjectStandards] Detected task context:', taskContext);
-  logger.debug('Detected task context:', taskContext);
-  // Find .project-standards directory
-  const projectStandardsDir =
-    await findProjectStandardsDirectory(workingDirectory);
-  console.log(
-    '[ProjectStandards] Found .project-standards directory:',
-    projectStandardsDir,
-  );
-  if (!projectStandardsDir) {
-    console.log(
-      '[ProjectStandards] No .project-standards directory found, skipping context injection',
-    );
-    logger.debug(
-      'No .project-standards directory found, skipping context injection',
-    );
-    return userPrompt;
-  }
-  // Load standards
-  const standards = await loadProjectStandards(projectStandardsDir);
-  console.log('[ProjectStandards] Loaded standards:', Object.keys(standards));
-  // Build context
-  const context = buildContextFromStandards(standards, taskContext);
-  console.log('[ProjectStandards] Built context length:', context.length);
-  if (!context) {
-    console.log('[ProjectStandards] No relevant standards found for this task');
-    logger.debug('No relevant standards found for this task');
-    return userPrompt;
-  }
-  // Inject context at the beginning of the prompt
-  console.log(
-    '[ProjectStandards] Injecting project standards context (',
-    context.length,
-    ' characters) into prompt',
-  );
-  logger.debug(
-    `Injecting project standards context (${context.length} characters) into prompt`,
-  );
-  return `${context}\n---\n\n${userPrompt}`;
+    console.log('[ProjectStandards] Starting context injection...');
+    console.log('[ProjectStandards] Working directory:', workingDirectory);
+    console.log('[ProjectStandards] User prompt:', userPrompt.substring(0, 100));
+    // Detect task context
+    const taskContext = detectTaskContext(userPrompt);
+    console.log('[ProjectStandards] Detected task context:', taskContext);
+    logger.debug('Detected task context:', taskContext);
+    // Find .project-standards directory
+    const projectStandardsDir = await findProjectStandardsDirectory(workingDirectory);
+    console.log('[ProjectStandards] Found .project-standards directory:', projectStandardsDir);
+    if (!projectStandardsDir) {
+        console.log('[ProjectStandards] No .project-standards directory found, skipping context injection');
+        logger.debug('No .project-standards directory found, skipping context injection');
+        return userPrompt;
+    }
+    // Load standards
+    const standards = await loadProjectStandards(projectStandardsDir);
+    console.log('[ProjectStandards] Loaded standards:', Object.keys(standards));
+    // Build context
+    const context = buildContextFromStandards(standards, taskContext);
+    console.log('[ProjectStandards] Built context length:', context.length);
+    if (!context) {
+        console.log('[ProjectStandards] No relevant standards found for this task');
+        logger.debug('No relevant standards found for this task');
+        return userPrompt;
+    }
+    // Inject context at the beginning of the prompt
+    console.log('[ProjectStandards] Injecting project standards context (', context.length, ' characters) into prompt');
+    logger.debug(`Injecting project standards context (${context.length} characters) into prompt`);
+    return `${context}\n---\n\n${userPrompt}`;
 }
 /**
  * Get project standards context as a separate system message (alternative approach)
  */
-export async function getProjectStandardsSystemMessage(
-  userPrompt,
-  workingDirectory,
-) {
-  const taskContext = detectTaskContext(userPrompt);
-  const projectStandardsDir =
-    await findProjectStandardsDirectory(workingDirectory);
-  if (!projectStandardsDir) {
-    return null;
-  }
-  const standards = await loadProjectStandards(projectStandardsDir);
-  const context = buildContextFromStandards(standards, taskContext);
-  return context || null;
+export async function getProjectStandardsSystemMessage(userPrompt, workingDirectory) {
+    const taskContext = detectTaskContext(userPrompt);
+    const projectStandardsDir = await findProjectStandardsDirectory(workingDirectory);
+    if (!projectStandardsDir) {
+        return null;
+    }
+    const standards = await loadProjectStandards(projectStandardsDir);
+    const context = buildContextFromStandards(standards, taskContext);
+    return context || null;
 }
 //# sourceMappingURL=projectStandardsInjector.js.map

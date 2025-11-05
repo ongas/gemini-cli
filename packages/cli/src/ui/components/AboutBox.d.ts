@@ -5,13 +5,13 @@
  */
 import type React from 'react';
 interface AboutBoxProps {
-  cliVersion: string;
-  osVersion: string;
-  sandboxEnv: string;
-  modelVersion: string;
-  selectedAuthType: string;
-  gcpProject: string;
-  ideClient: string;
+    cliVersion: string;
+    osVersion: string;
+    sandboxEnv: string;
+    modelVersion: string;
+    selectedAuthType: string;
+    gcpProject: string;
+    ideClient: string;
 }
 export declare const AboutBox: React.FC<AboutBoxProps>;
 export {};

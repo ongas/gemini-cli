@@ -3,88 +3,106 @@
  * Copyright 2025 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
-import {
-  installExtension,
-  requestConsentNonInteractive,
-} from '../../config/extension.js';
+import { debugLogger, } from '@google/gemini-cli-core';
 import { getErrorMessage } from '../../utils/errors.js';
+import { stat } from 'node:fs/promises';
+import { INSTALL_WARNING_MESSAGE, requestConsentNonInteractive, } from '../../config/extensions/consent.js';
+import { ExtensionManager } from '../../config/extension-manager.js';
+import { loadSettings } from '../../config/settings.js';
+import { promptForSetting } from '../../config/extensions/extensionSettings.js';
 export async function handleInstall(args) {
-  try {
-    let installMetadata;
-    if (args.source) {
-      const { source } = args;
-      if (
-        source.startsWith('http://') ||
-        source.startsWith('https://') ||
-        source.startsWith('git@') ||
-        source.startsWith('sso://')
-      ) {
-        installMetadata = {
-          source,
-          type: 'git',
-          ref: args.ref,
-          autoUpdate: args.autoUpdate,
-        };
-      } else {
-        throw new Error(`The source "${source}" is not a valid URL format.`);
-      }
-    } else if (args.path) {
-      installMetadata = {
-        source: args.path,
-        type: 'local',
-        autoUpdate: args.autoUpdate,
-      };
-    } else {
-      // This should not be reached due to the yargs check.
-      throw new Error('Either --source or --path must be provided.');
+    try {
+        let installMetadata;
+        const { source } = args;
+        if (source.startsWith('http://') ||
+            source.startsWith('https://') ||
+            source.startsWith('git@') ||
+            source.startsWith('sso://')) {
+            installMetadata = {
+                source,
+                type: 'git',
+                ref: args.ref,
+                autoUpdate: args.autoUpdate,
+                allowPreRelease: args.allowPreRelease,
+            };
+        }
+        else {
+            if (args.ref || args.autoUpdate) {
+                throw new Error('--ref and --auto-update are not applicable for local extensions.');
+            }
+            try {
+                await stat(source);
+                installMetadata = {
+                    source,
+                    type: 'local',
+                };
+            }
+            catch {
+                throw new Error('Install source not found.');
+            }
+        }
+        const requestConsent = args.consent
+            ? () => Promise.resolve(true)
+            : requestConsentNonInteractive;
+        if (args.consent) {
+            debugLogger.log('You have consented to the following:');
+            debugLogger.log(INSTALL_WARNING_MESSAGE);
+        }
+        const workspaceDir = process.cwd();
+        const extensionManager = new ExtensionManager({
+            workspaceDir,
+            requestConsent,
+            requestSetting: promptForSetting,
+            loadedSettings: loadSettings(workspaceDir),
+        });
+        const name = await extensionManager.installOrUpdateExtension(installMetadata);
+        debugLogger.log(`Extension "${name}" installed successfully and enabled.`);
     }
-    const name = await installExtension(
-      installMetadata,
-      requestConsentNonInteractive,
-    );
-    console.log(`Extension "${name}" installed successfully and enabled.`);
-  } catch (error) {
-    console.error(getErrorMessage(error));
-    process.exit(1);
-  }
+    catch (error) {
+        debugLogger.error(getErrorMessage(error));
+        process.exit(1);
+    }
 }
 export const installCommand = {
-  command: 'install [<source>] [--path] [--ref] [--auto-update]',
-  describe: 'Installs an extension from a git repository URL or a local path.',
-  builder: (yargs) =>
-    yargs
-      .positional('source', {
-        describe: 'The github URL of the extension to install.',
+    command: 'install <source> [--auto-update] [--pre-release]',
+    describe: 'Installs an extension from a git repository URL or a local path.',
+    builder: (yargs) => yargs
+        .positional('source', {
+        describe: 'The github URL or local path of the extension to install.',
         type: 'string',
-      })
-      .option('path', {
-        describe: 'Path to a local extension directory.',
-        type: 'string',
-      })
-      .option('ref', {
+        demandOption: true,
+    })
+        .option('ref', {
         describe: 'The git ref to install from.',
         type: 'string',
-      })
-      .option('auto-update', {
+    })
+        .option('auto-update', {
         describe: 'Enable auto-update for this extension.',
         type: 'boolean',
-      })
-      .conflicts('source', 'path')
-      .conflicts('path', 'ref')
-      .conflicts('path', 'auto-update')
-      .check((argv) => {
-        if (!argv.source && !argv.path) {
-          throw new Error('Either source or --path must be provided.');
+    })
+        .option('pre-release', {
+        describe: 'Enable pre-release versions for this extension.',
+        type: 'boolean',
+    })
+        .option('consent', {
+        describe: 'Acknowledge the security risks of installing an extension and skip the confirmation prompt.',
+        type: 'boolean',
+        default: false,
+    })
+        .check((argv) => {
+        if (!argv.source) {
+            throw new Error('The source argument must be provided.');
         }
         return true;
-      }),
-  handler: async (argv) => {
-    await handleInstall({
-      source: argv['source'],
-      path: argv['path'],
-      ref: argv['ref'],
-      autoUpdate: argv['auto-update'],
-    });
-  },
+    }),
+    handler: async (argv) => {
+        await handleInstall({
+            source: argv['source'],
+            ref: argv['ref'],
+            autoUpdate: argv['auto-update'],
+            allowPreRelease: argv['pre-release'],
+            consent: argv['consent'],
+        });
+    },
 };
 //# sourceMappingURL=install.js.map

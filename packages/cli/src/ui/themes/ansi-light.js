@@ -6,143 +6,137 @@
 import { Theme } from './theme.js';
 import { lightSemanticColors } from './semantic-tokens.js';
 const ansiLightColors = {
-  type: 'light',
-  Background: 'white',
-  Foreground: '#444',
-  LightBlue: 'blue',
-  AccentBlue: 'blue',
-  AccentPurple: 'purple',
-  AccentCyan: 'cyan',
-  AccentGreen: 'green',
-  AccentYellow: 'orange',
-  AccentRed: 'red',
-  DiffAdded: '#E5F2E5',
-  DiffRemoved: '#FFE5E5',
-  Comment: 'gray',
-  Gray: 'gray',
-  GradientColors: ['blue', 'green'],
+    type: 'light',
+    Background: 'white',
+    Foreground: '#444',
+    LightBlue: 'blue',
+    AccentBlue: 'blue',
+    AccentPurple: 'purple',
+    AccentCyan: 'cyan',
+    AccentGreen: 'green',
+    AccentYellow: 'orange',
+    AccentRed: 'red',
+    DiffAdded: '#E5F2E5',
+    DiffRemoved: '#FFE5E5',
+    Comment: 'gray',
+    Gray: 'gray',
+    GradientColors: ['blue', 'green'],
 };
-export const ANSILight = new Theme(
-  'ANSI Light',
-  'light',
-  {
+export const ANSILight = new Theme('ANSI Light', 'light', {
     hljs: {
-      display: 'block',
-      overflowX: 'auto',
-      padding: '0.5em',
-      background: 'white',
-      color: 'black',
+        display: 'block',
+        overflowX: 'auto',
+        padding: '0.5em',
+        background: 'white',
+        color: 'black',
     },
     'hljs-keyword': {
-      color: 'blue',
+        color: 'blue',
     },
     'hljs-literal': {
-      color: 'blue',
+        color: 'blue',
     },
     'hljs-symbol': {
-      color: 'blue',
+        color: 'blue',
     },
     'hljs-name': {
-      color: 'blue',
+        color: 'blue',
     },
     'hljs-link': {
-      color: 'blue',
+        color: 'blue',
     },
     'hljs-built_in': {
-      color: 'cyan',
+        color: 'cyan',
     },
     'hljs-type': {
-      color: 'cyan',
+        color: 'cyan',
     },
     'hljs-number': {
-      color: 'green',
+        color: 'green',
     },
     'hljs-class': {
-      color: 'green',
+        color: 'green',
     },
     'hljs-string': {
-      color: 'red',
+        color: 'red',
     },
     'hljs-meta-string': {
-      color: 'red',
+        color: 'red',
     },
     'hljs-regexp': {
-      color: 'magenta',
+        color: 'magenta',
     },
     'hljs-template-tag': {
-      color: 'magenta',
+        color: 'magenta',
     },
     'hljs-subst': {
-      color: 'black',
+        color: 'black',
     },
     'hljs-function': {
-      color: 'black',
+        color: 'black',
     },
     'hljs-title': {
-      color: 'black',
+        color: 'black',
     },
     'hljs-params': {
-      color: 'black',
+        color: 'black',
     },
     'hljs-formula': {
-      color: 'black',
+        color: 'black',
     },
     'hljs-comment': {
-      color: 'gray',
+        color: 'gray',
     },
     'hljs-quote': {
-      color: 'gray',
+        color: 'gray',
     },
     'hljs-doctag': {
-      color: 'gray',
+        color: 'gray',
     },
     'hljs-meta': {
-      color: 'gray',
+        color: 'gray',
     },
     'hljs-meta-keyword': {
-      color: 'gray',
+        color: 'gray',
     },
     'hljs-tag': {
-      color: 'gray',
+        color: 'gray',
     },
     'hljs-variable': {
-      color: 'purple',
+        color: 'purple',
     },
     'hljs-template-variable': {
-      color: 'purple',
+        color: 'purple',
     },
     'hljs-attr': {
-      color: 'blue',
+        color: 'blue',
     },
     'hljs-attribute': {
-      color: 'blue',
+        color: 'blue',
     },
     'hljs-builtin-name': {
-      color: 'blue',
+        color: 'blue',
     },
     'hljs-section': {
-      color: 'orange',
+        color: 'orange',
     },
     'hljs-bullet': {
-      color: 'orange',
+        color: 'orange',
     },
     'hljs-selector-tag': {
-      color: 'orange',
+        color: 'orange',
     },
     'hljs-selector-id': {
-      color: 'orange',
+        color: 'orange',
     },
     'hljs-selector-class': {
-      color: 'orange',
+        color: 'orange',
     },
     'hljs-selector-attr': {
-      color: 'orange',
+        color: 'orange',
     },
     'hljs-selector-pseudo': {
-      color: 'orange',
+        color: 'orange',
     },
-  },
-  ansiLightColors,
-  lightSemanticColors,
-);
+}, ansiLightColors, lightSemanticColors);
 //# sourceMappingURL=ansi-light.js.map

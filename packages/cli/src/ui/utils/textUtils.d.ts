@@ -11,11 +11,7 @@
 export declare const getAsciiArtWidth: (asciiArt: string) => number;
 export declare function toCodePoints(str: string): string[];
 export declare function cpLen(str: string): number;
-export declare function cpSlice(
-  str: string,
-  start: number,
-  end?: number,
-): string;
+export declare function cpSlice(str: string, start: number, end?: number): string;
 /**
  * Strip characters that can break terminal rendering.
  *

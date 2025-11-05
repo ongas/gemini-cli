@@ -40,13 +40,12 @@ DO NOT use this tool for simple tasks that can be completed in less than 2 steps
 
 
 ## Methodology for using this tool
-1. Use this todo list list as soon as you receive a user request based on the complexity of the task.
-2. Keep track of every subtask that you update the list with.
-3. Mark a subtask as in_progress before you begin working on it. You should only have one subtask as in_progress at a time.
-4. Update the subtask list as you proceed in executing the task. The subtask list is not static and should reflect your progress and current plans, which may evolve as you acquire new information.
-5. Mark a subtask as completed when you have completed it.
-6. Mark a subtask as cancelled if the subtask is no longer needed.
-7. You must update the todo list as soon as you start, stop or cancel a subtask. Don't batch or wait to update the todo list.
+1. Use this todo list as soon as you receive a user request based on the complexity of the task.
+2. Keep track of every subtask in the list.
+3. Update the list to reflect your progress - mark tasks as in_progress when starting them, and completed when done.
+4. You can batch multiple status updates in a single call - for example, mark the previous task as completed AND mark the next task as in_progress in the same update.
+5. The list is dynamic - add, remove, or modify tasks as you learn more about what needs to be done.
+6. **IMPORTANT: If you created a todo list, when all tasks are completed or cancelled, you MUST clear the todo list by calling this tool with an empty array (todos: []). This signals that the work is done and prevents stale todos from appearing in future requests. Do NOT clear the todo list if you never created one in the first place.**
 
 
 ## Examples of When to Use the Todo List
@@ -191,14 +190,8 @@ export class WriteTodosTool extends BaseDeclarativeTool<
       }
     }
 
-    const inProgressCount = todos.filter(
-      (todo: Todo) => todo.status === 'in_progress',
-    ).length;
-
-    if (inProgressCount > 1) {
-      return 'Invalid parameters: Only one task can be "in_progress" at a time.';
-    }
-
+    // Note: We allow multiple in_progress tasks for flexibility
+    // The AI can manage parallel work streams if needed
     return null;
   }
 

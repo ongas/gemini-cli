@@ -5,13 +5,10 @@
  */
 import { type IdeInfo } from './detect-ide.js';
 export interface IdeInstaller {
-  install(): Promise<InstallResult>;
+    install(): Promise<InstallResult>;
 }
 export interface InstallResult {
-  success: boolean;
-  message: string;
+    success: boolean;
+    message: string;
 }
-export declare function getIdeInstaller(
-  ide: IdeInfo,
-  platform?: NodeJS.Platform,
-): IdeInstaller | null;
+export declare function getIdeInstaller(ide: IdeInfo, platform?: NodeJS.Platform): IdeInstaller | null;

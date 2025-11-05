@@ -5,44 +5,56 @@
  */
 import { getErrorMessage, isNodeError } from './errors.js';
 import { URL } from 'node:url';
+import { ProxyAgent, setGlobalDispatcher } from 'undici';
 const PRIVATE_IP_RANGES = [
-  /^10\./,
-  /^127\./,
-  /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
-  /^192\.168\./,
-  /^::1$/,
-  /^fc00:/,
-  /^fe80:/,
+    /^10\./,
+    /^127\./,
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
+    /^192\.168\./,
+    /^::1$/,
+    /^fc00:/,
+    /^fe80:/,
 ];
 export class FetchError extends Error {
-  code;
-  constructor(message, code) {
-    super(message);
-    this.code = code;
-    this.name = 'FetchError';
-  }
+    code;
+    constructor(message, code) {
+        super(message);
+        this.code = code;
+        this.name = 'FetchError';
+    }
 }
 export function isPrivateIp(url) {
-  try {
-    const hostname = new URL(url).hostname;
-    return PRIVATE_IP_RANGES.some((range) => range.test(hostname));
-  } catch (_e) {
-    return false;
-  }
+    try {
+        const hostname = new URL(url).hostname;
+        return PRIVATE_IP_RANGES.some((range) => range.test(hostname));
+    }
+    catch (_e) {
+        return false;
+    }
 }
 export async function fetchWithTimeout(url, timeout) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
-  try {
-    const response = await fetch(url, { signal: controller.signal });
-    return response;
-  } catch (error) {
-    if (isNodeError(error) && error.code === 'ABORT_ERR') {
-      throw new FetchError(`Request timed out after ${timeout}ms`, 'ETIMEDOUT');
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    try {
+        const response = await fetch(url, { signal: controller.signal });
+        return response;
     }
-    throw new FetchError(getErrorMessage(error));
-  } finally {
-    clearTimeout(timeoutId);
-  }
+    catch (error) {
+        if (isNodeError(error) && error.code === 'ABORT_ERR') {
+            throw new FetchError(`Request timed out after ${timeout}ms`, 'ETIMEDOUT');
+        }
+        throw new FetchError(getErrorMessage(error));
+    }
+    finally {
+        clearTimeout(timeoutId);
+    }
+}
+export function setGlobalProxy(proxy) {
+    try {
+        setGlobalDispatcher(new ProxyAgent(proxy));
+    }
+    catch (e) {
+        console.error(`Failed to set proxy: ${getErrorMessage(e)}`);
+    }
 }
 //# sourceMappingURL=fetch.js.map

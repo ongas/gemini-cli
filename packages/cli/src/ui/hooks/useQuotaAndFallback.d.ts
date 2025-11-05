@@ -8,20 +8,14 @@ import { type UseHistoryManagerReturn } from './useHistoryManager.js';
 import { AuthState } from '../types.js';
 import { type ProQuotaDialogRequest } from '../contexts/UIStateContext.js';
 interface UseQuotaAndFallbackArgs {
-  config: Config;
-  historyManager: UseHistoryManagerReturn;
-  userTier: UserTierId | undefined;
-  setAuthState: (state: AuthState) => void;
-  setModelSwitchedFromQuotaError: (value: boolean) => void;
+    config: Config;
+    historyManager: UseHistoryManagerReturn;
+    userTier: UserTierId | undefined;
+    setAuthState: (state: AuthState) => void;
+    setModelSwitchedFromQuotaError: (value: boolean) => void;
 }
-export declare function useQuotaAndFallback({
-  config,
-  historyManager,
-  userTier,
-  setAuthState,
-  setModelSwitchedFromQuotaError,
-}: UseQuotaAndFallbackArgs): {
-  proQuotaRequest: ProQuotaDialogRequest | null;
-  handleProQuotaChoice: (choice: 'auth' | 'continue') => void;
+export declare function useQuotaAndFallback({ config, historyManager, userTier, setAuthState, setModelSwitchedFromQuotaError, }: UseQuotaAndFallbackArgs): {
+    proQuotaRequest: ProQuotaDialogRequest | null;
+    handleProQuotaChoice: (choice: "auth" | "continue") => void;
 };
 export {};

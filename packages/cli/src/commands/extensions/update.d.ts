@@ -5,8 +5,8 @@
  */
 import type { CommandModule } from 'yargs';
 interface UpdateArgs {
-  name?: string;
-  all?: boolean;
+    name?: string;
+    all?: boolean;
 }
 export declare function handleUpdate(args: UpdateArgs): Promise<void>;
 export declare const updateCommand: CommandModule;

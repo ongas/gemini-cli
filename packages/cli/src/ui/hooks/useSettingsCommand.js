@@ -5,17 +5,17 @@
  */
 import { useState, useCallback } from 'react';
 export function useSettingsCommand() {
-  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
-  const openSettingsDialog = useCallback(() => {
-    setIsSettingsDialogOpen(true);
-  }, []);
-  const closeSettingsDialog = useCallback(() => {
-    setIsSettingsDialogOpen(false);
-  }, []);
-  return {
-    isSettingsDialogOpen,
-    openSettingsDialog,
-    closeSettingsDialog,
-  };
+    const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
+    const openSettingsDialog = useCallback(() => {
+        setIsSettingsDialogOpen(true);
+    }, []);
+    const closeSettingsDialog = useCallback(() => {
+        setIsSettingsDialogOpen(false);
+    }, []);
+    return {
+        isSettingsDialogOpen,
+        openSettingsDialog,
+        closeSettingsDialog,
+    };
 }
 //# sourceMappingURL=useSettingsCommand.js.map

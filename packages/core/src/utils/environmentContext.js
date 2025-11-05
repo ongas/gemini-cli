@@ -10,24 +10,21 @@ import { getFolderStructure } from './getFolderStructure.js';
  * @returns {Promise<string>} A promise that resolves to the directory context string.
  */
 export async function getDirectoryContextString(config) {
-  const workspaceContext = config.getWorkspaceContext();
-  const workspaceDirectories = workspaceContext.getDirectories();
-  const folderStructures = await Promise.all(
-    workspaceDirectories.map((dir) =>
-      getFolderStructure(dir, {
+    const workspaceContext = config.getWorkspaceContext();
+    const workspaceDirectories = workspaceContext.getDirectories();
+    const folderStructures = await Promise.all(workspaceDirectories.map((dir) => getFolderStructure(dir, {
         fileService: config.getFileService(),
-      }),
-    ),
-  );
-  const folderStructure = folderStructures.join('\n');
-  let workingDirPreamble;
-  if (workspaceDirectories.length === 1) {
-    workingDirPreamble = `I'm currently working in the directory: ${workspaceDirectories[0]}`;
-  } else {
-    const dirList = workspaceDirectories.map((dir) => `  - ${dir}`).join('\n');
-    workingDirPreamble = `I'm currently working in the following directories:\n${dirList}`;
-  }
-  return `${workingDirPreamble}
+    })));
+    const folderStructure = folderStructures.join('\n');
+    let workingDirPreamble;
+    if (workspaceDirectories.length === 1) {
+        workingDirPreamble = `I'm currently working in the directory: ${workspaceDirectories[0]}`;
+    }
+    else {
+        const dirList = workspaceDirectories.map((dir) => `  - ${dir}`).join('\n');
+        workingDirPreamble = `I'm currently working in the following directories:\n${dirList}`;
+    }
+    return `${workingDirPreamble}
 Here is the folder structure of the current working directories:
 
 ${folderStructure}`;
@@ -44,67 +41,32 @@ ${folderStructure}`;
  * @returns A promise that resolves to an array of `Part` objects containing environment information.
  */
 export async function getEnvironmentContext(config) {
-  // Check if using local LLM - if so, provide minimal context
-  const authType = config.getContentGeneratorConfig()?.authType;
-  const isLocalLLM = authType === 'local';
-  if (isLocalLLM) {
-    // For local LLMs, provide only essential context to avoid overwhelming the model
-    const workspaceContext = config.getWorkspaceContext();
-    const workspaceDirectories = workspaceContext.getDirectories();
-    const workingDir = workspaceDirectories[0] || process.cwd();
-    const minimalContext = `Working directory: ${workingDir}`;
-    return [{ text: minimalContext }];
-  }
-  // Full context for cloud LLMs (Gemini, etc.)
-  const today = new Date().toLocaleDateString(undefined, {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-  const platform = process.platform;
-  const directoryContext = await getDirectoryContextString(config);
-  const context = `
+    // Check if using local LLM - if so, provide minimal context
+    const isLocalLLM = false; // Local LLM support disabled in upstream merge
+    if (isLocalLLM) {
+        // For local LLMs, provide only essential context to avoid overwhelming the model
+        const workspaceContext = config.getWorkspaceContext();
+        const workspaceDirectories = workspaceContext.getDirectories();
+        const workingDir = workspaceDirectories[0] || process.cwd();
+        const minimalContext = `Working directory: ${workingDir}`;
+        return [{ text: minimalContext }];
+    }
+    // Full context for cloud LLMs (Gemini, etc.)
+    const today = new Date().toLocaleDateString(undefined, {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+    });
+    const platform = process.platform;
+    const directoryContext = await getDirectoryContextString(config);
+    const context = `
 This is the Gemini CLI. We are setting up the context for our chat.
 Today's date is ${today} (formatted according to the user's locale).
 My operating system is: ${platform}
 ${directoryContext}
         `.trim();
-  const initialParts = [{ text: context }];
-  const toolRegistry = config.getToolRegistry();
-  // Add full file context if the flag is set
-  if (config.getFullContext()) {
-    try {
-      const readManyFilesTool = toolRegistry.getTool('read_many_files');
-      if (readManyFilesTool) {
-        const invocation = readManyFilesTool.build({
-          paths: ['**/*'], // Read everything recursively
-          useDefaultExcludes: true, // Use default excludes
-        });
-        // Read all files in the target directory
-        const result = await invocation.execute(AbortSignal.timeout(30000));
-        if (result.llmContent) {
-          initialParts.push({
-            text: `\n--- Full File Context ---\n${result.llmContent}`,
-          });
-        } else {
-          console.warn(
-            'Full context requested, but read_many_files returned no content.',
-          );
-        }
-      } else {
-        console.warn(
-          'Full context requested, but read_many_files tool not found.',
-        );
-      }
-    } catch (error) {
-      // Not using reportError here as it's a startup/config phase, not a chat/generation phase error.
-      console.error('Error reading full file context:', error);
-      initialParts.push({
-        text: '\n--- Error reading full file context ---',
-      });
-    }
-  }
-  return initialParts;
+    const initialParts = [{ text: context }];
+    return initialParts;
 }
 //# sourceMappingURL=environmentContext.js.map

@@ -3,10 +3,7 @@
  * Copyright 2025 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
-import type {
-  ContentGenerator,
-  ContentGeneratorConfig,
-} from '../core/contentGenerator.js';
+import type { ContentGenerator, ContentGeneratorConfig } from '../core/contentGenerator.js';
 import { AuthType } from '../core/contentGenerator.js';
 import { PromptRegistry } from '../prompts/prompt-registry.js';
 import { ToolRegistry } from '../tools/tool-registry.js';
@@ -25,6 +22,7 @@ export type { MCPOAuthConfig, AnyToolInvocation };
 import type { AnyToolInvocation } from '../tools/tools.js';
 import { WorkspaceContext } from '../utils/workspaceContext.js';
 import { Storage } from './storage.js';
+import { ApprovalStorage } from './approvalStorage.js';
 import type { ShellExecutionConfig } from '../services/shellExecutionService.js';
 import { FileExclusions } from '../utils/ignorePatterns.js';
 import type { EventEmitter } from 'node:events';
@@ -33,398 +31,403 @@ import { PolicyEngine } from '../policy/policy-engine.js';
 import type { PolicyEngineConfig } from '../policy/types.js';
 import type { UserTierId } from '../code_assist/types.js';
 import { AgentRegistry } from '../agents/registry.js';
-import { ApprovalStorage } from './approvalStorage.js';
 export declare enum ApprovalMode {
-  DEFAULT = 'default',
-  AUTO_EDIT = 'autoEdit',
-  YOLO = 'yolo',
+    DEFAULT = "default",
+    AUTO_EDIT = "autoEdit",
+    YOLO = "yolo"
 }
 export interface AccessibilitySettings {
-  disableLoadingPhrases?: boolean;
-  screenReader?: boolean;
+    disableLoadingPhrases?: boolean;
+    screenReader?: boolean;
 }
 export interface BugCommandSettings {
-  urlTemplate: string;
+    urlTemplate: string;
 }
 export interface ChatCompressionSettings {
-  contextPercentageThreshold?: number;
+    contextPercentageThreshold?: number;
 }
 export interface SummarizeToolOutputSettings {
-  tokenBudget?: number;
+    tokenBudget?: number;
 }
 export interface TelemetrySettings {
-  enabled?: boolean;
-  target?: TelemetryTarget;
-  otlpEndpoint?: string;
-  otlpProtocol?: 'grpc' | 'http';
-  logPrompts?: boolean;
-  outfile?: string;
-  useCollector?: boolean;
+    enabled?: boolean;
+    target?: TelemetryTarget;
+    otlpEndpoint?: string;
+    otlpProtocol?: 'grpc' | 'http';
+    logPrompts?: boolean;
+    outfile?: string;
+    useCollector?: boolean;
 }
 export interface OutputSettings {
-  format?: OutputFormat;
+    format?: OutputFormat;
 }
+export interface CodebaseInvestigatorSettings {
+    enabled?: boolean;
+    maxNumTurns?: number;
+    maxTimeMinutes?: number;
+    thinkingBudget?: number;
+    model?: string;
+}
+/**
+ * All information required in CLI to handle an extension. Defined in Core so
+ * that the collection of loaded, active, and inactive extensions can be passed
+ * around on the config object though Core does not use this information
+ * directly.
+ */
 export interface GeminiCLIExtension {
-  name: string;
-  version: string;
-  isActive: boolean;
-  path: string;
-  installMetadata?: ExtensionInstallMetadata;
+    name: string;
+    version: string;
+    isActive: boolean;
+    path: string;
+    installMetadata?: ExtensionInstallMetadata;
+    mcpServers?: Record<string, MCPServerConfig>;
+    contextFiles: string[];
+    excludeTools?: string[];
+    id: string;
 }
 export interface ExtensionInstallMetadata {
-  source: string;
-  type: 'git' | 'local' | 'link' | 'github-release';
-  releaseTag?: string;
-  ref?: string;
-  autoUpdate?: boolean;
+    source: string;
+    type: 'git' | 'local' | 'link' | 'github-release';
+    releaseTag?: string;
+    ref?: string;
+    autoUpdate?: boolean;
+    allowPreRelease?: boolean;
 }
 import type { FileFilteringOptions } from './constants.js';
-import {
-  DEFAULT_MEMORY_FILE_FILTERING_OPTIONS,
-  DEFAULT_FILE_FILTERING_OPTIONS,
-} from './constants.js';
+import { DEFAULT_FILE_FILTERING_OPTIONS, DEFAULT_MEMORY_FILE_FILTERING_OPTIONS } from './constants.js';
 export type { FileFilteringOptions };
-export {
-  DEFAULT_MEMORY_FILE_FILTERING_OPTIONS,
-  DEFAULT_FILE_FILTERING_OPTIONS,
-};
+export { DEFAULT_FILE_FILTERING_OPTIONS, DEFAULT_MEMORY_FILE_FILTERING_OPTIONS, };
 export declare const DEFAULT_TRUNCATE_TOOL_OUTPUT_THRESHOLD = 4000000;
 export declare const DEFAULT_TRUNCATE_TOOL_OUTPUT_LINES = 1000;
 export declare class MCPServerConfig {
-  readonly command?: string | undefined;
-  readonly args?: string[] | undefined;
-  readonly env?: Record<string, string> | undefined;
-  readonly cwd?: string | undefined;
-  readonly url?: string | undefined;
-  readonly httpUrl?: string | undefined;
-  readonly headers?: Record<string, string> | undefined;
-  readonly tcp?: string | undefined;
-  readonly timeout?: number | undefined;
-  readonly trust?: boolean | undefined;
-  readonly description?: string | undefined;
-  readonly includeTools?: string[] | undefined;
-  readonly excludeTools?: string[] | undefined;
-  readonly extensionName?: string | undefined;
-  readonly oauth?: MCPOAuthConfig | undefined;
-  readonly authProviderType?: AuthProviderType | undefined;
-  readonly targetAudience?: string | undefined;
-  readonly targetServiceAccount?: string | undefined;
-  constructor(
-    command?: string | undefined,
-    args?: string[] | undefined,
-    env?: Record<string, string> | undefined,
-    cwd?: string | undefined,
-    url?: string | undefined,
-    httpUrl?: string | undefined,
-    headers?: Record<string, string> | undefined,
-    tcp?: string | undefined,
-    timeout?: number | undefined,
-    trust?: boolean | undefined,
-    description?: string | undefined,
-    includeTools?: string[] | undefined,
-    excludeTools?: string[] | undefined,
-    extensionName?: string | undefined,
-    oauth?: MCPOAuthConfig | undefined,
-    authProviderType?: AuthProviderType | undefined,
-    targetAudience?: string | undefined,
-    targetServiceAccount?: string | undefined,
-  );
+    readonly command?: string | undefined;
+    readonly args?: string[] | undefined;
+    readonly env?: Record<string, string> | undefined;
+    readonly cwd?: string | undefined;
+    readonly url?: string | undefined;
+    readonly httpUrl?: string | undefined;
+    readonly headers?: Record<string, string> | undefined;
+    readonly tcp?: string | undefined;
+    readonly timeout?: number | undefined;
+    readonly trust?: boolean | undefined;
+    readonly description?: string | undefined;
+    readonly includeTools?: string[] | undefined;
+    readonly excludeTools?: string[] | undefined;
+    readonly extension?: GeminiCLIExtension | undefined;
+    readonly oauth?: MCPOAuthConfig | undefined;
+    readonly authProviderType?: AuthProviderType | undefined;
+    readonly targetAudience?: string | undefined;
+    readonly targetServiceAccount?: string | undefined;
+    constructor(command?: string | undefined, args?: string[] | undefined, env?: Record<string, string> | undefined, cwd?: string | undefined, url?: string | undefined, httpUrl?: string | undefined, headers?: Record<string, string> | undefined, tcp?: string | undefined, timeout?: number | undefined, trust?: boolean | undefined, description?: string | undefined, includeTools?: string[] | undefined, excludeTools?: string[] | undefined, extension?: GeminiCLIExtension | undefined, oauth?: MCPOAuthConfig | undefined, authProviderType?: AuthProviderType | undefined, targetAudience?: string | undefined, targetServiceAccount?: string | undefined);
 }
 export declare enum AuthProviderType {
-  DYNAMIC_DISCOVERY = 'dynamic_discovery',
-  GOOGLE_CREDENTIALS = 'google_credentials',
-  SERVICE_ACCOUNT_IMPERSONATION = 'service_account_impersonation',
+    DYNAMIC_DISCOVERY = "dynamic_discovery",
+    GOOGLE_CREDENTIALS = "google_credentials",
+    SERVICE_ACCOUNT_IMPERSONATION = "service_account_impersonation"
 }
 export interface SandboxConfig {
-  command: 'docker' | 'podman' | 'sandbox-exec';
-  image: string;
+    command: 'docker' | 'podman' | 'sandbox-exec';
+    image: string;
 }
 export interface ConfigParameters {
-  sessionId: string;
-  embeddingModel?: string;
-  sandbox?: SandboxConfig;
-  targetDir: string;
-  debugMode: boolean;
-  question?: string;
-  fullContext?: boolean;
-  coreTools?: string[];
-  allowedTools?: string[];
-  excludeTools?: string[];
-  toolDiscoveryCommand?: string;
-  toolCallCommand?: string;
-  mcpServerCommand?: string;
-  mcpServers?: Record<string, MCPServerConfig>;
-  userMemory?: string;
-  geminiMdFileCount?: number;
-  geminiMdFilePaths?: string[];
-  approvalMode?: ApprovalMode;
-  showMemoryUsage?: boolean;
-  contextFileName?: string | string[];
-  accessibility?: AccessibilitySettings;
-  telemetry?: TelemetrySettings;
-  usageStatisticsEnabled?: boolean;
-  fileFiltering?: {
-    respectGitIgnore?: boolean;
-    respectGeminiIgnore?: boolean;
-    enableRecursiveFileSearch?: boolean;
-    disableFuzzySearch?: boolean;
-  };
-  checkpointing?: boolean;
-  proxy?: string;
-  cwd: string;
-  fileDiscoveryService?: FileDiscoveryService;
-  includeDirectories?: string[];
-  bugCommand?: BugCommandSettings;
-  model: string;
-  extensionContextFilePaths?: string[];
-  maxSessionTurns?: number;
-  experimentalZedIntegration?: boolean;
-  listExtensions?: boolean;
-  extensions?: GeminiCLIExtension[];
-  blockedMcpServers?: Array<{
-    name: string;
-    extensionName: string;
-  }>;
-  noBrowser?: boolean;
-  summarizeToolOutput?: Record<string, SummarizeToolOutputSettings>;
-  folderTrustFeature?: boolean;
-  folderTrust?: boolean;
-  ideMode?: boolean;
-  loadMemoryFromIncludeDirectories?: boolean;
-  chatCompression?: ChatCompressionSettings;
-  interactive?: boolean;
-  trustedFolder?: boolean;
-  useRipgrep?: boolean;
-  shouldUseNodePtyShell?: boolean;
-  skipNextSpeakerCheck?: boolean;
-  shellExecutionConfig?: ShellExecutionConfig;
-  extensionManagement?: boolean;
-  enablePromptCompletion?: boolean;
-  truncateToolOutputThreshold?: number;
-  truncateToolOutputLines?: number;
-  enableToolOutputTruncation?: boolean;
-  eventEmitter?: EventEmitter;
-  useSmartEdit?: boolean;
-  useWriteTodos?: boolean;
-  policyEngineConfig?: PolicyEngineConfig;
-  output?: OutputSettings;
-  useModelRouter?: boolean;
-  enableMessageBusIntegration?: boolean;
-  enableSubagents?: boolean;
+    sessionId: string;
+    embeddingModel?: string;
+    sandbox?: SandboxConfig;
+    targetDir: string;
+    debugMode: boolean;
+    question?: string;
+    coreTools?: string[];
+    allowedTools?: string[];
+    excludeTools?: string[];
+    toolDiscoveryCommand?: string;
+    toolCallCommand?: string;
+    mcpServerCommand?: string;
+    mcpServers?: Record<string, MCPServerConfig>;
+    userMemory?: string;
+    geminiMdFileCount?: number;
+    geminiMdFilePaths?: string[];
+    approvalMode?: ApprovalMode;
+    showMemoryUsage?: boolean;
+    contextFileName?: string | string[];
+    accessibility?: AccessibilitySettings;
+    telemetry?: TelemetrySettings;
+    usageStatisticsEnabled?: boolean;
+    fileFiltering?: {
+        respectGitIgnore?: boolean;
+        respectGeminiIgnore?: boolean;
+        enableRecursiveFileSearch?: boolean;
+        disableFuzzySearch?: boolean;
+    };
+    checkpointing?: boolean;
+    proxy?: string;
+    cwd: string;
+    fileDiscoveryService?: FileDiscoveryService;
+    includeDirectories?: string[];
+    bugCommand?: BugCommandSettings;
+    model: string;
+    maxSessionTurns?: number;
+    experimentalZedIntegration?: boolean;
+    listExtensions?: boolean;
+    extensions?: GeminiCLIExtension[];
+    enabledExtensions?: string[];
+    blockedMcpServers?: Array<{
+        name: string;
+        extensionName: string;
+    }>;
+    noBrowser?: boolean;
+    summarizeToolOutput?: Record<string, SummarizeToolOutputSettings>;
+    folderTrust?: boolean;
+    ideMode?: boolean;
+    loadMemoryFromIncludeDirectories?: boolean;
+    chatCompression?: ChatCompressionSettings;
+    interactive?: boolean;
+    trustedFolder?: boolean;
+    useRipgrep?: boolean;
+    enableInteractiveShell?: boolean;
+    skipNextSpeakerCheck?: boolean;
+    shellExecutionConfig?: ShellExecutionConfig;
+    extensionManagement?: boolean;
+    enablePromptCompletion?: boolean;
+    truncateToolOutputThreshold?: number;
+    truncateToolOutputLines?: number;
+    enableToolOutputTruncation?: boolean;
+    eventEmitter?: EventEmitter;
+    useSmartEdit?: boolean;
+    useWriteTodos?: boolean;
+    policyEngineConfig?: PolicyEngineConfig;
+    output?: OutputSettings;
+    useModelRouter?: boolean;
+    enableMessageBusIntegration?: boolean;
+    codebaseInvestigatorSettings?: CodebaseInvestigatorSettings;
+    continueOnFailedApiCall?: boolean;
+    retryFetchErrors?: boolean;
+    enableShellOutputEfficiency?: boolean;
+    fakeResponses?: string;
+    ptyInfo?: string;
+    disableYoloMode?: boolean;
 }
 export declare class Config {
-  private toolRegistry;
-  private promptRegistry;
-  private agentRegistry;
-  private readonly sessionId;
-  private fileSystemService;
-  private contentGeneratorConfig;
-  private contentGenerator;
-  private readonly embeddingModel;
-  private readonly sandbox;
-  private readonly targetDir;
-  private workspaceContext;
-  private readonly debugMode;
-  private readonly question;
-  private readonly fullContext;
-  private readonly coreTools;
-  private readonly allowedTools;
-  private readonly excludeTools;
-  private readonly toolDiscoveryCommand;
-  private readonly toolCallCommand;
-  private readonly mcpServerCommand;
-  private readonly mcpServers;
-  private userMemory;
-  private geminiMdFileCount;
-  private geminiMdFilePaths;
-  private approvalMode;
-  private readonly showMemoryUsage;
-  private readonly accessibility;
-  private readonly telemetrySettings;
-  private readonly usageStatisticsEnabled;
-  private geminiClient;
-  private baseLlmClient;
-  private modelRouterService;
-  private readonly fileFiltering;
-  private fileDiscoveryService;
-  private gitService;
-  private readonly checkpointing;
-  private readonly proxy;
-  private readonly cwd;
-  private readonly bugCommand;
-  private model;
-  private readonly extensionContextFilePaths;
-  private readonly noBrowser;
-  private readonly folderTrustFeature;
-  private readonly folderTrust;
-  private ideMode;
-  private inFallbackMode;
-  private readonly maxSessionTurns;
-  private readonly listExtensions;
-  private readonly _extensions;
-  private readonly _blockedMcpServers;
-  fallbackModelHandler?: FallbackModelHandler;
-  private quotaErrorOccurred;
-  private readonly summarizeToolOutput;
-  private readonly experimentalZedIntegration;
-  private readonly loadMemoryFromIncludeDirectories;
-  private readonly chatCompression;
-  private readonly interactive;
-  private readonly trustedFolder;
-  private readonly useRipgrep;
-  private readonly shouldUseNodePtyShell;
-  private readonly skipNextSpeakerCheck;
-  private shellExecutionConfig;
-  private readonly extensionManagement;
-  private readonly enablePromptCompletion;
-  private readonly truncateToolOutputThreshold;
-  private readonly truncateToolOutputLines;
-  private readonly enableToolOutputTruncation;
-  private initialized;
-  readonly storage: Storage;
-  private readonly approvalStorage;
-  private readonly fileExclusions;
-  private readonly eventEmitter?;
-  private readonly useSmartEdit;
-  private readonly useWriteTodos;
-  private readonly messageBus;
-  private readonly policyEngine;
-  private readonly outputSettings;
-  private readonly useModelRouter;
-  private readonly enableMessageBusIntegration;
-  private readonly enableSubagents;
-  constructor(params: ConfigParameters);
-  /**
-   * Must only be called once, throws if called again.
-   */
-  initialize(): Promise<void>;
-  getContentGenerator(): ContentGenerator;
-  refreshAuth(authMethod: AuthType): Promise<void>;
-  getUserTier(): UserTierId | undefined;
-  /**
-   * Provides access to the BaseLlmClient for stateless LLM operations.
-   */
-  getBaseLlmClient(): BaseLlmClient;
-  getSessionId(): string;
-  shouldLoadMemoryFromIncludeDirectories(): boolean;
-  getContentGeneratorConfig(): ContentGeneratorConfig;
-  getModel(): string;
-  setModel(newModel: string): void;
-  isInFallbackMode(): boolean;
-  setFallbackMode(active: boolean): void;
-  setFallbackModelHandler(handler: FallbackModelHandler): void;
-  getMaxSessionTurns(): number;
-  setQuotaErrorOccurred(value: boolean): void;
-  getQuotaErrorOccurred(): boolean;
-  getEmbeddingModel(): string;
-  getSandbox(): SandboxConfig | undefined;
-  isRestrictiveSandbox(): boolean;
-  getTargetDir(): string;
-  getProjectRoot(): string;
-  getWorkspaceContext(): WorkspaceContext;
-  getAgentRegistry(): AgentRegistry;
-  getToolRegistry(): ToolRegistry;
-  getPromptRegistry(): PromptRegistry;
-  getDebugMode(): boolean;
-  getQuestion(): string | undefined;
-  getFullContext(): boolean;
-  getCoreTools(): string[] | undefined;
-  getAllowedTools(): string[] | undefined;
-  getExcludeTools(): string[] | undefined;
-  getToolDiscoveryCommand(): string | undefined;
-  getToolCallCommand(): string | undefined;
-  getMcpServerCommand(): string | undefined;
-  getMcpServers(): Record<string, MCPServerConfig> | undefined;
-  getUserMemory(): string;
-  setUserMemory(newUserMemory: string): void;
-  getGeminiMdFileCount(): number;
-  setGeminiMdFileCount(count: number): void;
-  getGeminiMdFilePaths(): string[];
-  setGeminiMdFilePaths(paths: string[]): void;
-  getApprovalMode(): ApprovalMode;
-  setApprovalMode(mode: ApprovalMode): void;
-  getShowMemoryUsage(): boolean;
-  getAccessibility(): AccessibilitySettings;
-  getTelemetryEnabled(): boolean;
-  getTelemetryLogPromptsEnabled(): boolean;
-  getTelemetryOtlpEndpoint(): string;
-  getTelemetryOtlpProtocol(): 'grpc' | 'http';
-  getTelemetryTarget(): TelemetryTarget;
-  getTelemetryOutfile(): string | undefined;
-  getTelemetryUseCollector(): boolean;
-  getGeminiClient(): GeminiClient;
-  getModelRouterService(): ModelRouterService;
-  getEnableRecursiveFileSearch(): boolean;
-  getFileFilteringDisableFuzzySearch(): boolean;
-  getFileFilteringRespectGitIgnore(): boolean;
-  getFileFilteringRespectGeminiIgnore(): boolean;
-  getFileFilteringOptions(): FileFilteringOptions;
-  /**
-   * Gets custom file exclusion patterns from configuration.
-   * TODO: This is a placeholder implementation. In the future, this could
-   * read from settings files, CLI arguments, or environment variables.
-   */
-  getCustomExcludes(): string[];
-  getCheckpointingEnabled(): boolean;
-  getProxy(): string | undefined;
-  getWorkingDir(): string;
-  getBugCommand(): BugCommandSettings | undefined;
-  getFileService(): FileDiscoveryService;
-  getUsageStatisticsEnabled(): boolean;
-  getExtensionContextFilePaths(): string[];
-  getExperimentalZedIntegration(): boolean;
-  getListExtensions(): boolean;
-  getExtensionManagement(): boolean;
-  getExtensions(): GeminiCLIExtension[];
-  getBlockedMcpServers(): Array<{
-    name: string;
-    extensionName: string;
-  }>;
-  getNoBrowser(): boolean;
-  isBrowserLaunchSuppressed(): boolean;
-  getSummarizeToolOutputConfig():
-    | Record<string, SummarizeToolOutputSettings>
-    | undefined;
-  getIdeMode(): boolean;
-  getFolderTrustFeature(): boolean;
-  /**
-   * Returns 'true' if the workspace is considered "trusted".
-   * 'false' for untrusted.
-   */
-  getFolderTrust(): boolean;
-  isTrustedFolder(): boolean;
-  setIdeMode(value: boolean): void;
-  /**
-   * Get the current FileSystemService
-   */
-  getFileSystemService(): FileSystemService;
-  /**
-   * Set a custom FileSystemService
-   */
-  setFileSystemService(fileSystemService: FileSystemService): void;
-  getChatCompression(): ChatCompressionSettings | undefined;
-  isInteractive(): boolean;
-  getUseRipgrep(): boolean;
-  getShouldUseNodePtyShell(): boolean;
-  getSkipNextSpeakerCheck(): boolean;
-  getShellExecutionConfig(): ShellExecutionConfig;
-  setShellExecutionConfig(config: ShellExecutionConfig): void;
-  getScreenReader(): boolean;
-  getEnablePromptCompletion(): boolean;
-  getEnableToolOutputTruncation(): boolean;
-  getTruncateToolOutputThreshold(): number;
-  getTruncateToolOutputLines(): number;
-  getUseSmartEdit(): boolean;
-  getUseWriteTodos(): boolean;
-  getOutputFormat(): OutputFormat;
-  getUseModelRouter(): boolean;
-  getGitService(): Promise<GitService>;
-  getFileExclusions(): FileExclusions;
-  getMessageBus(): MessageBus;
-  getPolicyEngine(): PolicyEngine;
-  getEnableMessageBusIntegration(): boolean;
-  getEnableSubagents(): boolean;
-  getApprovalStorage(): ApprovalStorage;
-  createToolRegistry(): Promise<ToolRegistry>;
+    private toolRegistry;
+    private promptRegistry;
+    private agentRegistry;
+    private readonly sessionId;
+    private fileSystemService;
+    private contentGeneratorConfig;
+    private contentGenerator;
+    private readonly embeddingModel;
+    private readonly sandbox;
+    private readonly targetDir;
+    private workspaceContext;
+    private readonly debugMode;
+    private readonly question;
+    private readonly coreTools;
+    private readonly allowedTools;
+    private readonly excludeTools;
+    private readonly toolDiscoveryCommand;
+    private readonly toolCallCommand;
+    private readonly mcpServerCommand;
+    private readonly mcpServers;
+    private userMemory;
+    private geminiMdFileCount;
+    private geminiMdFilePaths;
+    private approvalMode;
+    private readonly showMemoryUsage;
+    private readonly accessibility;
+    private readonly telemetrySettings;
+    private readonly usageStatisticsEnabled;
+    private geminiClient;
+    private baseLlmClient;
+    private modelRouterService;
+    private readonly fileFiltering;
+    private fileDiscoveryService;
+    private gitService;
+    private readonly checkpointing;
+    private readonly proxy;
+    private readonly cwd;
+    private readonly bugCommand;
+    private model;
+    private readonly noBrowser;
+    private readonly folderTrust;
+    private ideMode;
+    private inFallbackMode;
+    private readonly maxSessionTurns;
+    private readonly listExtensions;
+    private readonly _extensions;
+    private readonly _enabledExtensions;
+    private readonly _blockedMcpServers;
+    fallbackModelHandler?: FallbackModelHandler;
+    private quotaErrorOccurred;
+    private readonly summarizeToolOutput;
+    private readonly experimentalZedIntegration;
+    private readonly loadMemoryFromIncludeDirectories;
+    private readonly chatCompression;
+    private readonly interactive;
+    private readonly ptyInfo;
+    private readonly trustedFolder;
+    private readonly useRipgrep;
+    private readonly enableInteractiveShell;
+    private readonly skipNextSpeakerCheck;
+    private shellExecutionConfig;
+    private readonly extensionManagement;
+    private readonly enablePromptCompletion;
+    private readonly truncateToolOutputThreshold;
+    private readonly truncateToolOutputLines;
+    private readonly enableToolOutputTruncation;
+    private initialized;
+    readonly storage: Storage;
+    private readonly approvalStorage;
+    private readonly fileExclusions;
+    private readonly eventEmitter?;
+    private readonly useSmartEdit;
+    private readonly useWriteTodos;
+    private readonly messageBus;
+    private readonly policyEngine;
+    private readonly outputSettings;
+    private readonly useModelRouter;
+    private readonly enableMessageBusIntegration;
+    private readonly codebaseInvestigatorSettings;
+    private readonly continueOnFailedApiCall;
+    private readonly retryFetchErrors;
+    private readonly enableShellOutputEfficiency;
+    readonly fakeResponses?: string;
+    private readonly disableYoloMode;
+    constructor(params: ConfigParameters);
+    /**
+     * Must only be called once, throws if called again.
+     */
+    initialize(): Promise<void>;
+    getContentGenerator(): ContentGenerator;
+    refreshAuth(authMethod: AuthType): Promise<void>;
+    refreshConnection(): Promise<void>;
+    getUserTier(): UserTierId | undefined;
+    /**
+     * Provides access to the BaseLlmClient for stateless LLM operations.
+     */
+    getBaseLlmClient(): BaseLlmClient;
+    getSessionId(): string;
+    shouldLoadMemoryFromIncludeDirectories(): boolean;
+    getContentGeneratorConfig(): ContentGeneratorConfig;
+    getModel(): string;
+    setModel(newModel: string): void;
+    isInFallbackMode(): boolean;
+    setFallbackMode(active: boolean): void;
+    setFallbackModelHandler(handler: FallbackModelHandler): void;
+    getMaxSessionTurns(): number;
+    setQuotaErrorOccurred(value: boolean): void;
+    getQuotaErrorOccurred(): boolean;
+    getEmbeddingModel(): string;
+    getSandbox(): SandboxConfig | undefined;
+    isRestrictiveSandbox(): boolean;
+    getTargetDir(): string;
+    getProjectRoot(): string;
+    getWorkspaceContext(): WorkspaceContext;
+    getAgentRegistry(): AgentRegistry;
+    getToolRegistry(): ToolRegistry;
+    getPromptRegistry(): PromptRegistry;
+    getDebugMode(): boolean;
+    getQuestion(): string | undefined;
+    getCoreTools(): string[] | undefined;
+    getAllowedTools(): string[] | undefined;
+    getExcludeTools(): string[] | undefined;
+    getToolDiscoveryCommand(): string | undefined;
+    getToolCallCommand(): string | undefined;
+    getMcpServerCommand(): string | undefined;
+    getMcpServers(): Record<string, MCPServerConfig> | undefined;
+    getUserMemory(): string;
+    setUserMemory(newUserMemory: string): void;
+    getGeminiMdFileCount(): number;
+    setGeminiMdFileCount(count: number): void;
+    getGeminiMdFilePaths(): string[];
+    setGeminiMdFilePaths(paths: string[]): void;
+    getApprovalMode(): ApprovalMode;
+    getApprovalStorage(): ApprovalStorage;
+    setApprovalMode(mode: ApprovalMode): void;
+    isYoloModeDisabled(): boolean;
+    getShowMemoryUsage(): boolean;
+    getAccessibility(): AccessibilitySettings;
+    getTelemetryEnabled(): boolean;
+    getTelemetryLogPromptsEnabled(): boolean;
+    getTelemetryOtlpEndpoint(): string;
+    getTelemetryOtlpProtocol(): 'grpc' | 'http';
+    getTelemetryTarget(): TelemetryTarget;
+    getTelemetryOutfile(): string | undefined;
+    getTelemetryUseCollector(): boolean;
+    getGeminiClient(): GeminiClient;
+    getModelRouterService(): ModelRouterService;
+    getEnableRecursiveFileSearch(): boolean;
+    getFileFilteringDisableFuzzySearch(): boolean;
+    getFileFilteringRespectGitIgnore(): boolean;
+    getFileFilteringRespectGeminiIgnore(): boolean;
+    getFileFilteringOptions(): FileFilteringOptions;
+    /**
+     * Gets custom file exclusion patterns from configuration.
+     * TODO: This is a placeholder implementation. In the future, this could
+     * read from settings files, CLI arguments, or environment variables.
+     */
+    getCustomExcludes(): string[];
+    getCheckpointingEnabled(): boolean;
+    getProxy(): string | undefined;
+    getWorkingDir(): string;
+    getBugCommand(): BugCommandSettings | undefined;
+    getFileService(): FileDiscoveryService;
+    getUsageStatisticsEnabled(): boolean;
+    getExperimentalZedIntegration(): boolean;
+    getListExtensions(): boolean;
+    getExtensionManagement(): boolean;
+    getExtensions(): GeminiCLIExtension[];
+    getEnabledExtensions(): string[];
+    getBlockedMcpServers(): Array<{
+        name: string;
+        extensionName: string;
+    }>;
+    getNoBrowser(): boolean;
+    isBrowserLaunchSuppressed(): boolean;
+    getSummarizeToolOutputConfig(): Record<string, SummarizeToolOutputSettings> | undefined;
+    getIdeMode(): boolean;
+    /**
+     * Returns 'true' if the folder trust feature is enabled.
+     */
+    getFolderTrust(): boolean;
+    /**
+     * Returns 'true' if the workspace is considered "trusted".
+     * 'false' for untrusted.
+     */
+    isTrustedFolder(): boolean;
+    setIdeMode(value: boolean): void;
+    /**
+     * Get the current FileSystemService
+     */
+    getFileSystemService(): FileSystemService;
+    /**
+     * Set a custom FileSystemService
+     */
+    setFileSystemService(fileSystemService: FileSystemService): void;
+    getChatCompression(): ChatCompressionSettings | undefined;
+    isInteractiveShellEnabled(): boolean;
+    isInteractive(): boolean;
+    getUseRipgrep(): boolean;
+    getEnableInteractiveShell(): boolean;
+    getSkipNextSpeakerCheck(): boolean;
+    getContinueOnFailedApiCall(): boolean;
+    getRetryFetchErrors(): boolean;
+    getEnableShellOutputEfficiency(): boolean;
+    getShellExecutionConfig(): ShellExecutionConfig;
+    setShellExecutionConfig(config: ShellExecutionConfig): void;
+    getScreenReader(): boolean;
+    getEnablePromptCompletion(): boolean;
+    getEnableToolOutputTruncation(): boolean;
+    getTruncateToolOutputThreshold(): number;
+    getTruncateToolOutputLines(): number;
+    getUseSmartEdit(): boolean;
+    getUseWriteTodos(): boolean;
+    getOutputFormat(): OutputFormat;
+    getUseModelRouter(): boolean;
+    getGitService(): Promise<GitService>;
+    getFileExclusions(): FileExclusions;
+    getMessageBus(): MessageBus;
+    getPolicyEngine(): PolicyEngine;
+    getEnableMessageBusIntegration(): boolean;
+    getCodebaseInvestigatorSettings(): CodebaseInvestigatorSettings;
+    createToolRegistry(): Promise<ToolRegistry>;
 }
 export { DEFAULT_GEMINI_FLASH_MODEL };

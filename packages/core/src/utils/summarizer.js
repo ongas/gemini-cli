@@ -5,6 +5,7 @@
  */
 import { DEFAULT_GEMINI_FLASH_LITE_MODEL } from '../config/models.js';
 import { getResponseText, partToString } from './partUtils.js';
+import { debugLogger } from './debugLogger.js';
 /**
  * The default summarizer for tool results.
  *
@@ -13,8 +14,7 @@ import { getResponseText, partToString } from './partUtils.js';
  * @param abortSignal The abort signal to use for summarization.
  * @returns The summary of the result.
  */
-export const defaultSummarizer = (result, _geminiClient, _abortSignal) =>
-  Promise.resolve(JSON.stringify(result.llmContent));
+export const defaultSummarizer = (result, _geminiClient, _abortSignal) => Promise.resolve(JSON.stringify(result.llmContent));
 const SUMMARIZE_TOOL_OUTPUT_PROMPT = `Summarize the following tool output to be a maximum of {maxOutputTokens} tokens. The summary should be concise and capture the main points of the tool output.
 
 The summarization should be done based on the content that is provided. Here are the basic rules to follow:
@@ -28,42 +28,25 @@ Text to summarize:
 
 Return the summary string which should first contain an overall summarization of text followed by the full stack trace of errors and warnings in the tool output.
 `;
-export const llmSummarizer = (result, geminiClient, abortSignal) =>
-  summarizeToolOutput(
-    partToString(result.llmContent),
-    geminiClient,
-    abortSignal,
-  );
-export async function summarizeToolOutput(
-  textToSummarize,
-  geminiClient,
-  abortSignal,
-  maxOutputTokens = 2000,
-) {
-  // There is going to be a slight difference here since we are comparing length of string with maxOutputTokens.
-  // This is meant to be a ballpark estimation of if we need to summarize the tool output.
-  if (!textToSummarize || textToSummarize.length < maxOutputTokens) {
-    return textToSummarize;
-  }
-  const prompt = SUMMARIZE_TOOL_OUTPUT_PROMPT.replace(
-    '{maxOutputTokens}',
-    String(maxOutputTokens),
-  ).replace('{textToSummarize}', textToSummarize);
-  const contents = [{ role: 'user', parts: [{ text: prompt }] }];
-  const toolOutputSummarizerConfig = {
-    maxOutputTokens,
-  };
-  try {
-    const parsedResponse = await geminiClient.generateContent(
-      contents,
-      toolOutputSummarizerConfig,
-      abortSignal,
-      DEFAULT_GEMINI_FLASH_LITE_MODEL,
-    );
-    return getResponseText(parsedResponse) || textToSummarize;
-  } catch (error) {
-    console.error('Failed to summarize tool output.', error);
-    return textToSummarize;
-  }
+export const llmSummarizer = (result, geminiClient, abortSignal) => summarizeToolOutput(partToString(result.llmContent), geminiClient, abortSignal);
+export async function summarizeToolOutput(textToSummarize, geminiClient, abortSignal, maxOutputTokens = 2000) {
+    // There is going to be a slight difference here since we are comparing length of string with maxOutputTokens.
+    // This is meant to be a ballpark estimation of if we need to summarize the tool output.
+    if (!textToSummarize || textToSummarize.length < maxOutputTokens) {
+        return textToSummarize;
+    }
+    const prompt = SUMMARIZE_TOOL_OUTPUT_PROMPT.replace('{maxOutputTokens}', String(maxOutputTokens)).replace('{textToSummarize}', textToSummarize);
+    const contents = [{ role: 'user', parts: [{ text: prompt }] }];
+    const toolOutputSummarizerConfig = {
+        maxOutputTokens,
+    };
+    try {
+        const parsedResponse = (await geminiClient.generateContent(contents, toolOutputSummarizerConfig, abortSignal, DEFAULT_GEMINI_FLASH_LITE_MODEL));
+        return getResponseText(parsedResponse) || textToSummarize;
+    }
+    catch (error) {
+        debugLogger.warn('Failed to summarize tool output.', error);
+        return textToSummarize;
+    }
 }
 //# sourceMappingURL=summarizer.js.map

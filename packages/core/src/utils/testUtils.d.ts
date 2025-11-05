@@ -26,8 +26,4 @@ export declare function resetSimulationState(): void;
 /**
  * Enable/disable 429 simulation programmatically (for tests)
  */
-export declare function setSimulate429(
-  enabled: boolean,
-  afterRequests?: number,
-  forAuthType?: string,
-): void;
+export declare function setSimulate429(enabled: boolean, afterRequests?: number, forAuthType?: string): void;

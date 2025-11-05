@@ -314,13 +314,7 @@ export class LSTool extends BaseDeclarativeTool<LSToolParams, ToolResult> {
       return `Path must be absolute: ${params.path}`;
     }
 
-    const workspaceContext = this.config.getWorkspaceContext();
-    if (!workspaceContext.isPathWithinWorkspace(params.path)) {
-      const directories = workspaceContext.getDirectories();
-      return `Path must be within one of the workspace directories: ${directories.join(
-        ', ',
-      )}`;
-    }
+    // Workspace directory restriction removed - allow ls in any directory
     return null;
   }
 

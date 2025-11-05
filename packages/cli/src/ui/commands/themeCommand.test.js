@@ -8,25 +8,25 @@ import { themeCommand } from './themeCommand.js';
 import {} from './types.js';
 import { createMockCommandContext } from '../../test-utils/mockCommandContext.js';
 describe('themeCommand', () => {
-  let mockContext;
-  beforeEach(() => {
-    mockContext = createMockCommandContext();
-  });
-  it('should return a dialog action to open the theme dialog', () => {
-    // Ensure the command has an action to test.
-    if (!themeCommand.action) {
-      throw new Error('The theme command must have an action.');
-    }
-    const result = themeCommand.action(mockContext, '');
-    // Assert that the action returns the correct object to trigger the theme dialog.
-    expect(result).toEqual({
-      type: 'dialog',
-      dialog: 'theme',
+    let mockContext;
+    beforeEach(() => {
+        mockContext = createMockCommandContext();
     });
-  });
-  it('should have the correct name and description', () => {
-    expect(themeCommand.name).toBe('theme');
-    expect(themeCommand.description).toBe('change the theme');
-  });
+    it('should return a dialog action to open the theme dialog', () => {
+        // Ensure the command has an action to test.
+        if (!themeCommand.action) {
+            throw new Error('The theme command must have an action.');
+        }
+        const result = themeCommand.action(mockContext, '');
+        // Assert that the action returns the correct object to trigger the theme dialog.
+        expect(result).toEqual({
+            type: 'dialog',
+            dialog: 'theme',
+        });
+    });
+    it('should have the correct name and description', () => {
+        expect(themeCommand.name).toBe('theme');
+        expect(themeCommand.description).toBe('Change the theme');
+    });
 });
 //# sourceMappingURL=themeCommand.test.js.map

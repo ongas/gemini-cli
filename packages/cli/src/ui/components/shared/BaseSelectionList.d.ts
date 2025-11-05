@@ -6,23 +6,20 @@
 import type React from 'react';
 import type { SelectionListItem } from '../../hooks/useSelectionList.js';
 export interface RenderItemContext {
-  isSelected: boolean;
-  titleColor: string;
-  numberColor: string;
+    isSelected: boolean;
+    titleColor: string;
+    numberColor: string;
 }
-export interface BaseSelectionListProps<
-  T,
-  TItem extends SelectionListItem<T> = SelectionListItem<T>,
-> {
-  items: TItem[];
-  initialIndex?: number;
-  onSelect: (value: T) => void;
-  onHighlight?: (value: T) => void;
-  isFocused?: boolean;
-  showNumbers?: boolean;
-  showScrollArrows?: boolean;
-  maxItemsToShow?: number;
-  renderItem: (item: TItem, context: RenderItemContext) => React.ReactNode;
+export interface BaseSelectionListProps<T, TItem extends SelectionListItem<T> = SelectionListItem<T>> {
+    items: TItem[];
+    initialIndex?: number;
+    onSelect: (value: T) => void;
+    onHighlight?: (value: T) => void;
+    isFocused?: boolean;
+    showNumbers?: boolean;
+    showScrollArrows?: boolean;
+    maxItemsToShow?: number;
+    renderItem: (item: TItem, context: RenderItemContext) => React.ReactNode;
 }
 /**
  * Base component for selection lists that provides common UI structure
@@ -38,17 +35,4 @@ export interface BaseSelectionListProps<
  * Specific components should use this as a base and provide
  * their own renderItem implementation for custom content.
  */
-export declare function BaseSelectionList<
-  T,
-  TItem extends SelectionListItem<T> = SelectionListItem<T>,
->({
-  items,
-  initialIndex,
-  onSelect,
-  onHighlight,
-  isFocused,
-  showNumbers,
-  showScrollArrows,
-  maxItemsToShow,
-  renderItem,
-}: BaseSelectionListProps<T, TItem>): React.JSX.Element;
+export declare function BaseSelectionList<T, TItem extends SelectionListItem<T> = SelectionListItem<T>>({ items, initialIndex, onSelect, onHighlight, isFocused, showNumbers, showScrollArrows, maxItemsToShow, renderItem, }: BaseSelectionListProps<T, TItem>): React.JSX.Element;

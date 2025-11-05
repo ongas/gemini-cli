@@ -6,11 +6,7 @@
 import type { SandboxConfig } from '@google/gemini-cli-core';
 import type { Settings } from './settings.js';
 interface SandboxCliArgs {
-  sandbox?: boolean | string;
-  sandboxImage?: string;
+    sandbox?: boolean | string;
 }
-export declare function loadSandboxConfig(
-  settings: Settings,
-  argv: SandboxCliArgs,
-): Promise<SandboxConfig | undefined>;
+export declare function loadSandboxConfig(settings: Settings, argv: SandboxCliArgs): Promise<SandboxConfig | undefined>;
 export {};

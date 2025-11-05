@@ -10,6 +10,38 @@ import path from 'node:path';
 import mime from 'mime/lite';
 import { ToolErrorType } from '../tools/tool-error.js';
 import { BINARY_EXTENSIONS } from './ignorePatterns.js';
+import { createRequire as createModuleRequire } from 'node:module';
+import { debugLogger } from './debugLogger.js';
+const requireModule = createModuleRequire(import.meta.url);
+export async function readWasmBinaryFromDisk(specifier) {
+    const resolvedPath = requireModule.resolve(specifier);
+    const buffer = await fsPromises.readFile(resolvedPath);
+    return new Uint8Array(buffer);
+}
+export async function loadWasmBinary(dynamicImport, fallbackSpecifier) {
+    try {
+        const module = await dynamicImport();
+        if (module?.default instanceof Uint8Array) {
+            return module.default;
+        }
+    }
+    catch (error) {
+        try {
+            return await readWasmBinaryFromDisk(fallbackSpecifier);
+        }
+        catch {
+            throw error;
+        }
+    }
+    try {
+        return await readWasmBinaryFromDisk(fallbackSpecifier);
+    }
+    catch (error) {
+        throw new Error('WASM binary module did not provide a Uint8Array export', {
+            cause: error,
+        });
+    }
+}
 // Constants for text file processing
 // IMPORTANT: These limits prevent excessive context usage
 // Aggressive limits to avoid wasting tokens on large files
@@ -23,117 +55,115 @@ export const DEFAULT_ENCODING = 'utf-8';
  * Reads up to the first 4 bytes and returns encoding + BOM length, else null.
  */
 export function detectBOM(buf) {
-  if (buf.length >= 4) {
-    // UTF-32 LE: FF FE 00 00
-    if (
-      buf[0] === 0xff &&
-      buf[1] === 0xfe &&
-      buf[2] === 0x00 &&
-      buf[3] === 0x00
-    ) {
-      return { encoding: 'utf32le', bomLength: 4 };
+    if (buf.length >= 4) {
+        // UTF-32 LE: FF FE 00 00
+        if (buf[0] === 0xff &&
+            buf[1] === 0xfe &&
+            buf[2] === 0x00 &&
+            buf[3] === 0x00) {
+            return { encoding: 'utf32le', bomLength: 4 };
+        }
+        // UTF-32 BE: 00 00 FE FF
+        if (buf[0] === 0x00 &&
+            buf[1] === 0x00 &&
+            buf[2] === 0xfe &&
+            buf[3] === 0xff) {
+            return { encoding: 'utf32be', bomLength: 4 };
+        }
     }
-    // UTF-32 BE: 00 00 FE FF
-    if (
-      buf[0] === 0x00 &&
-      buf[1] === 0x00 &&
-      buf[2] === 0xfe &&
-      buf[3] === 0xff
-    ) {
-      return { encoding: 'utf32be', bomLength: 4 };
+    if (buf.length >= 3) {
+        // UTF-8: EF BB BF
+        if (buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf) {
+            return { encoding: 'utf8', bomLength: 3 };
+        }
     }
-  }
-  if (buf.length >= 3) {
-    // UTF-8: EF BB BF
-    if (buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf) {
-      return { encoding: 'utf8', bomLength: 3 };
+    if (buf.length >= 2) {
+        // UTF-16 LE: FF FE  (but not UTF-32 LE already matched above)
+        if (buf[0] === 0xff &&
+            buf[1] === 0xfe &&
+            (buf.length < 4 || buf[2] !== 0x00 || buf[3] !== 0x00)) {
+            return { encoding: 'utf16le', bomLength: 2 };
+        }
+        // UTF-16 BE: FE FF
+        if (buf[0] === 0xfe && buf[1] === 0xff) {
+            return { encoding: 'utf16be', bomLength: 2 };
+        }
     }
-  }
-  if (buf.length >= 2) {
-    // UTF-16 LE: FF FE  (but not UTF-32 LE already matched above)
-    if (
-      buf[0] === 0xff &&
-      buf[1] === 0xfe &&
-      (buf.length < 4 || buf[2] !== 0x00 || buf[3] !== 0x00)
-    ) {
-      return { encoding: 'utf16le', bomLength: 2 };
-    }
-    // UTF-16 BE: FE FF
-    if (buf[0] === 0xfe && buf[1] === 0xff) {
-      return { encoding: 'utf16be', bomLength: 2 };
-    }
-  }
-  return null;
+    return null;
 }
 /**
  * Convert a UTF-16 BE buffer to a JS string by swapping to LE then using Node's decoder.
  * (Node has 'utf16le' but not 'utf16be'.)
  */
 function decodeUTF16BE(buf) {
-  if (buf.length === 0) return '';
-  const swapped = Buffer.from(buf); // swap16 mutates in place, so copy
-  swapped.swap16();
-  return swapped.toString('utf16le');
+    if (buf.length === 0)
+        return '';
+    const swapped = Buffer.from(buf); // swap16 mutates in place, so copy
+    swapped.swap16();
+    return swapped.toString('utf16le');
 }
 /**
  * Decode a UTF-32 buffer (LE or BE) into a JS string.
  * Invalid code points are replaced with U+FFFD, partial trailing bytes are ignored.
  */
 function decodeUTF32(buf, littleEndian) {
-  if (buf.length < 4) return '';
-  const usable = buf.length - (buf.length % 4);
-  let out = '';
-  for (let i = 0; i < usable; i += 4) {
-    const cp = littleEndian
-      ? (buf[i] |
-          (buf[i + 1] << 8) |
-          (buf[i + 2] << 16) |
-          (buf[i + 3] << 24)) >>>
-        0
-      : (buf[i + 3] |
-          (buf[i + 2] << 8) |
-          (buf[i + 1] << 16) |
-          (buf[i] << 24)) >>>
-        0;
-    // Valid planes: 0x0000..0x10FFFF excluding surrogates
-    if (cp <= 0x10ffff && !(cp >= 0xd800 && cp <= 0xdfff)) {
-      out += String.fromCodePoint(cp);
-    } else {
-      out += '\uFFFD';
+    if (buf.length < 4)
+        return '';
+    const usable = buf.length - (buf.length % 4);
+    let out = '';
+    for (let i = 0; i < usable; i += 4) {
+        const cp = littleEndian
+            ? (buf[i] |
+                (buf[i + 1] << 8) |
+                (buf[i + 2] << 16) |
+                (buf[i + 3] << 24)) >>>
+                0
+            : (buf[i + 3] |
+                (buf[i + 2] << 8) |
+                (buf[i + 1] << 16) |
+                (buf[i] << 24)) >>>
+                0;
+        // Valid planes: 0x0000..0x10FFFF excluding surrogates
+        if (cp <= 0x10ffff && !(cp >= 0xd800 && cp <= 0xdfff)) {
+            out += String.fromCodePoint(cp);
+        }
+        else {
+            out += '\uFFFD';
+        }
     }
-  }
-  return out;
+    return out;
 }
 /**
  * Read a file as text, honoring BOM encodings (UTF‑8/16/32) and stripping the BOM.
  * Falls back to utf8 when no BOM is present.
  */
 export async function readFileWithEncoding(filePath) {
-  // Read the file once; detect BOM and decode from the single buffer.
-  const full = await fs.promises.readFile(filePath);
-  if (full.length === 0) return '';
-  const bom = detectBOM(full);
-  if (!bom) {
-    // No BOM → treat as UTF‑8
-    return full.toString('utf8');
-  }
-  // Strip BOM and decode per encoding
-  const content = full.subarray(bom.bomLength);
-  switch (bom.encoding) {
-    case 'utf8':
-      return content.toString('utf8');
-    case 'utf16le':
-      return content.toString('utf16le');
-    case 'utf16be':
-      return decodeUTF16BE(content);
-    case 'utf32le':
-      return decodeUTF32(content, true);
-    case 'utf32be':
-      return decodeUTF32(content, false);
-    default:
-      // Defensive fallback; should be unreachable
-      return content.toString('utf8');
-  }
+    // Read the file once; detect BOM and decode from the single buffer.
+    const full = await fs.promises.readFile(filePath);
+    if (full.length === 0)
+        return '';
+    const bom = detectBOM(full);
+    if (!bom) {
+        // No BOM → treat as UTF‑8
+        return full.toString('utf8');
+    }
+    // Strip BOM and decode per encoding
+    const content = full.subarray(bom.bomLength);
+    switch (bom.encoding) {
+        case 'utf8':
+            return content.toString('utf8');
+        case 'utf16le':
+            return content.toString('utf16le');
+        case 'utf16be':
+            return decodeUTF16BE(content);
+        case 'utf32le':
+            return decodeUTF32(content, true);
+        case 'utf32be':
+            return decodeUTF32(content, false);
+        default:
+            // Defensive fallback; should be unreachable
+            return content.toString('utf8');
+    }
 }
 /**
  * Looks up the specific MIME type for a file path.
@@ -141,8 +171,8 @@ export async function readFileWithEncoding(filePath) {
  * @returns The specific MIME type string (e.g., 'text/python', 'application/javascript') or undefined if not found or ambiguous.
  */
 export function getSpecificMimeType(filePath) {
-  const lookedUpMime = mime.getType(filePath);
-  return typeof lookedUpMime === 'string' ? lookedUpMime : undefined;
+    const lookedUpMime = mime.getType(filePath);
+    return typeof lookedUpMime === 'string' ? lookedUpMime : undefined;
 }
 /**
  * Checks if a path is within a given root directory.
@@ -151,19 +181,16 @@ export function getSpecificMimeType(filePath) {
  * @returns True if the path is within the root directory, false otherwise.
  */
 export function isWithinRoot(pathToCheck, rootDirectory) {
-  const normalizedPathToCheck = path.resolve(pathToCheck);
-  const normalizedRootDirectory = path.resolve(rootDirectory);
-  // Ensure the rootDirectory path ends with a separator for correct startsWith comparison,
-  // unless it's the root path itself (e.g., '/' or 'C:\').
-  const rootWithSeparator =
-    normalizedRootDirectory === path.sep ||
-    normalizedRootDirectory.endsWith(path.sep)
-      ? normalizedRootDirectory
-      : normalizedRootDirectory + path.sep;
-  return (
-    normalizedPathToCheck === normalizedRootDirectory ||
-    normalizedPathToCheck.startsWith(rootWithSeparator)
-  );
+    const normalizedPathToCheck = path.resolve(pathToCheck);
+    const normalizedRootDirectory = path.resolve(rootDirectory);
+    // Ensure the rootDirectory path ends with a separator for correct startsWith comparison,
+    // unless it's the root path itself (e.g., '/' or 'C:\').
+    const rootWithSeparator = normalizedRootDirectory === path.sep ||
+        normalizedRootDirectory.endsWith(path.sep)
+        ? normalizedRootDirectory
+        : normalizedRootDirectory + path.sep;
+    return (normalizedPathToCheck === normalizedRootDirectory ||
+        normalizedPathToCheck.startsWith(rootWithSeparator));
 }
 /**
  * Heuristic: determine if a file is likely binary.
@@ -171,47 +198,48 @@ export function isWithinRoot(pathToCheck, rootDirectory) {
  * For non-BOM files, retain the existing null-byte and non-printable ratio checks.
  */
 export async function isBinaryFile(filePath) {
-  let fh = null;
-  try {
-    fh = await fs.promises.open(filePath, 'r');
-    const stats = await fh.stat();
-    const fileSize = stats.size;
-    if (fileSize === 0) return false; // empty is not binary
-    // Sample up to 4KB from the head (previous behavior)
-    const sampleSize = Math.min(4096, fileSize);
-    const buf = Buffer.alloc(sampleSize);
-    const { bytesRead } = await fh.read(buf, 0, sampleSize, 0);
-    if (bytesRead === 0) return false;
-    // BOM → text (avoid false positives for UTF‑16/32 with nulls)
-    const bom = detectBOM(buf.subarray(0, Math.min(4, bytesRead)));
-    if (bom) return false;
-    let nonPrintableCount = 0;
-    for (let i = 0; i < bytesRead; i++) {
-      if (buf[i] === 0) return true; // strong indicator of binary when no BOM
-      if (buf[i] < 9 || (buf[i] > 13 && buf[i] < 32)) {
-        nonPrintableCount++;
-      }
+    let fh = null;
+    try {
+        fh = await fs.promises.open(filePath, 'r');
+        const stats = await fh.stat();
+        const fileSize = stats.size;
+        if (fileSize === 0)
+            return false; // empty is not binary
+        // Sample up to 4KB from the head (previous behavior)
+        const sampleSize = Math.min(4096, fileSize);
+        const buf = Buffer.alloc(sampleSize);
+        const { bytesRead } = await fh.read(buf, 0, sampleSize, 0);
+        if (bytesRead === 0)
+            return false;
+        // BOM → text (avoid false positives for UTF‑16/32 with nulls)
+        const bom = detectBOM(buf.subarray(0, Math.min(4, bytesRead)));
+        if (bom)
+            return false;
+        let nonPrintableCount = 0;
+        for (let i = 0; i < bytesRead; i++) {
+            if (buf[i] === 0)
+                return true; // strong indicator of binary when no BOM
+            if (buf[i] < 9 || (buf[i] > 13 && buf[i] < 32)) {
+                nonPrintableCount++;
+            }
+        }
+        // If >30% non-printable characters, consider it binary
+        return nonPrintableCount / bytesRead > 0.3;
     }
-    // If >30% non-printable characters, consider it binary
-    return nonPrintableCount / bytesRead > 0.3;
-  } catch (error) {
-    console.warn(
-      `Failed to check if file is binary: ${filePath}`,
-      error instanceof Error ? error.message : String(error),
-    );
-    return false;
-  } finally {
-    if (fh) {
-      try {
-        await fh.close();
-      } catch (closeError) {
-        console.warn(
-          `Failed to close file handle for: ${filePath}`,
-          closeError instanceof Error ? closeError.message : String(closeError),
-        );
-      }
+    catch (error) {
+        debugLogger.warn(`Failed to check if file is binary: ${filePath}`, error instanceof Error ? error.message : String(error));
+        return false;
     }
-  }
+    finally {
+        if (fh) {
+            try {
+                await fh.close();
+            }
+            catch (closeError) {
+                debugLogger.warn(`Failed to close file handle for: ${filePath}`, closeError instanceof Error ? closeError.message : String(closeError));
+            }
+        }
+    }
 }
 /**
  * Detects the type of file based on extension and content.
@@ -219,42 +247,42 @@ export async function isBinaryFile(filePath) {
  * @returns Promise that resolves to 'text', 'image', 'pdf', 'audio', 'video', 'binary' or 'svg'.
  */
 export async function detectFileType(filePath) {
-  const ext = path.extname(filePath).toLowerCase();
-  // The mimetype for various TypeScript extensions (ts, mts, cts, tsx) can be
-  // MPEG transport stream (a video format), but we want to assume these are
-  // TypeScript files instead.
-  if (['.ts', '.mts', '.cts'].includes(ext)) {
+    const ext = path.extname(filePath).toLowerCase();
+    // The mimetype for various TypeScript extensions (ts, mts, cts, tsx) can be
+    // MPEG transport stream (a video format), but we want to assume these are
+    // TypeScript files instead.
+    if (['.ts', '.mts', '.cts'].includes(ext)) {
+        return 'text';
+    }
+    if (ext === '.svg') {
+        return 'svg';
+    }
+    const lookedUpMimeType = mime.getType(filePath); // Returns null if not found, or the mime type string
+    if (lookedUpMimeType) {
+        if (lookedUpMimeType.startsWith('image/')) {
+            return 'image';
+        }
+        if (lookedUpMimeType.startsWith('audio/')) {
+            return 'audio';
+        }
+        if (lookedUpMimeType.startsWith('video/')) {
+            return 'video';
+        }
+        if (lookedUpMimeType === 'application/pdf') {
+            return 'pdf';
+        }
+    }
+    // Stricter binary check for common non-text extensions before content check
+    // These are often not well-covered by mime-types or might be misidentified.
+    if (BINARY_EXTENSIONS.includes(ext)) {
+        return 'binary';
+    }
+    // Fall back to content-based check if mime type wasn't conclusive for image/pdf
+    // and it's not a known binary extension.
+    if (await isBinaryFile(filePath)) {
+        return 'binary';
+    }
     return 'text';
-  }
-  if (ext === '.svg') {
-    return 'svg';
-  }
-  const lookedUpMimeType = mime.getType(filePath); // Returns null if not found, or the mime type string
-  if (lookedUpMimeType) {
-    if (lookedUpMimeType.startsWith('image/')) {
-      return 'image';
-    }
-    if (lookedUpMimeType.startsWith('audio/')) {
-      return 'audio';
-    }
-    if (lookedUpMimeType.startsWith('video/')) {
-      return 'video';
-    }
-    if (lookedUpMimeType === 'application/pdf') {
-      return 'pdf';
-    }
-  }
-  // Stricter binary check for common non-text extensions before content check
-  // These are often not well-covered by mime-types or might be misidentified.
-  if (BINARY_EXTENSIONS.includes(ext)) {
-    return 'binary';
-  }
-  // Fall back to content-based check if mime type wasn't conclusive for image/pdf
-  // and it's not a known binary extension.
-  if (await isBinaryFile(filePath)) {
-    return 'binary';
-  }
-  return 'text';
 }
 /**
  * Reads and processes a single file, handling text, images, and PDFs.
@@ -264,264 +292,252 @@ export async function detectFileType(filePath) {
  * @param limit Optional limit for text files (number of lines to read).
  * @returns ProcessedFileReadResult object.
  */
-export async function processSingleFileContent(
-  filePath,
-  rootDirectory,
-  fileSystemService,
-  offset,
-  limit,
-) {
-  try {
-    if (!fs.existsSync(filePath)) {
-      // Sync check is acceptable before async read
-      return {
-        llmContent:
-          'Could not read file because no file was found at the specified path.',
-        returnDisplay: 'File not found.',
-        error: `File not found: ${filePath}`,
-        errorType: ToolErrorType.FILE_NOT_FOUND,
-      };
-    }
-    const stats = await fs.promises.stat(filePath);
-    if (stats.isDirectory()) {
-      return {
-        llmContent:
-          'Could not read file because the provided path is a directory, not a file.',
-        returnDisplay: 'Path is a directory.',
-        error: `Path is a directory, not a file: ${filePath}`,
-        errorType: ToolErrorType.TARGET_IS_DIRECTORY,
-      };
-    }
-    const fileSizeInMB = stats.size / (1024 * 1024);
-    if (fileSizeInMB > 20) {
-      return {
-        llmContent: 'File size exceeds the 20MB limit.',
-        returnDisplay: 'File size exceeds the 20MB limit.',
-        error: `File size exceeds the 20MB limit: ${filePath} (${fileSizeInMB.toFixed(2)}MB)`,
-        errorType: ToolErrorType.FILE_TOO_LARGE,
-      };
-    }
-    const fileType = await detectFileType(filePath);
-    const relativePathForDisplay = path
-      .relative(rootDirectory, filePath)
-      .replace(/\\/g, '/');
-    switch (fileType) {
-      case 'binary': {
-        return {
-          llmContent: `Cannot display content of binary file: ${relativePathForDisplay}`,
-          returnDisplay: `Skipped binary file: ${relativePathForDisplay}`,
-        };
-      }
-      case 'svg': {
-        const SVG_MAX_SIZE_BYTES = 1 * 1024 * 1024;
-        if (stats.size > SVG_MAX_SIZE_BYTES) {
-          return {
-            llmContent: `Cannot display content of SVG file larger than 1MB: ${relativePathForDisplay}`,
-            returnDisplay: `Skipped large SVG file (>1MB): ${relativePathForDisplay}`,
-          };
+export async function processSingleFileContent(filePath, rootDirectory, fileSystemService, offset, limit) {
+    try {
+        if (!fs.existsSync(filePath)) {
+            // Sync check is acceptable before async read
+            return {
+                llmContent: 'Could not read file because no file was found at the specified path.',
+                returnDisplay: 'File not found.',
+                error: `File not found: ${filePath}`,
+                errorType: ToolErrorType.FILE_NOT_FOUND,
+            };
         }
-        const content = await readFileWithEncoding(filePath);
-        return {
-          llmContent: content,
-          returnDisplay: `Read SVG as text: ${relativePathForDisplay}`,
-        };
-      }
-      case 'text': {
-        // Use BOM-aware reader to avoid leaving a BOM character in content and to support UTF-16/32 transparently
-        const content = await readFileWithEncoding(filePath);
-        const contentSize = content.length; // Total characters
-        const lines = content.split('\n');
-        const originalLineCount = lines.length;
-        // Smart read threshold: use BOTH line count AND character count
-        // This catches single-line huge files (like minified JS) and multi-line huge files
-        const SMART_READ_LINE_THRESHOLD = 1000; // Reduced from 5000 - be more aggressive
-        const SMART_READ_CHAR_THRESHOLD = 200000; // ~50K tokens
-        const isLargeFile =
-          originalLineCount > SMART_READ_LINE_THRESHOLD ||
-          contentSize > SMART_READ_CHAR_THRESHOLD;
-        const isExplicitRead = offset !== undefined || limit !== undefined;
-        // For large files without explicit pagination, use smart sampling
-        if (isLargeFile && !isExplicitRead) {
-          // Automatically extract:
-          // 1. First 30 lines (headers, initial context) - reduced from 50
-          // 2. Last 30 lines (final results, conclusions) - reduced from 50
-          // 3. Lines containing errors/failures (up to 50) - reduced from 100
-          const firstLines = lines.slice(0, 30);
-          const lastLines = lines.slice(-30);
-          // Find error/failure lines (limit to 50 errors and respect char limit)
-          const errorPatterns =
-            /ERROR|FAILED|FAIL:|Exception|Traceback|AssertionError|SyntaxError|TypeError|ValueError/i;
-          const errorLines = [];
-          const errorLineNumbers = [];
-          let errorCharsUsed = 0;
-          const MAX_ERROR_CHARS = 30000; // ~7.5K tokens for errors
-          for (let i = 0; i < lines.length && errorLines.length < 50; i++) {
-            if (errorPatterns.test(lines[i])) {
-              const errorLine = `${i + 1}: ${lines[i]}`;
-              if (errorCharsUsed + errorLine.length < MAX_ERROR_CHARS) {
-                errorLines.push(errorLine);
-                errorLineNumbers.push(i + 1);
-                errorCharsUsed += errorLine.length;
-              } else {
-                break; // Stop adding errors if we hit char limit
-              }
+        const stats = await fs.promises.stat(filePath);
+        if (stats.isDirectory()) {
+            return {
+                llmContent: 'Could not read file because the provided path is a directory, not a file.',
+                returnDisplay: 'Path is a directory.',
+                error: `Path is a directory, not a file: ${filePath}`,
+                errorType: ToolErrorType.TARGET_IS_DIRECTORY,
+            };
+        }
+        const fileSizeInMB = stats.size / (1024 * 1024);
+        if (fileSizeInMB > 20) {
+            return {
+                llmContent: 'File size exceeds the 20MB limit.',
+                returnDisplay: 'File size exceeds the 20MB limit.',
+                error: `File size exceeds the 20MB limit: ${filePath} (${fileSizeInMB.toFixed(2)}MB)`,
+                errorType: ToolErrorType.FILE_TOO_LARGE,
+            };
+        }
+        const fileType = await detectFileType(filePath);
+        const relativePathForDisplay = path
+            .relative(rootDirectory, filePath)
+            .replace(/\\/g, '/');
+        switch (fileType) {
+            case 'binary': {
+                return {
+                    llmContent: `Cannot display content of binary file: ${relativePathForDisplay}`,
+                    returnDisplay: `Skipped binary file: ${relativePathForDisplay}`,
+                };
             }
-          }
-          const smartContent = [
-            `⚠️  LARGE FILE AUTO-SAMPLED: ${originalLineCount} lines (${(stats.size / 1024).toFixed(1)}KB)`,
-            ``,
-            `This file exceeds read limits (>${SMART_READ_LINE_THRESHOLD} lines OR >${(SMART_READ_CHAR_THRESHOLD / 1000).toFixed(0)}K chars).`,
-            `Full read would waste ~${Math.ceil(contentSize / 4000)}K tokens.`,
-            `Auto-extracted strategic excerpts (much more efficient):`,
-            ``,
-            `═══════════════════════════════════════════════════════════════`,
-            `📋 FIRST 30 LINES (headers/setup):`,
-            `═══════════════════════════════════════════════════════════════`,
-            ...firstLines.map((line, i) => `${i + 1}: ${line}`),
-            ``,
-            errorLines.length > 0
-              ? [
-                  `═══════════════════════════════════════════════════════════════`,
-                  `❌ ERRORS/FAILURES FOUND (${errorLines.length} matches, ${(errorCharsUsed / 1000).toFixed(1)}K chars):`,
-                  `═══════════════════════════════════════════════════════════════`,
-                  ...errorLines,
-                  ``,
-                ].join('\n')
-              : '',
-            `═══════════════════════════════════════════════════════════════`,
-            `📊 LAST 30 LINES (results/summary):`,
-            `═══════════════════════════════════════════════════════════════`,
-            ...lastLines.map(
-              (line, i) => `${originalLineCount - 30 + i + 1}: ${line}`,
-            ),
-            ``,
-            `═══════════════════════════════════════════════════════════════`,
-            `💡 TO READ MORE: Use targeted bash commands:`,
-            `═══════════════════════════════════════════════════════════════`,
-            ``,
-            `Specific line range:`,
-            `  run_shell_command("sed -n '100,200p' ${filePath}")`,
-            ``,
-            `Find specific text:`,
-            `  run_shell_command("grep -n 'search_term' ${filePath}")`,
-            ``,
-            `Get context around errors:`,
-            `  run_shell_command("grep -B 5 -A 10 'ERROR' ${filePath}")`,
-            ``,
-            errorLineNumbers.length > 0
-              ? `Quick access to first error (line ${errorLineNumbers[0]}):\n  run_shell_command("sed -n '${Math.max(1, errorLineNumbers[0] - 5)},${errorLineNumbers[0] + 10}p' ${filePath}")\n`
-              : '',
-          ]
-            .filter(Boolean)
-            .join('\n');
-          return {
-            llmContent: smartContent,
-            returnDisplay: `Smart-sampled large file (${originalLineCount} lines): ${relativePathForDisplay}`,
-            isTruncated: true,
-            originalLineCount,
-            linesShown: [1, originalLineCount],
-          };
+            case 'svg': {
+                const SVG_MAX_SIZE_BYTES = 1 * 1024 * 1024;
+                if (stats.size > SVG_MAX_SIZE_BYTES) {
+                    return {
+                        llmContent: `Cannot display content of SVG file larger than 1MB: ${relativePathForDisplay}`,
+                        returnDisplay: `Skipped large SVG file (>1MB): ${relativePathForDisplay}`,
+                    };
+                }
+                const content = await readFileWithEncoding(filePath);
+                return {
+                    llmContent: content,
+                    returnDisplay: `Read SVG as text: ${relativePathForDisplay}`,
+                };
+            }
+            case 'text': {
+                // Use BOM-aware reader to avoid leaving a BOM character in content and to support UTF-16/32 transparently
+                const content = await readFileWithEncoding(filePath);
+                const contentSize = content.length; // Total characters
+                const lines = content.split('\n');
+                const originalLineCount = lines.length;
+                // Smart read threshold: use BOTH line count AND character count
+                // This catches single-line huge files (like minified JS) and multi-line huge files
+                const SMART_READ_LINE_THRESHOLD = 1000; // Reduced from 5000 - be more aggressive
+                const SMART_READ_CHAR_THRESHOLD = 200000; // ~50K tokens
+                const isLargeFile = originalLineCount > SMART_READ_LINE_THRESHOLD ||
+                    contentSize > SMART_READ_CHAR_THRESHOLD;
+                const isExplicitRead = offset !== undefined || limit !== undefined;
+                // For large files without explicit pagination, use smart sampling
+                if (isLargeFile && !isExplicitRead) {
+                    // Automatically extract:
+                    // 1. First 30 lines (headers, initial context) - reduced from 50
+                    // 2. Last 30 lines (final results, conclusions) - reduced from 50
+                    // 3. Lines containing errors/failures (up to 50) - reduced from 100
+                    const firstLines = lines.slice(0, 30);
+                    const lastLines = lines.slice(-30);
+                    // Find error/failure lines (limit to 50 errors and respect char limit)
+                    const errorPatterns = /ERROR|FAILED|FAIL:|Exception|Traceback|AssertionError|SyntaxError|TypeError|ValueError/i;
+                    const errorLines = [];
+                    const errorLineNumbers = [];
+                    let errorCharsUsed = 0;
+                    const MAX_ERROR_CHARS = 30000; // ~7.5K tokens for errors
+                    for (let i = 0; i < lines.length && errorLines.length < 50; i++) {
+                        if (errorPatterns.test(lines[i])) {
+                            const errorLine = `${i + 1}: ${lines[i]}`;
+                            if (errorCharsUsed + errorLine.length < MAX_ERROR_CHARS) {
+                                errorLines.push(errorLine);
+                                errorLineNumbers.push(i + 1);
+                                errorCharsUsed += errorLine.length;
+                            }
+                            else {
+                                break; // Stop adding errors if we hit char limit
+                            }
+                        }
+                    }
+                    const smartContent = [
+                        `⚠️  LARGE FILE AUTO-SAMPLED: ${originalLineCount} lines (${(stats.size / 1024).toFixed(1)}KB)`,
+                        ``,
+                        `This file exceeds read limits (>${SMART_READ_LINE_THRESHOLD} lines OR >${(SMART_READ_CHAR_THRESHOLD / 1000).toFixed(0)}K chars).`,
+                        `Full read would waste ~${Math.ceil(contentSize / 4000)}K tokens.`,
+                        `Auto-extracted strategic excerpts (much more efficient):`,
+                        ``,
+                        `═══════════════════════════════════════════════════════════════`,
+                        `📋 FIRST 30 LINES (headers/setup):`,
+                        `═══════════════════════════════════════════════════════════════`,
+                        ...firstLines.map((line, i) => `${i + 1}: ${line}`),
+                        ``,
+                        errorLines.length > 0
+                            ? [
+                                `═══════════════════════════════════════════════════════════════`,
+                                `❌ ERRORS/FAILURES FOUND (${errorLines.length} matches, ${(errorCharsUsed / 1000).toFixed(1)}K chars):`,
+                                `═══════════════════════════════════════════════════════════════`,
+                                ...errorLines,
+                                ``,
+                            ].join('\n')
+                            : '',
+                        `═══════════════════════════════════════════════════════════════`,
+                        `📊 LAST 30 LINES (results/summary):`,
+                        `═══════════════════════════════════════════════════════════════`,
+                        ...lastLines.map((line, i) => `${originalLineCount - 30 + i + 1}: ${line}`),
+                        ``,
+                        `═══════════════════════════════════════════════════════════════`,
+                        `💡 TO READ MORE: Use targeted bash commands:`,
+                        `═══════════════════════════════════════════════════════════════`,
+                        ``,
+                        `Specific line range:`,
+                        `  run_shell_command("sed -n '100,200p' ${filePath}")`,
+                        ``,
+                        `Find specific text:`,
+                        `  run_shell_command("grep -n 'search_term' ${filePath}")`,
+                        ``,
+                        `Get context around errors:`,
+                        `  run_shell_command("grep -B 5 -A 10 'ERROR' ${filePath}")`,
+                        ``,
+                        errorLineNumbers.length > 0
+                            ? `Quick access to first error (line ${errorLineNumbers[0]}):\n  run_shell_command("sed -n '${Math.max(1, errorLineNumbers[0] - 5)},${errorLineNumbers[0] + 10}p' ${filePath}")\n`
+                            : '',
+                    ]
+                        .filter(Boolean)
+                        .join('\n');
+                    return {
+                        llmContent: smartContent,
+                        returnDisplay: `Smart-sampled large file (${originalLineCount} lines): ${relativePathForDisplay}`,
+                        isTruncated: true,
+                        originalLineCount,
+                        linesShown: [1, originalLineCount],
+                    };
+                }
+                // Normal read flow for regular files or explicit offset/limit
+                const startLine = offset || 0;
+                const effectiveLimit = limit === undefined ? DEFAULT_MAX_LINES_TEXT_FILE : limit;
+                // Ensure endLine does not exceed originalLineCount
+                let endLine = Math.min(startLine + effectiveLimit, originalLineCount);
+                // Ensure selectedLines doesn't try to slice beyond array bounds if startLine is too high
+                const actualStartLine = Math.min(startLine, originalLineCount);
+                let selectedLines = lines.slice(actualStartLine, endLine);
+                // CRITICAL: Enforce character limit even if line limit isn't reached
+                // This prevents single-line huge files from consuming excessive tokens
+                let cumulativeChars = 0;
+                let truncatedAtLine = endLine;
+                for (let i = 0; i < selectedLines.length; i++) {
+                    cumulativeChars += selectedLines[i].length + 1; // +1 for newline
+                    if (cumulativeChars > MAX_CHARACTERS_PER_READ) {
+                        // Truncate at this line
+                        truncatedAtLine = actualStartLine + i;
+                        selectedLines = selectedLines.slice(0, i);
+                        break;
+                    }
+                }
+                endLine = truncatedAtLine;
+                let linesWereTruncatedInLength = false;
+                const formattedLines = selectedLines.map((line) => {
+                    if (line.length > MAX_LINE_LENGTH_TEXT_FILE) {
+                        linesWereTruncatedInLength = true;
+                        return (line.substring(0, MAX_LINE_LENGTH_TEXT_FILE) + '... [truncated]');
+                    }
+                    return line;
+                });
+                const contentRangeTruncated = startLine > 0 || endLine < originalLineCount;
+                const isTruncated = contentRangeTruncated || linesWereTruncatedInLength;
+                const llmContent = formattedLines.join('\n');
+                // By default, return nothing to streamline the common case of a successful read_file.
+                let returnDisplay = '';
+                if (contentRangeTruncated) {
+                    returnDisplay = `Read lines ${actualStartLine + 1}-${endLine} of ${originalLineCount} from ${relativePathForDisplay}`;
+                    if (linesWereTruncatedInLength) {
+                        returnDisplay += ' (some lines were shortened)';
+                    }
+                }
+                else if (linesWereTruncatedInLength) {
+                    returnDisplay = `Read all ${originalLineCount} lines from ${relativePathForDisplay} (some lines were shortened)`;
+                }
+                return {
+                    llmContent,
+                    returnDisplay,
+                    isTruncated,
+                    originalLineCount,
+                    linesShown: [actualStartLine + 1, endLine],
+                };
+            }
+            case 'image':
+            case 'pdf':
+            case 'audio':
+            case 'video': {
+                const contentBuffer = await fs.promises.readFile(filePath);
+                const base64Data = contentBuffer.toString('base64');
+                return {
+                    llmContent: {
+                        inlineData: {
+                            data: base64Data,
+                            mimeType: mime.getType(filePath) || 'application/octet-stream',
+                        },
+                    },
+                    returnDisplay: `Read ${fileType} file: ${relativePathForDisplay}`,
+                };
+            }
+            default: {
+                // Should not happen with current detectFileType logic
+                const exhaustiveCheck = fileType;
+                return {
+                    llmContent: `Unhandled file type: ${exhaustiveCheck}`,
+                    returnDisplay: `Skipped unhandled file type: ${relativePathForDisplay}`,
+                    error: `Unhandled file type for ${filePath}`,
+                };
+            }
         }
-        // Normal read flow for regular files or explicit offset/limit
-        const startLine = offset || 0;
-        const effectiveLimit =
-          limit === undefined ? DEFAULT_MAX_LINES_TEXT_FILE : limit;
-        // Ensure endLine does not exceed originalLineCount
-        let endLine = Math.min(startLine + effectiveLimit, originalLineCount);
-        // Ensure selectedLines doesn't try to slice beyond array bounds if startLine is too high
-        const actualStartLine = Math.min(startLine, originalLineCount);
-        let selectedLines = lines.slice(actualStartLine, endLine);
-        // CRITICAL: Enforce character limit even if line limit isn't reached
-        // This prevents single-line huge files from consuming excessive tokens
-        let cumulativeChars = 0;
-        let truncatedAtLine = endLine;
-        for (let i = 0; i < selectedLines.length; i++) {
-          cumulativeChars += selectedLines[i].length + 1; // +1 for newline
-          if (cumulativeChars > MAX_CHARACTERS_PER_READ) {
-            // Truncate at this line
-            truncatedAtLine = actualStartLine + i;
-            selectedLines = selectedLines.slice(0, i);
-            break;
-          }
-        }
-        endLine = truncatedAtLine;
-        let linesWereTruncatedInLength = false;
-        const formattedLines = selectedLines.map((line) => {
-          if (line.length > MAX_LINE_LENGTH_TEXT_FILE) {
-            linesWereTruncatedInLength = true;
-            return (
-              line.substring(0, MAX_LINE_LENGTH_TEXT_FILE) + '... [truncated]'
-            );
-          }
-          return line;
-        });
-        const contentRangeTruncated =
-          startLine > 0 || endLine < originalLineCount;
-        const isTruncated = contentRangeTruncated || linesWereTruncatedInLength;
-        const llmContent = formattedLines.join('\n');
-        // By default, return nothing to streamline the common case of a successful read_file.
-        let returnDisplay = '';
-        if (contentRangeTruncated) {
-          returnDisplay = `Read lines ${actualStartLine + 1}-${endLine} of ${originalLineCount} from ${relativePathForDisplay}`;
-          if (linesWereTruncatedInLength) {
-            returnDisplay += ' (some lines were shortened)';
-          }
-        } else if (linesWereTruncatedInLength) {
-          returnDisplay = `Read all ${originalLineCount} lines from ${relativePathForDisplay} (some lines were shortened)`;
-        }
-        return {
-          llmContent,
-          returnDisplay,
-          isTruncated,
-          originalLineCount,
-          linesShown: [actualStartLine + 1, endLine],
-        };
-      }
-      case 'image':
-      case 'pdf':
-      case 'audio':
-      case 'video': {
-        const contentBuffer = await fs.promises.readFile(filePath);
-        const base64Data = contentBuffer.toString('base64');
-        return {
-          llmContent: {
-            inlineData: {
-              data: base64Data,
-              mimeType: mime.getType(filePath) || 'application/octet-stream',
-            },
-          },
-          returnDisplay: `Read ${fileType} file: ${relativePathForDisplay}`,
-        };
-      }
-      default: {
-        // Should not happen with current detectFileType logic
-        const exhaustiveCheck = fileType;
-        return {
-          llmContent: `Unhandled file type: ${exhaustiveCheck}`,
-          returnDisplay: `Skipped unhandled file type: ${relativePathForDisplay}`,
-          error: `Unhandled file type for ${filePath}`,
-        };
-      }
     }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const displayPath = path
-      .relative(rootDirectory, filePath)
-      .replace(/\\/g, '/');
-    return {
-      llmContent: `Error reading file ${displayPath}: ${errorMessage}`,
-      returnDisplay: `Error reading file ${displayPath}: ${errorMessage}`,
-      error: `Error reading file ${filePath}: ${errorMessage}`,
-      errorType: ToolErrorType.READ_CONTENT_FAILURE,
-    };
-  }
+    catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const displayPath = path
+            .relative(rootDirectory, filePath)
+            .replace(/\\/g, '/');
+        return {
+            llmContent: `Error reading file ${displayPath}: ${errorMessage}`,
+            returnDisplay: `Error reading file ${displayPath}: ${errorMessage}`,
+            error: `Error reading file ${filePath}: ${errorMessage}`,
+            errorType: ToolErrorType.READ_CONTENT_FAILURE,
+        };
+    }
 }
 export async function fileExists(filePath) {
-  try {
-    await fsPromises.access(filePath, fs.constants.F_OK);
-    return true;
-  } catch (_) {
-    return false;
-  }
+    try {
+        await fsPromises.access(filePath, fs.constants.F_OK);
+        return true;
+    }
+    catch (_) {
+        return false;
+    }
 }
 //# sourceMappingURL=fileUtils.js.map

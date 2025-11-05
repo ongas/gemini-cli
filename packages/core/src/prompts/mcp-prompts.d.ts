@@ -5,7 +5,4 @@
  */
 import type { Config } from '../config/config.js';
 import type { DiscoveredMCPPrompt } from '../tools/mcp-client.js';
-export declare function getMCPServerPrompts(
-  config: Config,
-  serverName: string,
-): DiscoveredMCPPrompt[];
+export declare function getMCPServerPrompts(config: Config, serverName: string): DiscoveredMCPPrompt[];

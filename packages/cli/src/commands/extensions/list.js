@@ -3,31 +3,41 @@
  * Copyright 2025 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
-import { loadUserExtensions, toOutputString } from '../../config/extension.js';
 import { getErrorMessage } from '../../utils/errors.js';
+import { debugLogger } from '@google/gemini-cli-core';
+import { ExtensionManager } from '../../config/extension-manager.js';
+import { requestConsentNonInteractive } from '../../config/extensions/consent.js';
+import { loadSettings } from '../../config/settings.js';
+import { promptForSetting } from '../../config/extensions/extensionSettings.js';
 export async function handleList() {
-  try {
-    const extensions = loadUserExtensions();
-    if (extensions.length === 0) {
-      console.log('No extensions installed.');
-      return;
+    try {
+        const workspaceDir = process.cwd();
+        const extensionManager = new ExtensionManager({
+            workspaceDir,
+            requestConsent: requestConsentNonInteractive,
+            requestSetting: promptForSetting,
+            loadedSettings: loadSettings(workspaceDir),
+        });
+        const extensions = extensionManager.loadExtensions();
+        if (extensions.length === 0) {
+            debugLogger.log('No extensions installed.');
+            return;
+        }
+        debugLogger.log(extensions
+            .map((extension, _) => extensionManager.toOutputString(extension))
+            .join('\n\n'));
     }
-    console.log(
-      extensions
-        .map((extension, _) => toOutputString(extension, process.cwd()))
-        .join('\n\n'),
-    );
-  } catch (error) {
-    console.error(getErrorMessage(error));
-    process.exit(1);
-  }
+    catch (error) {
+        debugLogger.error(getErrorMessage(error));
+        process.exit(1);
+    }
 }
 export const listCommand = {
-  command: 'list',
-  describe: 'Lists installed extensions.',
-  builder: (yargs) => yargs,
-  handler: async () => {
-    await handleList();
-  },
+    command: 'list',
+    describe: 'Lists installed extensions.',
+    builder: (yargs) => yargs,
+    handler: async () => {
+        await handleList();
+    },
 };
 //# sourceMappingURL=list.js.map

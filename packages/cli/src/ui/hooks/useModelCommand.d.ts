@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 interface UseModelCommandReturn {
-  isModelDialogOpen: boolean;
-  openModelDialog: () => void;
-  closeModelDialog: () => void;
+    isModelDialogOpen: boolean;
+    openModelDialog: () => void;
+    closeModelDialog: () => void;
 }
 export declare const useModelCommand: () => UseModelCommandReturn;
 export {};

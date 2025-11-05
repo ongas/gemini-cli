@@ -5,7 +5,7 @@
  */
 import type React from 'react';
 interface WarningMessageProps {
-  text: string;
+    text: string;
 }
 export declare const WarningMessage: React.FC<WarningMessageProps>;
 export {};

@@ -3,7 +3,7 @@
  * Copyright 2025 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
-import { BaseDeclarativeTool, Kind } from '../tools/tools.js';
+import { BaseDeclarativeTool, Kind, } from '../tools/tools.js';
 import { convertInputConfigToJsonSchema } from './schema-utils.js';
 import { SubagentInvocation } from './invocation.js';
 /**
@@ -11,52 +11,38 @@ import { SubagentInvocation } from './invocation.js';
  * strongly-typed `DeclarativeTool`.
  */
 export class SubagentToolWrapper extends BaseDeclarativeTool {
-  definition;
-  config;
-  /**
-   * Constructs the tool wrapper.
-   *
-   * The constructor dynamically generates the JSON schema for the tool's
-   * parameters based on the subagent's input configuration.
-   *
-   * @param definition The `AgentDefinition` of the subagent to wrap.
-   * @param config The runtime configuration, passed down to the subagent.
-   * @param messageBus Optional message bus for policy enforcement.
-   */
-  constructor(definition, config, messageBus) {
-    // Dynamically generate the JSON schema required for the tool definition.
-    const parameterSchema = convertInputConfigToJsonSchema(
-      definition.inputConfig,
-    );
-    super(
-      definition.name,
-      definition.displayName ?? definition.name,
-      definition.description,
-      Kind.Think,
-      parameterSchema,
-      /* isOutputMarkdown */ true,
-      /* canUpdateOutput */ true,
-      messageBus,
-    );
-    this.definition = definition;
-    this.config = config;
-  }
-  /**
-   * Creates an invocation instance for executing the subagent.
-   *
-   * This method is called by the tool framework when the parent agent decides
-   * to use this tool.
-   *
-   * @param params The validated input parameters from the parent agent's call.
-   * @returns A `ToolInvocation` instance ready for execution.
-   */
-  createInvocation(params) {
-    return new SubagentInvocation(
-      params,
-      this.definition,
-      this.config,
-      this.messageBus,
-    );
-  }
+    definition;
+    config;
+    /**
+     * Constructs the tool wrapper.
+     *
+     * The constructor dynamically generates the JSON schema for the tool's
+     * parameters based on the subagent's input configuration.
+     *
+     * @param definition The `AgentDefinition` of the subagent to wrap.
+     * @param config The runtime configuration, passed down to the subagent.
+     * @param messageBus Optional message bus for policy enforcement.
+     */
+    constructor(definition, config, messageBus) {
+        // Dynamically generate the JSON schema required for the tool definition.
+        const parameterSchema = convertInputConfigToJsonSchema(definition.inputConfig);
+        super(definition.name, definition.displayName ?? definition.name, definition.description, Kind.Think, parameterSchema, 
+        /* isOutputMarkdown */ true, 
+        /* canUpdateOutput */ true, messageBus);
+        this.definition = definition;
+        this.config = config;
+    }
+    /**
+     * Creates an invocation instance for executing the subagent.
+     *
+     * This method is called by the tool framework when the parent agent decides
+     * to use this tool.
+     *
+     * @param params The validated input parameters from the parent agent's call.
+     * @returns A `ToolInvocation` instance ready for execution.
+     */
+    createInvocation(params) {
+        return new SubagentInvocation(params, this.definition, this.config, this.messageBus);
+    }
 }
 //# sourceMappingURL=subagent-tool-wrapper.js.map

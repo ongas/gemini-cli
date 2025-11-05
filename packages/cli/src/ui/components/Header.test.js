@@ -1,4 +1,4 @@
-import { jsx as _jsx } from 'react/jsx-runtime';
+import { jsx as _jsx } from "react/jsx-runtime";
 /**
  * @license
  * Copyright 2025 Google LLC
@@ -11,39 +11,27 @@ import * as useTerminalSize from '../hooks/useTerminalSize.js';
 import { longAsciiLogo } from './AsciiArt.js';
 vi.mock('../hooks/useTerminalSize.js');
 describe('<Header />', () => {
-  beforeEach(() => {});
-  it('renders the long logo on a wide terminal', () => {
-    vi.spyOn(useTerminalSize, 'useTerminalSize').mockReturnValue({
-      columns: 120,
-      rows: 20,
+    beforeEach(() => { });
+    it('renders the long logo on a wide terminal', () => {
+        vi.spyOn(useTerminalSize, 'useTerminalSize').mockReturnValue({
+            columns: 120,
+            rows: 20,
+        });
+        const { lastFrame } = render(_jsx(Header, { version: "1.0.0", nightly: false }));
+        expect(lastFrame()).toContain(longAsciiLogo);
     });
-    const { lastFrame } = render(
-      _jsx(Header, { version: '1.0.0', nightly: false }),
-    );
-    expect(lastFrame()).toContain(longAsciiLogo);
-  });
-  it('renders custom ASCII art when provided', () => {
-    const customArt = 'CUSTOM ART';
-    const { lastFrame } = render(
-      _jsx(Header, {
-        version: '1.0.0',
-        nightly: false,
-        customAsciiArt: customArt,
-      }),
-    );
-    expect(lastFrame()).toContain(customArt);
-  });
-  it('displays the version number when nightly is true', () => {
-    const { lastFrame } = render(
-      _jsx(Header, { version: '1.0.0', nightly: true }),
-    );
-    expect(lastFrame()).toContain('v1.0.0');
-  });
-  it('does not display the version number when nightly is false', () => {
-    const { lastFrame } = render(
-      _jsx(Header, { version: '1.0.0', nightly: false }),
-    );
-    expect(lastFrame()).not.toContain('v1.0.0');
-  });
+    it('renders custom ASCII art when provided', () => {
+        const customArt = 'CUSTOM ART';
+        const { lastFrame } = render(_jsx(Header, { version: "1.0.0", nightly: false, customAsciiArt: customArt }));
+        expect(lastFrame()).toContain(customArt);
+    });
+    it('displays the version number when nightly is true', () => {
+        const { lastFrame } = render(_jsx(Header, { version: "1.0.0", nightly: true }));
+        expect(lastFrame()).toContain('v1.0.0');
+    });
+    it('does not display the version number when nightly is false', () => {
+        const { lastFrame } = render(_jsx(Header, { version: "1.0.0", nightly: false }));
+        expect(lastFrame()).not.toContain('v1.0.0');
+    });
 });
 //# sourceMappingURL=Header.test.js.map

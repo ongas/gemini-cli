@@ -5,7 +5,7 @@
  */
 import type React from 'react';
 export interface ShellInputPromptProps {
-  activeShellPtyId: number | null;
-  focus?: boolean;
+    activeShellPtyId: number | null;
+    focus?: boolean;
 }
 export declare const ShellInputPrompt: React.FC<ShellInputPromptProps>;

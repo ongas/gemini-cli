@@ -9,17 +9,12 @@ import type * as acp from './acp.js';
  * ACP client-based implementation of FileSystemService
  */
 export declare class AcpFileSystemService implements FileSystemService {
-  private readonly client;
-  private readonly sessionId;
-  private readonly capabilities;
-  private readonly fallback;
-  constructor(
-    client: acp.Client,
-    sessionId: string,
-    capabilities: acp.FileSystemCapability,
-    fallback: FileSystemService,
-  );
-  readTextFile(filePath: string): Promise<string>;
-  writeTextFile(filePath: string, content: string): Promise<void>;
-  findFiles(fileName: string, searchPaths: readonly string[]): string[];
+    private readonly client;
+    private readonly sessionId;
+    private readonly capabilities;
+    private readonly fallback;
+    constructor(client: acp.Client, sessionId: string, capabilities: acp.FileSystemCapability, fallback: FileSystemService);
+    readTextFile(filePath: string): Promise<string>;
+    writeTextFile(filePath: string, content: string): Promise<void>;
+    findFiles(fileName: string, searchPaths: readonly string[]): string[];
 }

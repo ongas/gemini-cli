@@ -7,24 +7,26 @@ import type { GeminiCLIExtension } from '@google/gemini-cli-core';
 import { ExtensionUpdateState } from '../state/extensions.js';
 import type { UseHistoryManagerReturn } from './useHistoryManager.js';
 import { type ConfirmationRequest } from '../types.js';
+import type { ExtensionManager } from '../../config/extension-manager.js';
 type ConfirmationRequestWrapper = {
-  prompt: React.ReactNode;
-  onConfirm: (confirmed: boolean) => void;
+    prompt: React.ReactNode;
+    onConfirm: (confirmed: boolean) => void;
 };
-export declare const useExtensionUpdates: (
-  extensions: GeminiCLIExtension[],
-  addItem: UseHistoryManagerReturn['addItem'],
-  cwd: string,
-) => {
-  extensionsUpdateState: Map<string, ExtensionUpdateState>;
-  extensionsUpdateStateInternal: Map<
-    string,
-    import('../state/extensions.js').ExtensionUpdateStatus
-  >;
-  dispatchExtensionStateUpdate: import('react').ActionDispatch<
-    [action: import('../state/extensions.js').ExtensionUpdateAction]
-  >;
-  confirmUpdateExtensionRequests: ConfirmationRequestWrapper[];
-  addConfirmUpdateExtensionRequest: (original: ConfirmationRequest) => void;
+type ConfirmationRequestAction = {
+    type: 'add';
+    request: ConfirmationRequestWrapper;
+} | {
+    type: 'remove';
+    request: ConfirmationRequestWrapper;
+};
+export declare const useConfirmUpdateRequests: () => {
+    addConfirmUpdateExtensionRequest: (original: ConfirmationRequest) => void;
+    confirmUpdateExtensionRequests: ConfirmationRequestWrapper[];
+    dispatchConfirmUpdateExtensionRequests: import("react").ActionDispatch<[action: ConfirmationRequestAction]>;
+};
+export declare const useExtensionUpdates: (extensions: GeminiCLIExtension[], extensionManager: ExtensionManager, addItem: UseHistoryManagerReturn["addItem"]) => {
+    extensionsUpdateState: Map<string, ExtensionUpdateState>;
+    extensionsUpdateStateInternal: Map<string, import("../state/extensions.js").ExtensionUpdateStatus>;
+    dispatchExtensionStateUpdate: import("react").ActionDispatch<[action: import("../state/extensions.js").ExtensionUpdateAction]>;
 };
 export {};

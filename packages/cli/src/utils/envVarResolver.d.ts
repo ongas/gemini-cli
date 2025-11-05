@@ -16,7 +16,7 @@
  * resolveEnvVarsInString("URL: ${BASE_URL}/api") // Returns "URL: https://api.example.com/api"
  * resolveEnvVarsInString("Missing: $UNDEFINED_VAR") // Returns "Missing: $UNDEFINED_VAR"
  */
-export declare function resolveEnvVarsInString(value: string): string;
+export declare function resolveEnvVarsInString(value: string, customEnv?: Record<string, string>): string;
 /**
  * Recursively resolves environment variables in an object of any type.
  * Handles strings, arrays, nested objects, and preserves other primitive types.
@@ -36,4 +36,4 @@ export declare function resolveEnvVarsInString(value: string): string;
  * };
  * const resolved = resolveEnvVarsInObject(config);
  */
-export declare function resolveEnvVarsInObject<T>(obj: T): T;
+export declare function resolveEnvVarsInObject<T>(obj: T, customEnv?: Record<string, string>): T;

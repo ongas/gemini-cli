@@ -5,22 +5,19 @@
  */
 import winston from 'winston';
 const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.combine(
+    level: 'info',
+    format: winston.format.combine(
     // First, add a timestamp to the log info object
     winston.format.timestamp({
-      format: 'YYYY-MM-DD HH:mm:ss.SSS A', // Custom timestamp format
-    }),
+        format: 'YYYY-MM-DD HH:mm:ss.SSS A', // Custom timestamp format
+    }), 
     // Here we define the custom output format
     winston.format.printf((info) => {
-      const { level, timestamp, message, ...rest } = info;
-      return (
-        `[${level.toUpperCase()}] ${timestamp} -- ${message}` +
-        `${Object.keys(rest).length > 0 ? `\n${JSON.stringify(rest, null, 2)}` : ''}`
-      ); // Only print ...rest if present
-    }),
-  ),
-  transports: [new winston.transports.Console()],
+        const { level, timestamp, message, ...rest } = info;
+        return (`[${level.toUpperCase()}] ${timestamp} -- ${message}` +
+            `${Object.keys(rest).length > 0 ? `\n${JSON.stringify(rest, null, 2)}` : ''}`); // Only print ...rest if present
+    })),
+    transports: [new winston.transports.Console()],
 });
 export { logger };
 //# sourceMappingURL=logger.js.map

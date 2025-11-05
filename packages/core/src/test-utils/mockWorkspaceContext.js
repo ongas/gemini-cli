@@ -11,16 +11,14 @@ import { vi } from 'vitest';
  * @returns A mock WorkspaceContext instance
  */
 export function createMockWorkspaceContext(rootDir, additionalDirs = []) {
-  const allDirs = [rootDir, ...additionalDirs];
-  const mockWorkspaceContext = {
-    addDirectory: vi.fn(),
-    getDirectories: vi.fn().mockReturnValue(allDirs),
-    isPathWithinWorkspace: vi
-      .fn()
-      .mockImplementation((path) =>
-        allDirs.some((dir) => path.startsWith(dir)),
-      ),
-  };
-  return mockWorkspaceContext;
+    const allDirs = [rootDir, ...additionalDirs];
+    const mockWorkspaceContext = {
+        addDirectory: vi.fn(),
+        getDirectories: vi.fn().mockReturnValue(allDirs),
+        isPathWithinWorkspace: vi
+            .fn()
+            .mockImplementation((path) => allDirs.some((dir) => path.startsWith(dir))),
+    };
+    return mockWorkspaceContext;
 }
 //# sourceMappingURL=mockWorkspaceContext.js.map

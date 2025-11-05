@@ -11,32 +11,26 @@ import { type z } from 'zod';
  * AgentDefinitions.
  */
 export declare class AgentRegistry {
-  private readonly config;
-  private readonly agents;
-  constructor(config: Config);
-  /**
-   * Discovers and loads agents.
-   */
-  initialize(): Promise<void>;
-  private loadBuiltInAgents;
-  /**
-   * Loads markdown-based agents from .gemini/agents/ directory in the current working directory.
-   */
-  private loadMarkdownAgents;
-  /**
-   * Registers an agent definition. If an agent with the same name exists,
-   * it will be overwritten, respecting the precedence established by the
-   * initialization order.
-   */
-  protected registerAgent<TOutput extends z.ZodTypeAny>(
-    definition: AgentDefinition<TOutput>,
-  ): void;
-  /**
-   * Retrieves an agent definition by name.
-   */
-  getDefinition(name: string): AgentDefinition | undefined;
-  /**
-   * Returns all active agent definitions.
-   */
-  getAllDefinitions(): AgentDefinition[];
+    private readonly config;
+    private readonly agents;
+    constructor(config: Config);
+    /**
+     * Discovers and loads agents.
+     */
+    initialize(): Promise<void>;
+    private loadBuiltInAgents;
+    /**
+     * Registers an agent definition. If an agent with the same name exists,
+     * it will be overwritten, respecting the precedence established by the
+     * initialization order.
+     */
+    protected registerAgent<TOutput extends z.ZodTypeAny>(definition: AgentDefinition<TOutput>): void;
+    /**
+     * Retrieves an agent definition by name.
+     */
+    getDefinition(name: string): AgentDefinition | undefined;
+    /**
+     * Returns all active agent definitions.
+     */
+    getAllDefinitions(): AgentDefinition[];
 }

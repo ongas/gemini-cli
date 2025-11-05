@@ -5,10 +5,11 @@
  */
 import type { CommandModule } from 'yargs';
 interface InstallArgs {
-  source?: string;
-  path?: string;
-  ref?: string;
-  autoUpdate?: boolean;
+    source: string;
+    ref?: string;
+    autoUpdate?: boolean;
+    allowPreRelease?: boolean;
+    consent?: boolean;
 }
 export declare function handleInstall(args: InstallArgs): Promise<void>;
 export declare const installCommand: CommandModule;

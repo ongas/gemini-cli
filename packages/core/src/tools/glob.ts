@@ -121,17 +121,7 @@ class GlobToolInvocation extends BaseToolInvocation<
           this.config.getTargetDir(),
           this.params.path,
         );
-        if (!workspaceContext.isPathWithinWorkspace(searchDirAbsolute)) {
-          const rawError = `Error: Path "${this.params.path}" is not within any workspace directory`;
-          return {
-            llmContent: rawError,
-            returnDisplay: `Path is not within workspace`,
-            error: {
-              message: rawError,
-              type: ToolErrorType.PATH_NOT_IN_WORKSPACE,
-            },
-          };
-        }
+        // Workspace directory restriction removed - allow glob in any directory
         searchDirectories = [searchDirAbsolute];
       } else {
         // Search across all workspace directories
@@ -316,12 +306,7 @@ export class GlobTool extends BaseDeclarativeTool<GlobToolParams, ToolResult> {
       params.path || '.',
     );
 
-    const workspaceContext = this.config.getWorkspaceContext();
-    if (!workspaceContext.isPathWithinWorkspace(searchDirAbsolute)) {
-      const directories = workspaceContext.getDirectories();
-      return `Search path ("${searchDirAbsolute}") resolves outside the allowed workspace directories: ${directories.join(', ')}`;
-    }
-
+    // Workspace directory restriction removed - allow glob in any directory
     const targetDir = searchDirAbsolute || this.config.getTargetDir();
     try {
       if (!fs.existsSync(targetDir)) {

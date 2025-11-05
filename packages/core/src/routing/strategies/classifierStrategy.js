@@ -5,22 +5,16 @@
  */
 import { z } from 'zod';
 import { promptIdContext } from '../../utils/promptIdContext.js';
-import {
-  DEFAULT_GEMINI_FLASH_MODEL,
-  DEFAULT_GEMINI_FLASH_LITE_MODEL,
-  DEFAULT_GEMINI_MODEL,
-} from '../../config/models.js';
-import { createUserContent, Type } from '@google/genai';
-import {
-  isFunctionCall,
-  isFunctionResponse,
-} from '../../utils/messageInspectors.js';
+import { DEFAULT_GEMINI_FLASH_MODEL, DEFAULT_GEMINI_FLASH_LITE_MODEL, DEFAULT_GEMINI_MODEL, } from '../../config/models.js';
+import { createUserContent, Type, } from '@google/genai';
+import { isFunctionCall, isFunctionResponse, } from '../../utils/messageInspectors.js';
+import { debugLogger } from '../../utils/debugLogger.js';
 const CLASSIFIER_GENERATION_CONFIG = {
-  temperature: 0,
-  maxOutputTokens: 1024,
-  thinkingConfig: {
-    thinkingBudget: 512, // This counts towards output max, so we don't want -1.
-  },
+    temperature: 0,
+    maxOutputTokens: 1024,
+    thinkingConfig: {
+        thinkingBudget: 512, // This counts towards output max, so we don't want -1.
+    },
 };
 // The number of recent history turns to provide to the router for context.
 const HISTORY_TURNS_FOR_CONTEXT = 4;
@@ -101,83 +95,80 @@ Respond *only* in JSON format according to the following schema. Do not include 
 }
 `;
 const RESPONSE_SCHEMA = {
-  type: Type.OBJECT,
-  properties: {
-    reasoning: {
-      type: Type.STRING,
-      description:
-        'A brief, step-by-step explanation for the model choice, referencing the rubric.',
+    type: Type.OBJECT,
+    properties: {
+        reasoning: {
+            type: Type.STRING,
+            description: 'A brief, step-by-step explanation for the model choice, referencing the rubric.',
+        },
+        model_choice: {
+            type: Type.STRING,
+            enum: [FLASH_MODEL, PRO_MODEL],
+        },
     },
-    model_choice: {
-      type: Type.STRING,
-      enum: [FLASH_MODEL, PRO_MODEL],
-    },
-  },
-  required: ['reasoning', 'model_choice'],
+    required: ['reasoning', 'model_choice'],
 };
 const ClassifierResponseSchema = z.object({
-  reasoning: z.string(),
-  model_choice: z.enum([FLASH_MODEL, PRO_MODEL]),
+    reasoning: z.string(),
+    model_choice: z.enum([FLASH_MODEL, PRO_MODEL]),
 });
 export class ClassifierStrategy {
-  name = 'classifier';
-  async route(context, _config, baseLlmClient) {
-    const startTime = Date.now();
-    try {
-      let promptId = promptIdContext.getStore();
-      if (!promptId) {
-        promptId = `classifier-router-fallback-${Date.now()}-${Math.random()
-          .toString(16)
-          .slice(2)}`;
-        console.warn(
-          `Could not find promptId in context. This is unexpected. Using a fallback ID: ${promptId}`,
-        );
-      }
-      const historySlice = context.history.slice(-HISTORY_SEARCH_WINDOW);
-      // Filter out tool-related turns.
-      // TODO - Consider using function req/res if they help accuracy.
-      const cleanHistory = historySlice.filter(
-        (content) => !isFunctionCall(content) && !isFunctionResponse(content),
-      );
-      // Take the last N turns from the *cleaned* history.
-      const finalHistory = cleanHistory.slice(-HISTORY_TURNS_FOR_CONTEXT);
-      const jsonResponse = await baseLlmClient.generateJson({
-        contents: [...finalHistory, createUserContent(context.request)],
-        schema: RESPONSE_SCHEMA,
-        model: DEFAULT_GEMINI_FLASH_LITE_MODEL,
-        systemInstruction: CLASSIFIER_SYSTEM_PROMPT,
-        config: CLASSIFIER_GENERATION_CONFIG,
-        abortSignal: context.signal,
-        promptId,
-      });
-      const routerResponse = ClassifierResponseSchema.parse(jsonResponse);
-      const reasoning = routerResponse.reasoning;
-      const latencyMs = Date.now() - startTime;
-      if (routerResponse.model_choice === FLASH_MODEL) {
-        return {
-          model: DEFAULT_GEMINI_FLASH_MODEL,
-          metadata: {
-            source: 'Classifier',
-            latencyMs,
-            reasoning,
-          },
-        };
-      } else {
-        return {
-          model: DEFAULT_GEMINI_MODEL,
-          metadata: {
-            source: 'Classifier',
-            reasoning,
-            latencyMs,
-          },
-        };
-      }
-    } catch (error) {
-      // If the classifier fails for any reason (API error, parsing error, etc.),
-      // we log it and return null to allow the composite strategy to proceed.
-      console.warn(`[Routing] ClassifierStrategy failed:`, error);
-      return null;
+    name = 'classifier';
+    async route(context, _config, baseLlmClient) {
+        const startTime = Date.now();
+        try {
+            let promptId = promptIdContext.getStore();
+            if (!promptId) {
+                promptId = `classifier-router-fallback-${Date.now()}-${Math.random()
+                    .toString(16)
+                    .slice(2)}`;
+                debugLogger.warn(`Could not find promptId in context. This is unexpected. Using a fallback ID: ${promptId}`);
+            }
+            const historySlice = context.history.slice(-HISTORY_SEARCH_WINDOW);
+            // Filter out tool-related turns.
+            // TODO - Consider using function req/res if they help accuracy.
+            const cleanHistory = historySlice.filter((content) => !isFunctionCall(content) && !isFunctionResponse(content));
+            // Take the last N turns from the *cleaned* history.
+            const finalHistory = cleanHistory.slice(-HISTORY_TURNS_FOR_CONTEXT);
+            const jsonResponse = await baseLlmClient.generateJson({
+                contents: [...finalHistory, createUserContent(context.request)],
+                schema: RESPONSE_SCHEMA,
+                model: DEFAULT_GEMINI_FLASH_LITE_MODEL,
+                systemInstruction: CLASSIFIER_SYSTEM_PROMPT,
+                config: CLASSIFIER_GENERATION_CONFIG,
+                abortSignal: context.signal,
+                promptId,
+            });
+            const routerResponse = ClassifierResponseSchema.parse(jsonResponse);
+            const reasoning = routerResponse.reasoning;
+            const latencyMs = Date.now() - startTime;
+            if (routerResponse.model_choice === FLASH_MODEL) {
+                return {
+                    model: DEFAULT_GEMINI_FLASH_MODEL,
+                    metadata: {
+                        source: 'Classifier',
+                        latencyMs,
+                        reasoning,
+                    },
+                };
+            }
+            else {
+                return {
+                    model: DEFAULT_GEMINI_MODEL,
+                    metadata: {
+                        source: 'Classifier',
+                        reasoning,
+                        latencyMs,
+                    },
+                };
+            }
+        }
+        catch (error) {
+            // If the classifier fails for any reason (API error, parsing error, etc.),
+            // we log it and return null to allow the composite strategy to proceed.
+            debugLogger.warn(`[Routing] ClassifierStrategy failed:`, error);
+            return null;
+        }
     }
-  }
 }
 //# sourceMappingURL=classifierStrategy.js.map

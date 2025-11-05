@@ -5,10 +5,10 @@
  */
 import { type BaseLlmClient } from '../core/baseLlmClient.js';
 export interface SearchReplaceEdit {
-  search: string;
-  replace: string;
-  noChangesRequired: boolean;
-  explanation: string;
+    search: string;
+    replace: string;
+    noChangesRequired: boolean;
+    explanation: string;
 }
 /**
  * Attempts to fix a failed edit by using an LLM to generate a new search and replace pair.
@@ -22,13 +22,5 @@ export interface SearchReplaceEdit {
  * @param promptId A unique ID for the prompt.
  * @returns A new search and replace pair.
  */
-export declare function FixLLMEditWithInstruction(
-  instruction: string,
-  old_string: string,
-  new_string: string,
-  error: string,
-  current_content: string,
-  baseLlmClient: BaseLlmClient,
-  abortSignal: AbortSignal,
-): Promise<SearchReplaceEdit>;
+export declare function FixLLMEditWithInstruction(instruction: string, old_string: string, new_string: string, error: string, current_content: string, baseLlmClient: BaseLlmClient, abortSignal: AbortSignal): Promise<SearchReplaceEdit>;
 export declare function resetLlmEditFixerCaches_TEST_ONLY(): void;

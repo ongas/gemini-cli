@@ -583,7 +583,7 @@ const SETTINGS_SCHEMA = {
         label: 'Chat Compression',
         category: 'Model',
         requiresRestart: false,
-        default: undefined as ChatCompressionSettings | undefined,
+        default: { enabled: true } as ChatCompressionSettings | undefined,
         description: 'Chat compression settings.',
         showInDialog: false,
       },

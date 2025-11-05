@@ -526,14 +526,7 @@ export class ShellTool extends BaseDeclarativeTool<
       if (!path.isAbsolute(params.directory)) {
         return 'Directory must be an absolute path.';
       }
-      const workspaceDirs = this.config.getWorkspaceContext().getDirectories();
-      const isWithinWorkspace = workspaceDirs.some((wsDir) =>
-        params.directory!.startsWith(wsDir),
-      );
-
-      if (!isWithinWorkspace) {
-        return `Directory '${params.directory}' is not within any of the registered workspace directories.`;
-      }
+      // Workspace directory restriction removed - allow shell commands in any directory
     }
     return null;
   }

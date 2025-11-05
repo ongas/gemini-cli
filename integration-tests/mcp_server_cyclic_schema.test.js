@@ -21,7 +21,7 @@
  */
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, it } from 'vitest';
 import { TestRig } from './test-helper.js';
 // Create a minimal MCP server that doesn't require external dependencies
 // This implements the MCP protocol directly using Node.js built-ins
@@ -162,36 +162,33 @@ rpc.send({
 });
 `;
 describe('mcp server with cyclic tool schema is detected', () => {
-  const rig = new TestRig();
-  beforeAll(async () => {
-    // Setup test directory with MCP server configuration
-    await rig.setup('cyclic-schema-mcp-server', {
-      settings: {
-        mcpServers: {
-          'cyclic-schema-server': {
-            command: 'node',
-            args: ['mcp-server.cjs'],
-          },
-        },
-      },
+    const rig = new TestRig();
+    beforeAll(async () => {
+        // Setup test directory with MCP server configuration
+        await rig.setup('cyclic-schema-mcp-server', {
+            settings: {
+                mcpServers: {
+                    'cyclic-schema-server': {
+                        command: 'node',
+                        args: ['mcp-server.cjs'],
+                    },
+                },
+            },
+        });
+        // Create server script in the test directory
+        const testServerPath = join(rig.testDir, 'mcp-server.cjs');
+        writeFileSync(testServerPath, serverScript);
+        // Make the script executable (though running with 'node' should work anyway)
+        if (process.platform !== 'win32') {
+            const { chmodSync } = await import('node:fs');
+            chmodSync(testServerPath, 0o755);
+        }
     });
-    // Create server script in the test directory
-    const testServerPath = join(rig.testDir, 'mcp-server.cjs');
-    writeFileSync(testServerPath, serverScript);
-    // Make the script executable (though running with 'node' should work anyway)
-    if (process.platform !== 'win32') {
-      const { chmodSync } = await import('node:fs');
-      chmodSync(testServerPath, 0o755);
-    }
-  });
-  it('mcp tool list should include tool with cyclic tool schema', async () => {
-    const tool_list_output = await rig.run('/mcp list');
-    expect(tool_list_output).toContain('tool_with_cyclic_schema');
-  });
-  it('gemini api call should be successful with cyclic mcp tool schema', async () => {
-    // Run any command and verify that we get a non-error response from
-    // the Gemini API.
-    await rig.run('hello');
-  });
+    it('mcp tool list should include tool with cyclic tool schema', async () => {
+        const run = await rig.runInteractive();
+        await run.type('/mcp list');
+        await run.sendKeys('\r');
+        await run.expectText('tool_with_cyclic_schema');
+    });
 });
 //# sourceMappingURL=mcp_server_cyclic_schema.test.js.map

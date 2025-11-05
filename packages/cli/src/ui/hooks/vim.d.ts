@@ -21,11 +21,8 @@ export type VimMode = 'NORMAL' | 'INSERT';
  * @param onSubmit - Optional callback for command submission
  * @returns Object with vim state and input handler
  */
-export declare function useVim(
-  buffer: TextBuffer,
-  onSubmit?: (value: string) => void,
-): {
-  mode: VimMode;
-  vimModeEnabled: boolean;
-  handleInput: (key: Key) => boolean;
+export declare function useVim(buffer: TextBuffer, onSubmit?: (value: string) => void): {
+    mode: VimMode;
+    vimModeEnabled: boolean;
+    handleInput: (key: Key) => boolean;
 };

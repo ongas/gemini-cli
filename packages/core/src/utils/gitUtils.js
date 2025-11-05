@@ -11,26 +11,27 @@ import * as path from 'node:path';
  * @returns true if the directory is in a git repository, false otherwise
  */
 export function isGitRepository(directory) {
-  try {
-    let currentDir = path.resolve(directory);
-    while (true) {
-      const gitDir = path.join(currentDir, '.git');
-      // Check if .git exists (either as directory or file for worktrees)
-      if (fs.existsSync(gitDir)) {
-        return true;
-      }
-      const parentDir = path.dirname(currentDir);
-      // If we've reached the root directory, stop searching
-      if (parentDir === currentDir) {
-        break;
-      }
-      currentDir = parentDir;
+    try {
+        let currentDir = path.resolve(directory);
+        while (true) {
+            const gitDir = path.join(currentDir, '.git');
+            // Check if .git exists (either as directory or file for worktrees)
+            if (fs.existsSync(gitDir)) {
+                return true;
+            }
+            const parentDir = path.dirname(currentDir);
+            // If we've reached the root directory, stop searching
+            if (parentDir === currentDir) {
+                break;
+            }
+            currentDir = parentDir;
+        }
+        return false;
     }
-    return false;
-  } catch (_error) {
-    // If any filesystem error occurs, assume not a git repo
-    return false;
-  }
+    catch (_error) {
+        // If any filesystem error occurs, assume not a git repo
+        return false;
+    }
 }
 /**
  * Finds the root directory of a git repository
@@ -38,22 +39,23 @@ export function isGitRepository(directory) {
  * @returns The git repository root path, or null if not in a git repository
  */
 export function findGitRoot(directory) {
-  try {
-    let currentDir = path.resolve(directory);
-    while (true) {
-      const gitDir = path.join(currentDir, '.git');
-      if (fs.existsSync(gitDir)) {
-        return currentDir;
-      }
-      const parentDir = path.dirname(currentDir);
-      if (parentDir === currentDir) {
-        break;
-      }
-      currentDir = parentDir;
+    try {
+        let currentDir = path.resolve(directory);
+        while (true) {
+            const gitDir = path.join(currentDir, '.git');
+            if (fs.existsSync(gitDir)) {
+                return currentDir;
+            }
+            const parentDir = path.dirname(currentDir);
+            if (parentDir === currentDir) {
+                break;
+            }
+            currentDir = parentDir;
+        }
+        return null;
     }
-    return null;
-  } catch (_error) {
-    return null;
-  }
+    catch (_error) {
+        return null;
+    }
 }
 //# sourceMappingURL=gitUtils.js.map

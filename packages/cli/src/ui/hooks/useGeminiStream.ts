@@ -740,7 +740,10 @@ export const useGeminiStream = (
             }
             // Include the actual error message if available
             let retryMessage: string;
-            if (event.value) {
+            if (!config.isInFallbackMode()) {
+              retryMessage =
+                'Quota limit reached. Switching to Flash model and retrying...';
+            } else if (event.value) {
               // Show the actual error message from the retry event
               retryMessage = `${event.value}\n\nRetrying...`;
             } else {

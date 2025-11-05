@@ -6,18 +6,18 @@
 import type { Config } from '@google/gemini-cli-core';
 import type { Suggestion } from '../components/SuggestionsDisplay.js';
 export declare enum AtCompletionStatus {
-  IDLE = 'idle',
-  INITIALIZING = 'initializing',
-  READY = 'ready',
-  SEARCHING = 'searching',
-  ERROR = 'error',
+    IDLE = "idle",
+    INITIALIZING = "initializing",
+    READY = "ready",
+    SEARCHING = "searching",
+    ERROR = "error"
 }
 export interface UseAtCompletionProps {
-  enabled: boolean;
-  pattern: string;
-  config: Config | undefined;
-  cwd: string;
-  setSuggestions: (suggestions: Suggestion[]) => void;
-  setIsLoadingSuggestions: (isLoading: boolean) => void;
+    enabled: boolean;
+    pattern: string;
+    config: Config | undefined;
+    cwd: string;
+    setSuggestions: (suggestions: Suggestion[]) => void;
+    setIsLoadingSuggestions: (isLoading: boolean) => void;
 }
 export declare function useAtCompletion(props: UseAtCompletionProps): void;

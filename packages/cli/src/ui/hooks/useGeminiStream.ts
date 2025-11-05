@@ -740,7 +740,16 @@ export const useGeminiStream = (
             }
             // Include the actual error message if available
             let retryMessage: string;
-            if (!config.isInFallbackMode()) {
+            const currentModel = config.getModel();
+            const isCurrentlyInFallbackMode = config.isInFallbackMode();
+
+            // Determine which model we're switching to based on current state
+            if (currentModel.includes('flash') && isCurrentlyInFallbackMode) {
+              // Currently using Flash in fallback mode, switching back to Pro
+              retryMessage =
+                'Quota limit reached. Switching to Pro model and retrying...';
+            } else if (!isCurrentlyInFallbackMode && currentModel.includes('pro')) {
+              // Currently using Pro, switching to Flash
               retryMessage =
                 'Quota limit reached. Switching to Flash model and retrying...';
             } else if (event.value) {

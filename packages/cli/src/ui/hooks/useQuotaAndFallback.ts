@@ -44,9 +44,9 @@ export function useQuotaAndFallback({
       fallbackModel,
       error,
     ): Promise<FallbackIntent | null> => {
-      if (config.isInFallbackMode()) {
-        return null;
-      }
+      // Allow fallback handler to be called even when in fallback mode
+      // This enables bidirectional switching (Flash can switch back to Pro)
+      // The core fallback/handler.ts will handle the Pro<->Flash logic
 
       const contentGeneratorConfig = config.getContentGeneratorConfig();
       if (!contentGeneratorConfig) {
@@ -146,15 +146,9 @@ export function useQuotaAndFallback({
 
       if (choice === 'auth') {
         setAuthState(AuthState.Updating);
-      } else {
-        historyManager.addItem(
-          {
-            type: MessageType.INFO,
-            text: 'Switched to fallback model. Tip: Press Ctrl+P (or Up Arrow) to recall your previous prompt and submit it again if you wish.',
-          },
-          Date.now(),
-        );
       }
+      // No message needed for 'continue' - the retry logic will automatically
+      // continue with the fallback model
     },
     [proQuotaRequest, setAuthState, historyManager],
   );

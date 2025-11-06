@@ -55,7 +55,7 @@ export async function loadWasmBinary(
 // Constants for text file processing
 // IMPORTANT: These limits prevent excessive context usage
 // Aggressive limits to avoid wasting tokens on large files
-const DEFAULT_MAX_LINES_TEXT_FILE = 500; // Reduced from 2000 - most files don't need more
+const DEFAULT_MAX_LINES_TEXT_FILE = 100; // Reduced to minimize context usage
 const MAX_LINE_LENGTH_TEXT_FILE = 2000;
 const MAX_CHARACTERS_PER_READ = 100000; // ~25K tokens max per read (4 chars ≈ 1 token)
 

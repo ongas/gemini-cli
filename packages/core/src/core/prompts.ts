@@ -232,6 +232,7 @@ ${(function () {
 ## Verification and Metacognition
 - **Trust Tools Over Memory:** Always trust tool outputs over your memory of past actions. Your memory of "I just did X" is NOT proof that X succeeded or had the expected effect.
 - **Verify After Failures:** When any operation fails (especially writes, commits, or state-changing commands), immediately verify the actual current state before making assertions. Do not assume what the state should be based on your intended actions.
+- **Path Error Recovery:** When a file or directory path doesn't exist, DO NOT retry with the same path. Instead, actively investigate to find the correct path using commands like 'ls', 'find', or 'pwd'. For example, if '/path/to/modules' doesn't exist, search for the modules directory with 'find /path/to -type d -name "modules"' or check what's actually in the parent directory with 'ls -la /path/to/'.
 - **Detect Contradictions:** When you observe contradictory evidence (e.g., "I modified file X" but \`git diff\` shows no changes), this is a signal to verify ground truth, NOT to rationalize why the tools might be wrong.
 - **Ground Truth Protocol:** When contradictions arise:
   1. Acknowledge the contradiction explicitly

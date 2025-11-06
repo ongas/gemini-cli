@@ -92,7 +92,14 @@ class GrepToolInvocation extends BaseToolInvocation<
       stats = fs.statSync(targetPath);
     } catch (error: unknown) {
       if (isNodeError(error) && error.code === 'ENOENT') {
-        throw new Error(`Path does not exist: ${targetPath}`);
+        const baseName = path.basename(targetPath);
+        throw new Error(`Path does not exist: ${targetPath}
+
+IMPORTANT: Instead of retrying with the same path, use the shell tool to find the correct location:
+- To search for this path by name: find <search-root> -name "${baseName}"
+- To check the parent directory: ls -la "${path.dirname(targetPath)}"
+
+Once you find the correct path, retry with the actual location.`);
       }
       throw new Error(
         `Failed to access path stats for ${targetPath}: ${error}`,
@@ -628,7 +635,14 @@ export class GrepTool extends BaseDeclarativeTool<GrepToolParams, ToolResult> {
       stats = fs.statSync(targetPath);
     } catch (error: unknown) {
       if (isNodeError(error) && error.code === 'ENOENT') {
-        throw new Error(`Path does not exist: ${targetPath}`);
+        const baseName = path.basename(targetPath);
+        throw new Error(`Path does not exist: ${targetPath}
+
+IMPORTANT: Instead of retrying with the same path, use the shell tool to find the correct location:
+- To search for this path by name: find <search-root> -name "${baseName}"
+- To check the parent directory: ls -la "${path.dirname(targetPath)}"
+
+Once you find the correct path, retry with the actual location.`);
       }
       throw new Error(
         `Failed to access path stats for ${targetPath}: ${error}`,

@@ -310,7 +310,15 @@ export class GlobTool extends BaseDeclarativeTool<GlobToolParams, ToolResult> {
     const targetDir = searchDirAbsolute || this.config.getTargetDir();
     try {
       if (!fs.existsSync(targetDir)) {
-        return `Search path does not exist ${targetDir}`;
+        const dirName = path.basename(targetDir);
+        return `Search path does not exist: ${targetDir}
+
+IMPORTANT: Instead of retrying with the same path, use the shell tool to find the correct location:
+- To search for this directory by name: find <search-root> -type d -name "${dirName}"
+- To check the parent directory: ls -la "${path.dirname(targetDir)}"
+- To list subdirectories: find <project-root> -type d -name "${dirName}" 2>/dev/null
+
+Once you find the correct path, retry with the actual location.`;
       }
       if (!fs.statSync(targetDir).isDirectory()) {
         return `Search path is not a directory: ${targetDir}`;

@@ -186,8 +186,9 @@ export class ReadFileTool extends BaseDeclarativeTool<
       return "The 'absolute_path' parameter must be non-empty.";
     }
 
+    // Auto-convert relative paths to absolute paths based on current working directory
     if (!path.isAbsolute(filePath)) {
-      return `File path must be absolute, but was relative: ${filePath}. You must provide an absolute path.`;
+      params.absolute_path = path.resolve(this.config.getTargetDir(), filePath);
     }
 
     // Workspace directory restriction removed - allow file reads from any directory

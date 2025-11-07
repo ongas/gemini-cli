@@ -438,8 +438,9 @@ export class WriteFileTool
       return `Missing or empty "file_path"`;
     }
 
+    // Auto-convert relative paths to absolute paths based on current working directory
     if (!path.isAbsolute(filePath)) {
-      return `File path must be absolute: ${filePath}`;
+      params.file_path = path.resolve(this.config.getTargetDir(), filePath);
     }
 
     // Workspace directory restriction removed - allow file writes to any directory

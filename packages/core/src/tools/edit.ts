@@ -525,8 +525,9 @@ Expectation for required parameters:
       return "The 'file_path' parameter must be non-empty.";
     }
 
+    // Auto-convert relative paths to absolute paths based on current working directory
     if (!path.isAbsolute(params.file_path)) {
-      return `File path must be absolute: ${params.file_path}`;
+      params.file_path = path.resolve(this.config.getTargetDir(), params.file_path);
     }
 
     // Workspace directory restriction removed - allow file edits in any directory

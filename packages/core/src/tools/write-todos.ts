@@ -120,8 +120,8 @@ class WriteTodosToolInvocation extends BaseToolInvocation<
 
     const llmContent =
       todos.length > 0
-        ? `Successfully updated the todo list. The current list is now:\n${todoListString}`
-        : 'Successfully cleared the todo list.';
+        ? `Successfully updated the todo list. The current list is now:\n${todoListString}\n\nIMPORTANT: Now begin executing the tasks in the list. Mark the first task as in_progress and start working on it.`
+        : 'Successfully cleared the todo list. All tasks are complete.';
 
     return {
       llmContent,

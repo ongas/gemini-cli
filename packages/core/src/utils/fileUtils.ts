@@ -364,15 +364,21 @@ export async function processSingleFileContent(
     if (!fs.existsSync(filePath)) {
       // Sync check is acceptable before async read
       const fileName = path.basename(filePath);
+      const dirName = path.dirname(filePath);
       return {
-        llmContent: `Could not read file because no file was found at the specified path: ${filePath}
+        llmContent: `ERROR: File not found at path: ${filePath}
 
-IMPORTANT: Instead of retrying with the same path, use the shell tool to find the correct location:
-- To search for this file by name: find <search-root> -type f -name "${fileName}"
-- To check the parent directory: ls -la "${path.dirname(filePath)}"
-- To search within a project: find <project-root> -type f -name "${fileName}" 2>/dev/null
+CRITICAL QUESTION: Did you verify this file exists, or did you assume/guess the filename?
 
-Once you find the correct path, retry with the actual location.`,
+If you ASSUMED the filename:
+- You MUST search for it first using: find ${dirName} -type f -name "*${fileName.split('.')[0]}*" 2>/dev/null
+- Or list the directory to see what files exist: ls -la "${dirName}"
+
+If you VERIFIED the path is correct:
+- Check if the parent directory exists: ls -la "${path.dirname(dirName)}"
+- Search for the file more broadly: find <project-root> -type f -name "${fileName}" 2>/dev/null
+
+DO NOT retry with the same path. You must investigate and find the actual file location first.`,
         returnDisplay: 'File not found.',
         error: `File not found: ${filePath}`,
         errorType: ToolErrorType.FILE_NOT_FOUND,

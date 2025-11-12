@@ -311,14 +311,20 @@ export class GlobTool extends BaseDeclarativeTool<GlobToolParams, ToolResult> {
     try {
       if (!fs.existsSync(targetDir)) {
         const dirName = path.basename(targetDir);
-        return `Search path does not exist: ${targetDir}
+        const parentDir = path.dirname(targetDir);
+        return `ERROR: Directory not found at path: ${targetDir}
 
-IMPORTANT: Instead of retrying with the same path, use the shell tool to find the correct location:
-- To search for this directory by name: find <search-root> -type d -name "${dirName}"
-- To check the parent directory: ls -la "${path.dirname(targetDir)}"
-- To list subdirectories: find <project-root> -type d -name "${dirName}" 2>/dev/null
+CRITICAL QUESTION: Did you verify this directory exists, or did you assume/guess the path?
 
-Once you find the correct path, retry with the actual location.`;
+If you ASSUMED the path:
+- You MUST search for it first using: find ${parentDir} -type d -name "*${dirName}*" 2>/dev/null
+- Or list the parent to see what exists: ls -la "${parentDir}"
+
+If you VERIFIED the path is correct:
+- Check if the parent directory exists: ls -la "${path.dirname(parentDir)}"
+- Search more broadly: find <project-root> -type d -name "${dirName}" 2>/dev/null
+
+DO NOT retry with the same path. You must investigate and find the actual directory location first.`;
       }
       if (!fs.statSync(targetDir).isDirectory()) {
         return `Search path is not a directory: ${targetDir}`;

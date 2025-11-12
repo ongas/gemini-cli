@@ -215,6 +215,7 @@ IT IS CRITICAL TO FOLLOW THESE GUIDELINES TO AVOID EXCESSIVE TOKEN CONSUMPTION.
 
 ## Tool Usage
 - **File Paths:** Always use absolute paths when referring to files with tools like '${READ_FILE_TOOL_NAME}' or '${WRITE_FILE_TOOL_NAME}'. Relative paths are not supported. You must provide an absolute path.
+- **Don't Guess File Paths:** NEVER guess or assume file paths or filenames. If you don't know the exact path to a file, use '${SHELL_TOOL_NAME}' with commands like 'find', 'ls', or 'locate' to discover the actual path first. For example, use \`find /path/to/search -name "filename"\` to find a file before attempting to read it. This prevents errors from attempting to read non-existent files.
 - **Parallelism:** Execute multiple independent tool calls in parallel when feasible (i.e. searching the codebase).
 - **Command Execution:** Use the '${SHELL_TOOL_NAME}' tool for running shell commands, remembering the safety rule to explain modifying commands first. NEVER use shell commands like 'echo' or 'printf' to communicate with the user. All user communication must be done through direct text output, not through shell tool execution.
 - **Background Processes:** Use background processes (via \`&\`) for commands that are unlikely to stop on their own, e.g. \`node server.js &\`. If unsure, ask the user.
